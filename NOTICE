@@ -1,0 +1,9 @@
+Purrtion
+Copyright (c) 2026 Constantin Jaeckel
+
+Third-party data bundled with or used by this app keeps its own license:
+- Bundeslebensmittelschlüssel 4.0 (Purrtion/Resources/bls.json)
+  © Max Rubner-Institut, licensed under CC BY 4.0
+  https://creativecommons.org/licenses/by/4.0/
+- Open Food Facts product data (fetched at runtime), licensed under ODbL
+  https://opendatacommons.org/licenses/odbl/1-0/
