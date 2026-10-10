@@ -159,7 +159,7 @@ struct StatsView: View {
             Chart {
                 ForEach(all) { d in
                     BarMark(x: .value("Tag", d.day, unit: .day), y: .value("kcal", d.kcal))
-                        .foregroundStyle(d.kcal > goals.kcal ? Theme.danger : Theme.accent)
+                        .foregroundStyle(GoalStatus(kcal: d.kcal, goal: goals.kcal).color)
                         .cornerRadius(range > 30 ? 1 : 5)
                 }
                 RuleMark(y: .value("Ziel", goals.kcal))
@@ -268,7 +268,7 @@ struct StatsView: View {
             }
             Chart(data, id: \.0) { d in
                 BarMark(x: .value("Tag", d.0), y: .value("kcal", d.1))
-                    .foregroundStyle(d.1 > goals.kcal ? Theme.danger : Theme.accent.opacity(0.85))
+                    .foregroundStyle(GoalStatus(kcal: d.1, goal: goals.kcal).color.opacity(0.85))
                     .cornerRadius(5)
                 RuleMark(y: .value("Ziel", goals.kcal)).foregroundStyle(Theme.textSecondary)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))

@@ -47,6 +47,7 @@ struct RootView: View {
             withAnimation(.easeInOut(duration: 0.4)) { showSplash = false }
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-seedMeal") { seedDemoMeal() }
+            if ProcessInfo.processInfo.arguments.contains("-demoData") { seedDemoData() }
             #endif
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
@@ -73,6 +74,58 @@ extension RootView {
         let ingredients = zip(parts, [180.0, 120, 20]).map { RecipeIngredient(food: $0, quantity: $1, serving: .base($0.unit)) }
         ctx.insert(FoodEntry(mealName: "Spaghetti Pomodoro", ingredients: ingredients, source: .ai, day: .now))
         try? ctx.save()
+    }
+
+    /// README screenshots: replaces all entries with a realistic month of data.
+    func seedDemoData() {
+        (try? ctx.fetch(FetchDescriptor<FoodEntry>()))?.forEach(ctx.delete)
+        (try? ctx.fetch(FetchDescriptor<WaterLog>()))?.forEach(ctx.delete)
+        (try? ctx.fetch(FetchDescriptor<WeightLog>()))?.forEach(ctx.delete)
+        try? ctx.save()
+        let db = BLSDatabase.shared
+        func food(_ q: String) -> FoodItem? { db.search(q, limit: 1).first }
+        func ing(_ q: String, _ g: Double) -> RecipeIngredient? {
+            food(q).map { RecipeIngredient(food: $0, quantity: g, serving: .base($0.unit)) }
+        }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+
+        // Today: two composite meals + single foods, ~85 % of the goal.
+        for (q, g) in [("Gouda", 30.0), ("Vollkornbrot", 100), ("Apfel", 150), ("Banane", 120)] {
+            if let f = food(q) { ctx.insert(FoodEntry(food: f, quantity: g, serving: .base(f.unit), day: today)) }
+        }
+        let bowl = [("Haferflocken", 60.0), ("Heidelbeere", 80), ("Joghurt", 150), ("Walnuss", 15)].compactMap { ing($0.0, $0.1) }
+        let porridge = FoodEntry(mealName: "Porridge-Bowl", ingredients: bowl, source: .custom, day: today)
+        porridge.createdAt = .now.addingTimeInterval(1)
+        ctx.insert(porridge)
+        let lunch = [("Reis gekocht", 180.0), ("Lachs", 130), ("Brokkoli", 120), ("Avocado", 50)].compactMap { ing($0.0, $0.1) }
+        let salmon = FoodEntry(mealName: "Lachs-Bowl", ingredients: lunch, source: .ai, day: today)
+        salmon.createdAt = .now.addingTimeInterval(2)
+        ctx.insert(salmon)
+        ctx.insert(WaterLog(day: today, ml: 1500))
+
+        // History: varied days – mostly within goal, some slightly / clearly over.
+        let pools: [[(String, Double)]] = [
+            [("Haferflocken", 70), ("Milch", 250), ("Hähnchenbrust", 150), ("Kartoffel", 300), ("Apfel", 150), ("Vollkornbrot", 80)],
+            [("Müsli", 80), ("Joghurt", 200), ("Spaghetti", 200), ("Tomate", 150), ("Banane", 120), ("Käse", 40)],
+            [("Vollkornbrot", 120), ("Ei", 120), ("Reis gekocht", 250), ("Linsen", 150), ("Birne", 150), ("Mandel", 30)],
+        ]
+        let factors: [Double] = [0.92, 0.97, 1.03, 0.88, 0.95, 1.15, 0.9, 0.99, 0.93, 1.04, 0.86, 0.96, 1.12, 0.94, 0.98, 0.91, 1.02, 0.95, 0.89, 0.97, 1.18, 0.93, 0.96, 0.9, 1.01, 0.94, 0.92]
+        for (i, factor) in factors.enumerated() {
+            let day = cal.date(byAdding: .day, value: -(i + 1), to: today)!
+            let items = pools[i % pools.count].compactMap { q, g in food(q).map { ($0, g) } }
+            let base = items.reduce(0) { $0 + $1.0.nutrients(grams: $1.1).kcal }
+            let scale = goals.kcal * factor / max(base, 1)
+            for (f, g) in items {
+                ctx.insert(FoodEntry(food: f, quantity: (g * scale).rounded(), serving: .base(f.unit), day: day))
+            }
+            ctx.insert(WaterLog(day: day, ml: [1500, 2000, 2500, 1750][i % 4]))
+        }
+        for i in stride(from: 0, through: 28, by: 4) {
+            ctx.insert(WeightLog(date: cal.date(byAdding: .day, value: -i, to: today)!, kg: 78.4 - Double(28 - i) * 0.05 + (i % 8 == 0 ? 0.2 : 0)))
+        }
+        try? ctx.save()
+        WidgetBridge.update(ctx, goals: goals)
     }
 }
 #endif

@@ -17,7 +17,7 @@
 ### Verbessert
 - **Verlauf:** „Ziel eingehalten“ passt sich dem Zeitraum an (Woche als Tagesreihe, 30/90 Tage als Raster); der Monatskalender ist über „Monat“ erreichbar.
 - **Woche Montag–Sonntag** im Verlauf und im Kalender; der Wochen-Zeitraum zeigt die aktuelle Kalenderwoche.
-- **Drei Zielfarben:** Grün im Ziel, Orange bis 5 % darüber, Rot mehr als 5 % darüber.
+- **Drei Zielfarben:** Grün im Ziel, Orange bis 5 % darüber, Rot mehr als 5 % darüber – im Raster, im Kalender und in den Diagrammen.
 - **Barcode-Scanner:** der Blitz geht aus, sobald ein Code erkannt wurde.
 - **App-Icon:** eigene Varianten für dunkle und eingefärbte Icons mit transparentem Hintergrund.
 - **Widgets im transparenten/eingefärbten Modus:** Ring und Balken mit sichtbarem Hintergrund, die Katze in Helligkeitsstufen wie auf dem Sperrbildschirm.
