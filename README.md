@@ -19,16 +19,16 @@ Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/today.png" width="190" alt="Heute"><br><sub><b>Heute</b> – Kalorienring mit Katze, Makros, Health Score, Wasser</sub></td>
-    <td align="center"><img src="docs/screenshots/meal.png" width="190" alt="Mahlzeit mit Zutaten"><br><sub><b>Mahlzeiten</b> – Rezepte und KI-Scans mit ausklappbaren Zutaten</sub></td>
-    <td align="center"><img src="docs/screenshots/search.png" width="190" alt="Suche"><br><sub><b>Suche</b> – Bundeslebensmittelschlüssel offline, mit Portionsgrößen</sub></td>
-    <td align="center"><img src="docs/screenshots/detail.png" width="190" alt="Detailansicht"><br><sub><b>Details</b> – Menge, Portionen und alle Nährstoffe</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/today.png" width="190" alt="Heute"><br><sub><b>Heute</b> – Kalorienring mit Katze, Makros, Health Score, Wasser</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/meal.png" width="190" alt="Mahlzeit mit Zutaten"><br><sub><b>Mahlzeiten</b> – Rezepte und KI-Scans mit ausklappbaren Zutaten</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/search.png" width="190" alt="Suche"><br><sub><b>Suche</b> – Bundeslebensmittelschlüssel offline, mit Portionsgrößen</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/detail.png" width="190" alt="Detailansicht"><br><sub><b>Details</b> – Menge, Portionen und alle Nährstoffe</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/history.png" width="190" alt="Verlauf"><br><sub><b>Verlauf</b> – grün im Ziel, orange bis +5 %, rot darüber</sub></td>
-    <td align="center"><img src="docs/screenshots/score.png" width="190" alt="Health Score"><br><sub><b>Health Score</b> – acht Bereiche nach WHO, DGE und Studien</sub></td>
-    <td align="center"><img src="docs/screenshots/widget.png" width="190" alt="Widget"><br><sub><b>Widget</b> – auch im transparenten Homescreen-Look</sub></td>
-    <td align="center"><img src="docs/screenshots/splash.png" width="190" alt="Ladebildschirm"><br><sub><b>Ladebildschirm</b> – Pixel-Katze mit Ladebalken</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/history.png" width="190" alt="Verlauf"><br><sub><b>Verlauf</b> – grün im Ziel, orange bis +5 %, rot darüber</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/score.png" width="190" alt="Health Score"><br><sub><b>Health Score</b> – acht Bereiche nach WHO, DGE und Studien</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/widget.png" width="190" alt="Widget"><br><sub><b>Widget</b> – auch im transparenten Homescreen-Look</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/splash.png" width="190" alt="Ladebildschirm"><br><sub><b>Ladebildschirm</b> – Pixel-Katze mit Ladebalken</sub></td>
   </tr>
 </table>
 
