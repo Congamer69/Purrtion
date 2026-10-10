@@ -60,7 +60,12 @@ BLS aktualisieren: Excel von https://blsdb.de laden und
 | Claude (Anthropic) | ein paar Cent pro Foto, eigener Schlüssel |
 | OpenAI | ca. 1 Cent pro Foto, eigener Schlüssel |
 
-Alle Anbieter erkennen nur Bestandteile + Mengen; die Nährwerte kommen immer aus dem BLS.
+Die KI zerlegt das Gericht in seine Bestandteile (inkl. Soßen, Öl, Beilagen) und schätzt für jeden die Menge
+sowie Kalorien, Makros und – wo sinnvoll – Mikronährstoffe selbst. So bekommt z. B. „Schnitzel paniert“ eine
+eigene Schätzung statt eines nur ungefähr passenden Datenbankeintrags. Vor dem Eintragen lässt sich jeder
+Bestandteil anpassen, abwählen oder durch ein Lebensmittel aus der Datenbank ersetzen; die Mahlzeit landet
+als ein Eintrag mit ausklappbaren Zutaten unter „Gegessen“.
+Nur der Offline-Fallback (Apples Vision-Bilderkennung) erkennt lediglich das Lebensmittel und nimmt die Nährwerte aus dem BLS.
 Schlüssel liegen in der Keychain, das Modell ist pro Anbieter einstellbar.
 
 ## Weitere Funktionen
