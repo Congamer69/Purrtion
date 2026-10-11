@@ -76,6 +76,23 @@ enum MealVision {
     """
 }
 
+/// Micronutrients from a model: accepts a key/value list (structured output) or a plain object (JSON mode).
+struct MicroList: Decodable {
+    var values: [String: Double]
+
+    private struct Pair: Decodable { let key: String; let value: Double }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let dict = try? container.decode([String: Double].self) {
+            values = dict
+        } else {
+            let pairs = (try? container.decode([Pair].self)) ?? []
+            values = Dictionary(pairs.map { ($0.key, $0.value) }, uniquingKeysWith: { a, _ in a })
+        }
+    }
+}
+
 /// Cloud models with the user's own API key – used for meal photos and, text-only, for closing a day.
 enum CloudVision {
     struct Payload: Decodable {
@@ -96,11 +113,11 @@ enum CloudVision {
             let protein: Double
             let carbs: Double
             let fat: Double
-            let micronutrients: [String: Double]?
+            let micronutrients: MicroList?
 
             func nutrients() -> Nutrients {
                 let allowed = Set(NutrientKey.allCases.map(\.rawValue))
-                let extras = (micronutrients ?? [:]).reduce(into: [String: Double]()) { result, pair in
+                let extras = (micronutrients?.values ?? [:]).reduce(into: [String: Double]()) { result, pair in
                     guard allowed.contains(pair.key), pair.value.isFinite, pair.value > 0 else { return }
                     result[pair.key] = pair.value
                 }
@@ -117,15 +134,26 @@ enum CloudVision {
 
     static let jsonInstruction = """
     Antworte ausschließlich mit JSON in genau diesem Format:
-    {"dish": "kurzer deutscher Name des Gerichts", "items": [{"name": "Lebensmittel", "grams": 150, "confidence": "hoch|mittel|niedrig", "nutrients_per_100g": {"kcal": 180, "protein": 12, "carbs": 8, "fat": 9, "micronutrients": {"fiber": 2}}}]}
-    Alle Nährwerte gelten pro 100 g (bei Getränken pro 100 ml). `micronutrients` enthält nur Werte, die du plausibel
-    schätzen kannst; die gültigen Schlüssel mit ihrer Einheit sind: (micronutrientHelp).
+    {"dish": "kurzer deutscher Name des Gerichts", "items": [{"name": "Lebensmittel", "grams": 150, "confidence": "hoch|mittel|niedrig", "nutrients_per_100g": {"kcal": 180, "protein": 12, "carbs": 8, "fat": 9, "micronutrients": [{"key": "fiber", "value": 2}]}}]}
+    Alle Nährwerte gelten pro 100 g (bei Getränken pro 100 ml). `micronutrients` ist eine Liste aus key/value-Paaren
+    und enthält nur Werte, die du plausibel schätzen kannst; die gültigen Schlüssel mit ihrer Einheit sind: \(micronutrientHelp).
     Wenn kein Essen zu sehen ist, gib eine leere items-Liste zurück.
     """
 
-    static let micronutrientProperties: [String: Any] = Dictionary(uniqueKeysWithValues:
-        NutrientKey.allCases.map { ($0.rawValue, ["type": "number"] as [String: Any]) }
-    )
+    /// Micronutrients as a list of key/value pairs: unlike an object with ~35 optional properties
+    /// this stays within the structured-output limits of all providers (Claude allows max. 24 optional fields).
+    static let micronutrientListSchema: [String: Any] = [
+        "type": "array",
+        "items": [
+            "type": "object",
+            "properties": [
+                "key": ["type": "string", "enum": NutrientKey.allCases.map(\.rawValue)],
+                "value": ["type": "number"],
+            ],
+            "required": ["key", "value"],
+            "additionalProperties": false,
+        ],
+    ]
 
     static let nutritionSchema: [String: Any] = [
         "type": "object",
@@ -134,9 +162,9 @@ enum CloudVision {
             "protein": ["type": "number"],
             "carbs": ["type": "number"],
             "fat": ["type": "number"],
-            "micronutrients": ["type": "object", "properties": micronutrientProperties, "additionalProperties": false],
+            "micronutrients": micronutrientListSchema,
         ],
-        "required": ["kcal", "protein", "carbs", "fat"],
+        "required": ["kcal", "protein", "carbs", "fat", "micronutrients"],
         "additionalProperties": false,
     ]
 

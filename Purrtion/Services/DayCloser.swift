@@ -119,7 +119,7 @@ enum DayCloser {
     private struct MicroPayload: Decodable {
         struct Item: Decodable {
             let id: String
-            let micros: [String: Double]?
+            let micros: MicroList?
             enum CodingKeys: String, CodingKey { case id, micros = "micronutrients_per_100g" }
         }
         let items: [Item]
@@ -132,8 +132,7 @@ enum DayCloser {
                 "type": "object",
                 "properties": [
                     "id": ["type": "string"],
-                    "micronutrients_per_100g": ["type": "object", "properties": CloudVision.micronutrientProperties,
-                                                "additionalProperties": false],
+                    "micronutrients_per_100g": CloudVision.micronutrientListSchema,
                 ],
                 "required": ["id", "micronutrients_per_100g"],
                 "additionalProperties": false,
@@ -180,9 +179,9 @@ enum DayCloser {
             auf Basis typischer Nährwerttabellen wie dem Bundeslebensmittelschlüssel oder der USDA-Datenbank. \
             Nutze Name, Marke und Makronährstoffe, um das Lebensmittel genau einzuordnen (z. B. Vollkorn oder Weißmehl, \
             angereichert oder nicht). Bereits bekannte Werte musst du nicht wiederholen. Gib nur Werte an, die du plausibel \
-            schätzen kannst; ist ein Lebensmittel nicht eindeutig erkennbar (z. B. "Schnell-Eintrag"), gib ein leeres Objekt zurück.
+            schätzen kannst; ist ein Lebensmittel nicht eindeutig erkennbar (z. B. "Schnell-Eintrag"), gib eine leere Liste zurück.
             Gültige Schlüssel mit Einheit: \(CloudVision.micronutrientHelp).
-            Antworte ausschließlich mit JSON: {"items": [{"id": "f1", "micronutrients_per_100g": {"vitaminC": 12, "fiber": 2.5}}]}
+            Antworte ausschließlich mit JSON: {"items": [{"id": "f1", "micronutrients_per_100g": [{"key": "vitaminC", "value": 12}, {"key": "fiber", "value": 2.5}]}]}
 
             Lebensmittel:
             \(lines.joined(separator: "\n"))
@@ -194,7 +193,7 @@ enum DayCloser {
             let allowed = Set(NutrientKey.allCases.map(\.rawValue))
             for item in payload.items {
                 guard let id = idMap[item.id] else { continue }
-                result[id] = (item.micros ?? [:]).filter { allowed.contains($0.key) && $0.value.isFinite && $0.value >= 0 }
+                result[id] = (item.micros?.values ?? [:]).filter { allowed.contains($0.key) && $0.value.isFinite && $0.value >= 0 }
             }
         }
         return result
