@@ -170,25 +170,25 @@ struct StatsView: View {
                 Text("Ø \(avg(logged, \.kcal).kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
             }
             Chart {
+                // Goal column behind each day: grey up to the base goal, orange tint for the activity bonus.
                 ForEach(all) { d in
-                    BarMark(x: .value("Tag", d.day, unit: .day), y: .value("kcal", d.kcal))
+                    BarMark(x: .value("Tag", d.day, unit: .day), yStart: .value("0", 0), yEnd: .value("Grundziel", d.baseGoal),
+                            width: .ratio(0.82))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.16))
+                        .cornerRadius(range > 30 ? 1 : 6)
+                    if d.bonus > 0 {
+                        BarMark(x: .value("Tag", d.day, unit: .day), yStart: .value("Grundziel", d.baseGoal), yEnd: .value("Ziel", d.goal),
+                                width: .ratio(0.82))
+                            .foregroundStyle(Theme.accent.opacity(0.28))
+                            .cornerRadius(range > 30 ? 1 : 6)
+                    }
+                }
+                // What was eaten, slimmer in front.
+                ForEach(all) { d in
+                    BarMark(x: .value("Tag", d.day, unit: .day), yStart: .value("0", 0), yEnd: .value("kcal", d.kcal),
+                            width: .ratio(range > 30 ? 0.82 : 0.5))
                         .foregroundStyle(GoalStatus(kcal: d.kcal, goal: d.goal).color)
                         .cornerRadius(range > 30 ? 1 : 5)
-                }
-                // Base goal of each day (weekday goals, earlier goals) as a stepped grey line …
-                ForEach(all) { d in
-                    LineMark(x: .value("Tag", d.day, unit: .day), y: .value("Ziel", d.baseGoal), series: .value("Serie", "Ziel"))
-                        .interpolationMethod(.stepCenter)
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                }
-                // … and the activity bonus on top as an orange "flame" segment.
-                ForEach(all.filter { $0.bonus > 0 }) { d in
-                    RectangleMark(x: .value("Tag", d.day, unit: .day),
-                                  yStart: .value("Ziel", d.baseGoal), yEnd: .value("Ziel+", d.goal),
-                                  width: .ratio(range == 7 ? 0.28 : 0.5))
-                        .foregroundStyle(Theme.accent)
-                        .cornerRadius(2)
                 }
             }
             .chartXAxis {
@@ -199,14 +199,18 @@ struct StatsView: View {
             .frame(height: 190)
             HStack(spacing: 14) {
                 HStack(spacing: 4) {
-                    Rectangle().fill(Theme.textSecondary).frame(width: 12, height: 2)
-                    Text(goals.weekdayEnabled ? "Grundziel (je Wochentag)" : "Grundziel")
+                    RoundedRectangle(cornerRadius: 2).fill(Theme.textSecondary.opacity(0.16)).frame(width: 12, height: 12)
+                    Text("Tagesziel")
                 }
                 if all.contains(where: { $0.bonus > 0 }) {
                     HStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2).fill(Theme.accent).frame(width: 5, height: 12)
+                        RoundedRectangle(cornerRadius: 2).fill(Theme.accent.opacity(0.28)).frame(width: 12, height: 12)
                         Text("+ Aktivität")
                     }
+                }
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2).fill(Theme.fiber).frame(width: 6, height: 12)
+                    Text("gegessen")
                 }
             }
             .font(Theme.font(11, .medium)).foregroundStyle(Theme.textSecondary)
@@ -225,8 +229,7 @@ struct StatsView: View {
         let active = past.filter { $0.active > 0 }
         let avgActive = active.isEmpty ? 0 : active.reduce(0) { $0 + $1.active } / Double(active.count)
         let credited = past.reduce(0) { $0 + $1.bonus }
-        let net = past.filter { $0.kcal > 0 }
-        let avgNet = net.isEmpty ? 0 : net.reduce(0) { $0 + ($1.kcal - $1.active) } / Double(net.count)
+        let best = past.max { $0.active < $1.active }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Label("Aktivität", systemImage: "flame.fill").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
@@ -256,9 +259,11 @@ struct StatsView: View {
             HStack(spacing: 14) {
                 miniStat("\(past.reduce(0) { $0 + $1.active }.kcalString)", "aktiv gesamt")
                 miniStat("\(credited.kcalString)", "aufs Ziel angerechnet")
-                miniStat("\(avgNet.kcalString)", "Ø netto gegessen")
+                if let best, best.active > 0 {
+                    miniStat("\(best.active.kcalString)", "aktivster Tag · \(best.day.formatted(.dateTime.weekday(.abbreviated)))")
+                }
             }
-            Text("Heller Balken = aktive Kalorien, kräftiger Teil = davon aufs Ziel angerechnet. Netto = gegessen minus aktiv.")
+            Text("Heller Balken = aktive Kalorien, kräftiger Teil = davon aufs Kalorienziel angerechnet.")
                 .font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
         }
         .card()

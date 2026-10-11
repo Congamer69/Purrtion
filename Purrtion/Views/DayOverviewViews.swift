@@ -12,7 +12,8 @@ struct DayOverviewSheet: View {
     @Query private var water: [WaterLog]
     @Query private var reviews: [DayReview]
     @State private var manual: Double
-    @State private var shareImage: Image?
+    @State private var shareImages: [Image] = []
+    @State private var shareIndex = 0
 
     init(day: Date) {
         self.day = Calendar.current.startOfDay(for: day)
@@ -207,16 +208,30 @@ struct DayOverviewSheet: View {
 
     private var shareCard: some View {
         VStack(spacing: 12) {
-            if let shareImage {
-                shareImage.resizable().scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .frame(maxWidth: 260)
-                ShareLink(item: shareImage, preview: SharePreview("Mein Tag mit Purrtion", image: shareImage)) {
-                    Label("Tag teilen", systemImage: "square.and.arrow.up")
+            HStack {
+                Text("Teilen").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Text(ShareStyle.allCases[shareIndex].title).font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+            }
+            if shareImages.count == ShareStyle.allCases.count {
+                TabView(selection: $shareIndex) {
+                    ForEach(Array(shareImages.enumerated()), id: \.offset) { i, img in
+                        img.resizable().scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                            .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+                            .padding(.horizontal, 30).padding(.bottom, 34)
+                            .tag(i)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .frame(height: 520)
+                let img = shareImages[shareIndex]
+                ShareLink(item: img, preview: SharePreview("Mein Tag mit Purrtion", image: img)) {
+                    Label("Teilen", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(PillButtonStyle())
             } else {
-                ProgressView()
+                ProgressView().frame(height: 200)
             }
         }
         .frame(maxWidth: .infinity)
@@ -225,95 +240,321 @@ struct DayOverviewSheet: View {
 
     @MainActor
     private func renderShareImage() {
-        let card = DayShareCard(day: day, total: total, target: target, score: score?.score,
-                                rating: reviews.first?.rating, waterL: goals.waterEnabled ? Double(waterML) / 1000 : nil,
-                                entries: entries.count,
-                                palette: CatPalette.byID(UserDefaults.standard.string(forKey: "catPalette") ?? "ginger"))
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 3
-        if let ui = renderer.uiImage { shareImage = Image(uiImage: ui) }
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .day, value: -6, to: day)!
+        let end = day
+        let weekEntries = (try? ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day >= start && $0.day <= end }))) ?? []
+        let byDay = Dictionary(grouping: weekEntries, by: \.day)
+        let week: [ShareData.DayBar] = (0..<7).map { i in
+            let d = cal.date(byAdding: .day, value: i, to: start)!
+            return ShareData.DayBar(day: d, kcal: (byDay[d] ?? []).reduce(0) { $0 + $1.kcal }, goal: goals.target(for: d).kcal)
+        }
+        var streak = 0
+        var d = day
+        while true {
+            let dd = d
+            let has = ((try? ctx.fetchCount(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day == dd }))) ?? 0) > 0
+            guard has else { break }
+            streak += 1
+            d = cal.date(byAdding: .day, value: -1, to: d)!
+            if streak > 999 { break }
+        }
+        let top = Dictionary(grouping: entries, by: \.name).map { ($0.key, $0.value.reduce(0) { $0 + $1.kcal }) }
+            .sorted { $0.1 > $1.1 }.prefix(4).map { ShareData.Food(name: $0.0, kcal: $0.1) }
+        let data = ShareData(day: day, total: total, target: target, activityPercent: goals.activityEnabled ? goals.activityPercent : 0,
+                             score: score, rating: reviews.first?.rating, ratingPoints: reviews.first?.points ?? [],
+                             waterL: goals.waterEnabled ? Double(waterML) / 1000 : nil, waterGoalL: Double(goals.waterML) / 1000,
+                             entries: entries.count, topFoods: Array(top), week: week, streak: streak,
+                             palette: CatPalette.byID(UserDefaults.standard.string(forKey: "catPalette") ?? "ginger"))
+        shareImages = ShareStyle.allCases.compactMap { style in
+            let renderer = ImageRenderer(content: DayShareCard(style: style, data: data))
+            renderer.scale = 3
+            return renderer.uiImage.map { Image(uiImage: $0) }
+        }
+        shareIndex = min(shareIndex, max(shareImages.count - 1, 0))
     }
 }
 
-/// The image that gets shared (WhatsApp, Instagram …). Fixed size, always in the dark look.
-struct DayShareCard: View {
+// MARK: - Share designs
+
+enum ShareStyle: Int, CaseIterable {
+    case ring, macros, score, week, story
+
+    var title: String {
+        switch self {
+        case .ring: "Kalorien"
+        case .macros: "Makros"
+        case .score: "Health Score"
+        case .week: "Woche"
+        case .story: "Story"
+        }
+    }
+}
+
+struct ShareData {
+    struct DayBar { let day: Date; let kcal: Double; let goal: Double }
+    struct Food { let name: String; let kcal: Double }
     let day: Date
     let total: Nutrients
     let target: DayTarget
-    let score: Int?
+    let activityPercent: Double
+    let score: HealthScore?
     let rating: String?
+    let ratingPoints: [String]
     let waterL: Double?
+    let waterGoalL: Double
     let entries: Int
+    let topFoods: [Food]
+    let week: [DayBar]
+    let streak: Int
     let palette: CatPalette
 
-    private let bg = Color(hex: 0x17151B)
-    private let card = Color(hex: 0x24212A)
-    private let text = Color(hex: 0xF6F0EA)
-    private let muted = Color(hex: 0x9E96A6)
+    var progress: Double { total.kcal / max(target.kcal, 1) }
+    var mood: CatMood { progress > 1.08 ? .full : progress >= 0.85 ? .happy : .idle }
+}
 
-    private var progress: Double { total.kcal / max(target.kcal, 1) }
-    private var mood: [PixelSprite] {
-        if progress > 1.08 { return CatMood.full.frames }
-        if progress >= 0.85 { return CatMood.happy.frames }
-        return CatMood.idle.frames
-    }
+/// Fixed-size images for WhatsApp, Instagram & co. Always in the dark look.
+struct DayShareCard: View {
+    let style: ShareStyle
+    let data: ShareData
+
+    static let bg = Color(hex: 0x17151B)
+    static let card = Color(hex: 0x24212A)
+    static let text = Color(hex: 0xF6F0EA)
+    static let muted = Color(hex: 0x9E96A6)
+
+    private func f(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font { .system(size: size, weight: w, design: .rounded) }
 
     var body: some View {
         VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("PURRTION").font(.system(size: 15, weight: .black, design: .rounded)).foregroundStyle(Theme.accent).tracking(2)
-                    Text(day.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(muted)
-                }
-                Spacer()
-                PixelSpriteView(sprite: Sprites.paw, pixel: 2.5, palette: palette)
+            header
+            switch style {
+            case .ring: ringBody
+            case .macros: macrosBody
+            case .score: scoreBody
+            case .week: weekBody
+            case .story: storyBody
             }
-
-            ZStack {
-                Circle().stroke(Theme.accent.opacity(0.18), lineWidth: 16)
-                Circle().trim(from: 0, to: min(progress, 1))
-                    .stroke(progress > 1.08 ? Theme.danger : Theme.accent, style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                VStack(spacing: 4) {
-                    PixelSpriteView(sprite: mood.first ?? Sprites.sit, pixel: 4.4, palette: palette)
-                    Text(total.kcal.kcalString).font(.system(size: 34, weight: .heavy, design: .rounded)).foregroundStyle(text)
-                    Text("von \(target.kcal.kcalString) kcal").font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(muted)
-                }
-            }
-            .frame(width: 210, height: 210)
-            .padding(.vertical, 4)
-
-            HStack(spacing: 10) {
-                macro("Protein", total.protein, target.protein, Theme.protein)
-                macro("Kohlenh.", total.carbs, target.carbs, Theme.carbs)
-                macro("Fett", total.fat, target.fat, Theme.fat)
-            }
-
-            HStack(spacing: 10) {
-                if let score { tile("\(score)", "Health Score", Theme.fiber) }
-                if target.activeKcal > 0 { tile("🔥 \(target.activeKcal.kcalString)", "aktiv kcal", Theme.accent) }
-                if let waterL, waterL > 0 { tile("\(waterL.formatted(.number.precision(.fractionLength(0...1)))) l", "Wasser", Theme.water) }
-                if score == nil && target.activeKcal == 0 && (waterL ?? 0) == 0 { tile("\(entries)", "Einträge", text) }
-            }
-
-            if let rating {
-                Text("„\(rating)“").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(text)
-            }
-
-            Text("getrackt mit Purrtion 🐾").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(muted)
+            Text("getrackt mit Purrtion 🐾").font(f(11, .semibold)).foregroundStyle(Self.muted)
         }
         .padding(24)
-        .frame(width: 360)
-        .background(
-            LinearGradient(colors: [bg, Color(hex: 0x2A1E1A)], startPoint: .top, endPoint: .bottom)
-        )
+        .frame(width: 360, height: style == .story ? 640 : nil)
+        .background(LinearGradient(colors: [Self.bg, gradientEnd], startPoint: .top, endPoint: .bottom))
         .environment(\.colorScheme, .dark)
     }
 
-    private func macro(_ name: String, _ v: Double, _ goal: Double, _ color: Color) -> some View {
+    private var gradientEnd: Color {
+        switch style {
+        case .ring, .story: Color(hex: 0x2A1E1A)
+        case .macros: Color(hex: 0x1E1A2A)
+        case .score: Color(hex: 0x182A1E)
+        case .week: Color(hex: 0x1A222A)
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("PURRTION").font(.system(size: 15, weight: .black, design: .rounded)).foregroundStyle(Theme.accent).tracking(2)
+                Text(data.day.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(f(13, .medium)).foregroundStyle(Self.muted)
+            }
+            Spacer()
+            if data.streak > 1 {
+                Text("🔥 \(data.streak) Tage").font(f(13, .bold)).foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 10).padding(.vertical, 5).background(Theme.accent.opacity(0.15), in: Capsule())
+            }
+        }
+    }
+
+    // Kalorien: ring with cat, macros, tiles
+    @ViewBuilder private var ringBody: some View {
+        ring(size: 210)
+        HStack(spacing: 10) {
+            macroTile("Protein", data.total.protein, data.target.protein, Theme.protein)
+            macroTile("Kohlenh.", data.total.carbs, data.target.carbs, Theme.carbs)
+            macroTile("Fett", data.total.fat, data.target.fat, Theme.fat)
+        }
+        HStack(spacing: 10) {
+            if let score = data.score { tile("\(score.score)", "Health Score", Theme.fiber) }
+            if data.target.activeKcal > 0 {
+                tile("🔥 \(data.target.activeKcal.kcalString)", data.activityPercent > 0 ? "aktiv · \(Int(data.activityPercent)) % aufs Ziel" : "aktiv kcal", Theme.accent)
+            }
+            if let w = data.waterL, w > 0 { tile("\(w.formatted(.number.precision(.fractionLength(0...1)))) l", "Wasser", Theme.water) }
+        }
+        if let rating = data.rating { Text("„\(rating)“").font(f(18, .bold)).foregroundStyle(Self.text) }
+    }
+
+    private func ring(size: CGFloat) -> some View {
+        ZStack {
+            Circle().stroke(Theme.accent.opacity(0.18), lineWidth: size * 0.075)
+            Circle().trim(from: 0, to: min(data.progress, 1))
+                .stroke(data.progress > 1.08 ? Theme.danger : Theme.accent, style: StrokeStyle(lineWidth: size * 0.075, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            VStack(spacing: 4) {
+                PixelSpriteView(sprite: data.mood.frames.first ?? Sprites.sit, pixel: size / 48, palette: data.palette)
+                Text(data.total.kcal.kcalString).font(f(size * 0.16, .heavy)).foregroundStyle(Self.text)
+                Text("von \(data.target.kcal.kcalString) kcal").font(f(13, .semibold)).foregroundStyle(Self.muted)
+            }
+        }
+        .frame(width: size, height: size)
+        .padding(.vertical, 4)
+    }
+
+    // Makros: donut split + top foods
+    @ViewBuilder private var macrosBody: some View {
+        let p = data.total.protein * 4, c = data.total.carbs * 4, fa = data.total.fat * 9
+        let sum = max(p + c + fa, 1)
+        HStack(spacing: 18) {
+            ZStack {
+                donut(from: 0, to: p / sum, Theme.protein)
+                donut(from: p / sum, to: (p + c) / sum, Theme.carbs)
+                donut(from: (p + c) / sum, to: 1, Theme.fat)
+                VStack(spacing: 0) {
+                    Text(data.total.kcal.kcalString).font(f(26, .heavy)).foregroundStyle(Self.text)
+                    Text("kcal").font(f(12, .semibold)).foregroundStyle(Self.muted)
+                }
+            }
+            .frame(width: 150, height: 150)
+            VStack(alignment: .leading, spacing: 10) {
+                split("Protein", data.total.protein, p / sum, Theme.protein)
+                split("Kohlenhydrate", data.total.carbs, c / sum, Theme.carbs)
+                split("Fett", data.total.fat, fa / sum, Theme.fat)
+            }
+        }
+        if !data.topFoods.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Heute auf dem Teller").font(f(13, .bold)).foregroundStyle(Self.muted)
+                ForEach(Array(data.topFoods.enumerated()), id: \.offset) { _, food in
+                    HStack {
+                        Text(food.name).font(f(15, .semibold)).foregroundStyle(Self.text).lineLimit(1)
+                        Spacer()
+                        Text("\(food.kcal.kcalString) kcal").font(f(14, .medium)).foregroundStyle(Self.muted)
+                    }
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Self.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func donut(from: Double, to: Double, _ color: Color) -> some View {
+        Circle().trim(from: from + 0.006, to: max(from + 0.006, to - 0.006))
+            .stroke(color, style: StrokeStyle(lineWidth: 18, lineCap: .butt))
+            .rotationEffect(.degrees(-90))
+    }
+
+    private func split(_ name: String, _ g: Double, _ share: Double, _ color: Color) -> some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(name).font(f(12, .medium)).foregroundStyle(Self.muted)
+                Text("\(Int(g.rounded())) g · \(Int((share * 100).rounded())) %").font(f(16, .bold)).foregroundStyle(Self.text)
+            }
+        }
+    }
+
+    // Health Score: big number + components
+    @ViewBuilder private var scoreBody: some View {
+        if let score = data.score {
+            ZStack {
+                Circle().stroke(score.color.opacity(0.18), lineWidth: 14)
+                Circle().trim(from: 0, to: Double(score.score) / 100)
+                    .stroke(score.color, style: StrokeStyle(lineWidth: 14, lineCap: .round)).rotationEffect(.degrees(-90))
+                VStack(spacing: 0) {
+                    Text("\(score.score)").font(f(54, .heavy)).foregroundStyle(Self.text)
+                    Text(score.rating).font(f(15, .bold)).foregroundStyle(score.color)
+                }
+            }
+            .frame(width: 170, height: 170)
+            VStack(spacing: 9) {
+                ForEach(score.components) { c in
+                    HStack(spacing: 10) {
+                        Text(c.title).font(f(12, .semibold)).foregroundStyle(Self.text).frame(width: 128, alignment: .leading).lineLimit(1)
+                        GeometryReader { g in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(score.color.opacity(0.18))
+                                Capsule().fill(score.color).frame(width: max(5, g.size.width * c.ratio))
+                            }
+                        }
+                        .frame(height: 7)
+                    }
+                }
+            }
+            .padding(14)
+            .background(Self.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            if let rating = data.rating { Text("„\(rating)“").font(f(17, .bold)).foregroundStyle(Self.text) }
+        } else {
+            ring(size: 200)
+            Text("Health Score ist ausgeschaltet").font(f(13)).foregroundStyle(Self.muted)
+        }
+    }
+
+    // Woche: 7 bars in goal colours
+    @ViewBuilder private var weekBody: some View {
+        let maxV = max(data.week.map { max($0.kcal, $0.goal) }.max() ?? 1, 1)
+        let within = data.week.filter { $0.kcal > 0 && $0.kcal <= $0.goal }.count
+        let logged = data.week.filter { $0.kcal > 0 }.count
+        VStack(spacing: 4) {
+            Text("\(within) von \(logged)").font(f(40, .heavy)).foregroundStyle(Self.text)
+            Text("Tagen im Ziel").font(f(14, .semibold)).foregroundStyle(Self.muted)
+        }
+        HStack(alignment: .bottom, spacing: 10) {
+            ForEach(Array(data.week.enumerated()), id: \.offset) { _, d in
+                VStack(spacing: 6) {
+                    ZStack(alignment: .bottom) {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Self.card).frame(height: 170)
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(GoalStatus(kcal: d.kcal, goal: d.goal).color)
+                            .frame(height: max(d.kcal > 0 ? 8 : 0, 170 * d.kcal / maxV))
+                    }
+                    Text(d.day.formatted(.dateTime.weekday(.narrow))).font(f(12, .bold))
+                        .foregroundStyle(Calendar.current.isDate(d.day, inSameDayAs: data.day) ? Theme.accent : Self.muted)
+                }
+            }
+        }
+        .padding(14)
+        .background(Self.card.opacity(0.5), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        let avg = logged == 0 ? 0 : data.week.reduce(0) { $0 + $1.kcal } / Double(logged)
+        HStack(spacing: 10) {
+            tile(avg.kcalString, "Ø kcal pro Tag", Theme.accent)
+            if data.streak > 1 { tile("\(data.streak)", "Tage in Folge", Theme.fiber) }
+        }
+    }
+
+    // Story: tall, big cat, one big number
+    @ViewBuilder private var storyBody: some View {
+        Spacer(minLength: 0)
+        PixelSpriteView(sprite: data.mood.frames.first ?? Sprites.sit, pixel: 9, palette: data.palette)
+        VStack(spacing: 2) {
+            Text(data.total.kcal.kcalString).font(f(64, .heavy)).foregroundStyle(Self.text)
+            Text("von \(data.target.kcal.kcalString) kcal").font(f(17, .semibold)).foregroundStyle(Self.muted)
+        }
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.accent.opacity(0.18))
+                Capsule().fill(data.progress > 1.08 ? Theme.danger : Theme.accent).frame(width: g.size.width * min(data.progress, 1))
+            }
+        }
+        .frame(height: 12)
+        .padding(.horizontal, 20)
+        if let rating = data.rating {
+            Text("„\(rating)“").font(f(24, .heavy)).foregroundStyle(Theme.accent)
+        }
+        if let point = data.ratingPoints.first {
+            Text(point).font(f(14, .medium)).foregroundStyle(Self.muted).multilineTextAlignment(.center).padding(.horizontal, 10)
+        }
+        Spacer(minLength: 0)
+        HStack(spacing: 10) {
+            if let score = data.score { tile("\(score.score)", "Score", Theme.fiber) }
+            tile("\(Int(data.total.protein.rounded())) g", "Protein", Theme.protein)
+            if data.target.activeKcal > 0 { tile("🔥 \(data.target.activeKcal.kcalString)", "aktiv", Theme.accent) }
+        }
+    }
+
+    private func macroTile(_ name: String, _ v: Double, _ goal: Double, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(name).font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(muted)
+            Text(name).font(f(11, .semibold)).foregroundStyle(Self.muted)
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(color.opacity(0.2))
@@ -321,19 +562,20 @@ struct DayShareCard: View {
                 }
             }
             .frame(height: 6)
-            Text("\(Int(v.rounded())) g").font(.system(size: 15, weight: .bold, design: .rounded)).foregroundStyle(text)
+            Text("\(Int(v.rounded())) g").font(f(15, .bold)).foregroundStyle(Self.text)
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Self.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func tile(_ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 19, weight: .heavy, design: .rounded)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
-            Text(label).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(muted)
+            Text(value).font(f(19, .heavy)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(f(11, .medium)).foregroundStyle(Self.muted).lineLimit(2).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 10)
-        .background(card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity).padding(.vertical, 10).padding(.horizontal, 4)
+        .background(Self.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

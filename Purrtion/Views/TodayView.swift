@@ -745,31 +745,39 @@ struct SummaryCard: View {
                         .foregroundStyle(remaining >= 0 ? Theme.textPrimary : Theme.danger)
                         .contentTransition(.numericText(value: remaining))
                         .animation(.snappy, value: remaining)
-                    Text("kcal").font(Theme.font(13, .semibold)).foregroundStyle(Theme.textSecondary)
+                    HStack(spacing: 6) {
+                        Text("kcal").font(Theme.font(13, .semibold)).foregroundStyle(Theme.textSecondary)
+                        if target.activityBonus > 0 {
+                            // The activity bonus lives here, next to what it changes – always visible, never truncated.
+                            HStack(spacing: 3) {
+                                Image(systemName: "flame.fill").font(.system(size: 9, weight: .bold))
+                                Text("+\(target.activityBonus.kcalString) durch Aktivität").font(Theme.font(11, .bold))
+                            }
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(Theme.accentSoft, in: Capsule())
+                            .lineLimit(1).fixedSize()
+                        }
+                    }
                 }
                 HStack(spacing: 12) {
                     stat("Gegessen", total.kcal)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(target.kcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
-                            .contentTransition(.numericText(value: target.kcal))
-                        HStack(spacing: 3) {
-                            Text("Ziel").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-                            if target.activityBonus > 0 {
-                                Text("+\(target.activityBonus.kcalString)").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
-                            }
-                        }
-                        .lineLimit(1)
-                    }
+                    stat("Ziel", target.kcal)
                     if goals.activityEnabled || target.manualKcal > 0 {
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 2) {
                                 Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent)
                                 Text(target.activeKcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
                                     .contentTransition(.numericText(value: target.activeKcal))
-                                    .lineLimit(1).fixedSize()
                             }
-                            Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                            HStack(spacing: 3) {
+                                Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                                if goals.activityEnabled, goals.activityPercent > 0, target.healthKcal > 0 {
+                                    Text("\(Int(goals.activityPercent)) %").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
+                                }
+                            }
                         }
+                        .lineLimit(1).fixedSize()
                     }
                 }
             }
@@ -784,6 +792,7 @@ struct SummaryCard: View {
                 .contentTransition(.numericText(value: value))
             Text(title).font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
         }
+        .lineLimit(1).fixedSize()
     }
 }
 
