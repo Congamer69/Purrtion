@@ -8,6 +8,14 @@ struct SettingsView: View {
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
     @AppStorage("appearance") private var appearance = Appearance.system
     @AppStorage(VisionProvider.storageKey) private var visionProvider = VisionProvider.apple.rawValue
+    @AppStorage(AITask.day.providerKey) private var dayProvider = ""
+
+    /// "Gemini" or "Gemini · Claude" when photo and day analysis differ.
+    private var aiSummary: String {
+        _ = visionProvider; _ = dayProvider   // re-render on change
+        let photo = AITask.photo.provider, day = AITask.day.provider
+        return photo == day ? photo.shortName : "\(photo.shortName) · \(day.shortName)"
+    }
     @AppStorage(HealthSync.enabledKey) private var healthSync = false
     @AppStorage(AutoClose.enabledKey) private var autoClose = false
     @State private var notificationsDenied = false
@@ -84,7 +92,7 @@ struct SettingsView: View {
                         Task { notificationsDenied = !(await AutoClose.requestPermission()) }
                     }
                 } header: { Text("Funktionen") } footer: {
-                    Text("Der Health Score bewertet jeden Tag von 0–100 nach Empfehlungen von WHO und DGE. Bei der automatischen Analyse schließt die KI ab etwa 0:30 Uhr den Vortag ab (mit deinem Anbieter aus „Foto-Erkennung“) und du bekommst eine Mitteilung. iOS bestimmt den genauen Zeitpunkt, meist nachts beim Laden – sonst passiert es beim nächsten Öffnen der App.")
+                    Text("Der Health Score bewertet jeden Tag von 0–100 nach Empfehlungen von WHO und DGE. Bei der automatischen Analyse schließt die KI ab etwa 0:30 Uhr den Vortag ab (Anbieter unter „KI-Modelle“ → Tagesanalyse) und du bekommst eine Mitteilung. iOS bestimmt den genauen Zeitpunkt, meist nachts beim Laden – sonst passiert es beim nächsten Öffnen der App.")
                 }
                 .listRowBackground(Theme.card)
 
@@ -118,9 +126,9 @@ struct SettingsView: View {
                               "Barcodes & Markenprodukte, deutsche Produkte bevorzugt. Unplausible Werte werden markiert.")
                     NavigationLink { VisionSettingsView() } label: {
                         HStack {
-                            Label("Foto-Erkennung", systemImage: "camera.viewfinder")
+                            Label("KI-Modelle", systemImage: "sparkles")
                             Spacer()
-                            Text(VisionProvider(rawValue: visionProvider)?.name ?? "").foregroundStyle(Theme.textSecondary)
+                            Text(aiSummary).foregroundStyle(Theme.textSecondary).lineLimit(1)
                         }
                     }
                 } header: { Text("Datenquellen") } footer: {
@@ -140,7 +148,7 @@ struct SettingsView: View {
                     VStack(spacing: 10) {
                         WalkingCatLoader(pixel: 2, width: 160)
                         PixelText(text: "PURRTION", pixel: 3, color: Theme.accent)
-                        Text("Version 1.1 · mit 🧡 und Pixeln").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                        Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · mit 🧡 und Pixeln").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -317,54 +325,136 @@ struct DeleteAllSheet: View {
 // MARK: - Photo recognition provider
 
 struct VisionSettingsView: View {
-    @AppStorage(VisionProvider.storageKey) private var selected = VisionProvider.apple.rawValue
+    @AppStorage(AITask.photo.providerKey) private var photoProvider = VisionProvider.apple.rawValue
+    @AppStorage(AITask.day.providerKey) private var dayProvider = ""
+
+    /// Providers that are in use and need a key.
+    private var keyProviders: [VisionProvider] {
+        let used = [AITask.photo.provider, AITask.day.provider]
+        return VisionProvider.allCases.filter { p in p.needsKey && used.contains(p) }
+    }
 
     var body: some View {
         Form {
-            Section {
-                ForEach(VisionProvider.allCases) { p in
-                    Button {
-                        Haptics.tap()
-                        withAnimation(.snappy) { selected = p.rawValue }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: p.icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
-                                .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
-                                Text(p.costNote).font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: selected == p.rawValue ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20)).foregroundStyle(selected == p.rawValue ? Theme.accent : Theme.line)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            } header: { Text("Anbieter") } footer: {
-                Text("Apple Intelligence läuft komplett auf deinem iPhone. Klappt das mal nicht, erkennt Apples Bilderkennung zumindest die Hauptbestandteile.")
-            }
-            .listRowBackground(Theme.card)
+            TaskSection(task: .photo, selection: $photoProvider)
+            TaskSection(task: .day, selection: $dayProvider)
 
-            if let provider = VisionProvider(rawValue: selected), provider.needsKey {
-                ProviderKeySection(provider: provider).id(provider)
+            ForEach(keyProviders) { p in
+                ProviderKeySection(provider: p).id(p)
             }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background.ignoresSafeArea())
-        .navigationTitle("Foto-Erkennung")
+        .navigationTitle("KI-Modelle")
+    }
+}
+
+/// Provider + model choice for one task.
+private struct TaskSection: View {
+    let task: AITask
+    @Binding var selection: String
+
+    private var current: VisionProvider { VisionProvider(rawValue: selection) ?? task.provider }
+    private var follows: Bool { task == .day && VisionProvider(rawValue: selection) == nil }
+
+    var body: some View {
+        Section {
+            if task == .day {
+                row(icon: "link", title: "Wie Foto-Erkennung", note: "\(AITask.photo.provider.name) · \(modelLabel(AITask.photo.provider, .photo))", selected: follows) {
+                    selection = ""
+                }
+            }
+            ForEach(VisionProvider.allCases) { p in
+                row(icon: p.icon, title: p.name, note: p.costNote, selected: !follows && current == p) {
+                    selection = p.rawValue
+                }
+            }
+            if !follows, current != .apple {
+                ModelPicker(task: task, provider: current).id("\(task.rawValue)-\(current.rawValue)")
+            }
+        } header: { Text(task.title) } footer: {
+            Text(task == .photo
+                 ? "Erkennt Gerichte auf Fotos und schätzt Mengen und Nährwerte. Apple Intelligence läuft komplett auf deinem iPhone; klappt das mal nicht, erkennt Apples Bilderkennung zumindest die Hauptbestandteile."
+                 : "Ergänzt beim Abschließen eines Tages fehlende Mikronährstoffe und schreibt das Tagesfazit – auch bei der nächtlichen Analyse. Text ohne Bild, daher meist günstiger als die Foto-Erkennung.")
+        }
+        .listRowBackground(Theme.card)
+    }
+
+    private func modelLabel(_ p: VisionProvider, _ t: AITask) -> String {
+        p == .apple ? "auf dem iPhone" : t.model(for: p)
+    }
+
+    private func row(icon: String, title: String, note: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            withAnimation(.snappy) { action() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
+                    Text(note).font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20)).foregroundStyle(selected ? Theme.accent : Theme.line)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Model for one task and provider: menu with common models + free text.
+private struct ModelPicker: View {
+    let task: AITask
+    let provider: VisionProvider
+    @AppStorage private var model: String
+
+    init(task: AITask, provider: VisionProvider) {
+        self.task = task
+        self.provider = provider
+        _model = AppStorage(wrappedValue: "", task.modelKey(provider))
+    }
+
+    private var placeholder: String {
+        task == .day ? AITask.photo.model(for: provider) : provider.defaultModel
+    }
+
+    var body: some View {
+        HStack {
+            Text("Modell")
+            TextField(placeholder, text: $model)
+                .multilineTextAlignment(.trailing)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .foregroundStyle(Theme.textSecondary)
+            if !provider.suggestedModels.isEmpty {
+                Menu {
+                    ForEach(provider.suggestedModels, id: \.self) { m in
+                        Button { model = m } label: {
+                            if task.model(for: provider) == m { Label(m, systemImage: "checkmark") } else { Text(m) }
+                        }
+                    }
+                    if !model.isEmpty {
+                        Divider()
+                        Button("Standard (\(placeholder))") { model = "" }
+                    }
+                } label: {
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 13, weight: .semibold))
+                }
+            }
+        }
     }
 }
 
 private struct ProviderKeySection: View {
     let provider: VisionProvider
     @State private var key: String
-    @AppStorage private var model: String
 
     init(provider: VisionProvider) {
         self.provider = provider
         _key = State(initialValue: provider.apiKey)
-        _model = AppStorage(wrappedValue: "", provider.modelStorageKey)
     }
 
     var body: some View {
@@ -374,20 +464,12 @@ private struct ProviderKeySection: View {
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .onChange(of: key) { _, v in Keychain.set(provider.keychainKey, v.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            HStack {
-                Text("Modell")
-                TextField(provider.defaultModel, text: $model)
-                    .multilineTextAlignment(.trailing)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .foregroundStyle(Theme.textSecondary)
-            }
             if let url = provider.keyURL {
                 Link(destination: url) { Label("Schlüssel erstellen", systemImage: "arrow.up.right.square") }
             }
-        } header: { Text(provider.name) } footer: {
+        } header: { Text("Schlüssel · \(provider.name)") } footer: {
             Text(key.isEmpty ? "Ohne Schlüssel kann \(provider.name) nicht genutzt werden." :
-                    "Der Schlüssel liegt sicher in der Keychain dieses iPhones. Leeres Modellfeld = \(provider.defaultModel).")
+                    "Der Schlüssel liegt sicher in der Keychain dieses iPhones und gilt für alle Aufgaben mit \(provider.name).")
         }
         .listRowBackground(Theme.card)
     }

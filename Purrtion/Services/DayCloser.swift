@@ -20,7 +20,7 @@ enum DayCloser {
         let entries = try ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day == d },
                                                                sortBy: [SortDescriptor(\.createdAt)]))
         guard !entries.isEmpty else { throw MealVision.VisionError.failed("Für diesen Tag gibt es noch keine Einträge.") }
-        let provider = VisionProvider.current
+        let provider = AITask.day.provider
 
         // 1) Fill in missing micronutrients.
         var missing: [String: FoodItem] = [:]
@@ -57,7 +57,7 @@ enum DayCloser {
         review.points = verdict.points
         review.signature = DayReview.signature(for: entries)
         review.enrichedCount = estimatedFoodCount(entries)
-        review.providerName = provider.name
+        review.providerName = provider == .apple ? provider.name : "\(provider.name) (\(AITask.day.model(for: provider)))"
         review.score = score.score
         review.scoreBefore = scoreBefore.score
         try ctx.save()
@@ -186,7 +186,7 @@ enum DayCloser {
             Lebensmittel:
             \(lines.joined(separator: "\n"))
             """
-            let raw = try await CloudVision.request(provider: provider, text: text, b64: nil, schema: microSchema)
+            let raw = try await CloudVision.request(provider: provider, model: AITask.day.model(for: provider), text: text, b64: nil, schema: microSchema)
             guard let payload = CloudVision.decode(MicroPayload.self, from: raw) else {
                 throw MealVision.VisionError.failed("Antwort nicht lesbar")
             }
@@ -276,7 +276,7 @@ enum DayCloser {
             verdict = try await AppleDayAI.judge(day)
         } else {
             let text = verdictInstructions + "\nAntworte ausschließlich mit JSON: {\"rating\": \"…\", \"tone\": \"positiv|neutral|kritisch\", \"points\": [\"…\"]}\n\n" + day
-            let raw = try await CloudVision.request(provider: provider, text: text, b64: nil, schema: verdictSchema)
+            let raw = try await CloudVision.request(provider: provider, model: AITask.day.model(for: provider), text: text, b64: nil, schema: verdictSchema)
             guard let p = CloudVision.decode(VerdictPayload.self, from: raw) else {
                 throw MealVision.VisionError.failed("Antwort nicht lesbar")
             }
@@ -344,7 +344,7 @@ private enum AppleDayAI {
     static func model() throws -> SystemLanguageModel {
         let model = SystemLanguageModel.default
         guard model.isAvailable else {
-            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Profil → Foto-Erkennung einen anderen Anbieter.")
+            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Profil → KI-Modelle einen anderen Anbieter für die Tagesanalyse.")
         }
         return model
     }
@@ -371,7 +371,7 @@ private enum AppleDayAI {
             let guess = try await session.respond(to: day, generating: VerdictGuess.self).content
             return DayCloser.Verdict(rating: guess.rating, tone: guess.tone, points: guess.points)
         } catch {
-            throw MealVision.VisionError.unavailable("Apple Intelligence konnte den Tag nicht bewerten (\(error.localizedDescription)). Mit Claude, Gemini oder OpenAI unter Profil → Foto-Erkennung klappt es zuverlässiger.")
+            throw MealVision.VisionError.unavailable("Apple Intelligence konnte den Tag nicht bewerten (\(error.localizedDescription)). Mit Claude, Gemini oder OpenAI (Profil → KI-Modelle → Tagesanalyse) klappt es zuverlässiger.")
         }
     }
 }

@@ -35,7 +35,7 @@ enum MealVision {
     }
 
     static func analyze(image: UIImage, hint: String?) async throws -> Result {
-        let provider = VisionProvider.current
+        let provider = AITask.photo.provider
         if provider != .apple {
             return try await CloudVision.analyze(provider: provider, image: image, hint: hint)
         }
@@ -191,7 +191,7 @@ enum CloudVision {
         var text = MealVision.prompt + "\n" + jsonInstruction
         if let hint, !hint.isEmpty { text += "\nZusatzinfo vom Nutzer: \(hint)" }
 
-        let raw = try await request(provider: provider, text: text, b64: b64, schema: schema)
+        let raw = try await request(provider: provider, model: AITask.photo.model, text: text, b64: b64, schema: schema)
         guard let payload = decode(Payload.self, from: raw) else { throw MealVision.VisionError.failed("Antwort nicht lesbar") }
         let items = payload.items.compactMap {
             MealVision.aiItem(name: $0.name, grams: $0.grams.rounded(), confidence: $0.confidence ?? "mittel",
@@ -202,15 +202,15 @@ enum CloudVision {
     }
 
     /// Sends one prompt (optionally with a JPEG) to the selected cloud provider and returns the raw JSON text.
-    static func request(provider: VisionProvider, text: String, b64: String?, schema: [String: Any]) async throws -> String {
+    static func request(provider: VisionProvider, model: String, text: String, b64: String?, schema: [String: Any]) async throws -> String {
         let key = provider.apiKey
         guard !key.isEmpty else {
-            throw MealVision.VisionError.unavailable("Bitte hinterlege unter Profil → Foto-Erkennung deinen \(provider.name)-Schlüssel.")
+            throw MealVision.VisionError.unavailable("Bitte hinterlege unter Profil → KI-Modelle deinen \(provider.name)-Schlüssel.")
         }
         switch provider {
-        case .claude: return try await claude(key: key, model: provider.model, b64: b64, text: text, schema: schema)
-        case .gemini: return try await gemini(key: key, model: provider.model, b64: b64, text: text)
-        case .openai: return try await openai(key: key, model: provider.model, b64: b64, text: text)
+        case .claude: return try await claude(key: key, model: model, b64: b64, text: text, schema: schema)
+        case .gemini: return try await gemini(key: key, model: model, b64: b64, text: text)
+        case .openai: return try await openai(key: key, model: model, b64: b64, text: text)
         case .apple: throw MealVision.VisionError.empty
         }
     }

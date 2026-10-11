@@ -53,7 +53,9 @@ Xcode 27 und iOS 27 (Simulator oder iPhone).
 BLS aktualisieren: Excel von https://blsdb.de laden und
 `python tools/convert_bls.py BLS_4_0_Daten_2025_DE.xlsx Purrtion/Resources/bls.json` (braucht `openpyxl`).
 
-## Foto-Erkennung (Profil → Foto-Erkennung)
+## KI (Profil → KI-Modelle)
+Foto-Erkennung und Tagesanalyse („Tag abschließen“) können unterschiedliche Anbieter und Modelle nutzen – z. B. Claude Opus für Fotos und das günstigere Sonnet oder Gemini für die Tagesanalyse. Standardmäßig folgt die Tagesanalyse der Foto-Erkennung.
+
 | Anbieter | Kosten |
 |---|---|
 | Apple Intelligence (Standard) | kostenlos, auf dem iPhone; Fallback: Apples Vision-Bilderkennung |
@@ -67,7 +69,7 @@ eigene Schätzung statt eines nur ungefähr passenden Datenbankeintrags. Vor dem
 Bestandteil anpassen, abwählen oder durch ein Lebensmittel aus der Datenbank ersetzen; die Mahlzeit landet
 als ein Eintrag mit ausklappbaren Zutaten unter „Gegessen“.
 Nur der Offline-Fallback (Apples Vision-Bilderkennung) erkennt lediglich das Lebensmittel und nimmt die Nährwerte aus dem BLS.
-Schlüssel liegen in der Keychain, das Modell ist pro Anbieter einstellbar.
+Schlüssel liegen in der Keychain und gelten pro Anbieter für beide Aufgaben; das Modell ist pro Aufgabe wählbar (Vorschläge im Menü oder eigene Modell-ID).
 
 ## Weitere Funktionen
 - **Health Score (0–100):** acht Bereiche nach WHO, DGE, GBD 2017 (Lancet 2019) und EU-NRV – `Services/HealthScore.swift`
