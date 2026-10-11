@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3 – 11. Oktober 2026
+
+### Neu
+- **Vortag nachts analysieren** (Profil → Funktionen): Ab etwa 0:30 Uhr schließt die KI im Hintergrund den Vortag ab und du bekommst eine Mitteilung mit Einordnung und Health Score. iOS bestimmt den genauen Zeitpunkt (meist nachts beim Laden); verpasste Analysen werden beim nächsten Öffnen der App nachgeholt. Ein Tipp auf die Mitteilung öffnet das Tagesfazit.
+- **Health Score mit und ohne KI:** Ein „+3 KI“-Abzeichen und ein heller Abschnitt im Ring zeigen, wie viel die KI-ergänzten Mikronährstoffe ausmachen. Die Detailansicht vergleicht „Eigene Daten“ mit „Mit KI-Ergänzung“, auch pro Bereich.
+
+
 ## 1.2 – 11. Oktober 2026
 
 ### Neu
@@ -9,7 +16,7 @@
 ### Verbessert
 - **Mitternacht:** „Heute“ wechselt um 0 Uhr automatisch auf den neuen Tag, Widgets zeigen ab Mitternacht den leeren neuen Tag.
 - **Sicherung** enthält jetzt auch die Zutaten von Mahlzeiten und die Tagesfazits.
-- **API-Schlüssel:** Leerzeichen und Zeilenumbrüche beim Einfügen werden ignoriert; Gemini-Schlüssel werden bei Bedarf auf zweitem Weg übergeben.
+- **KI-Schlüssel:** Eingefügte Schlüssel funktionieren zuverlässiger, auch wenn beim Kopieren versehentlich ein Leerzeichen mitkommt.
 
 ## 1.1 – 10. Oktober 2026
 

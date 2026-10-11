@@ -5,14 +5,14 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.2** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.3** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
 - Schnelle Eingabe: Suche, Barcode, Foto vom Teller, Schnell-Eintrag, Favoriten, „Nochmal“ per Wischen
 - Makro- und Mikronährstoffe aus dem Bundeslebensmittelschlüssel, echte Portionsgrößen
 - Verlauf mit Zielfarben (grün / orange bis +5 % / rot), Wochen-, 30- und 90-Tage-Ansicht
-- „Tag abschließen“: KI ergänzt fehlende Mikronährstoffe und gibt ein kurzes Tagesfazit
+- „Tag abschließen“: KI ergänzt fehlende Mikronährstoffe und gibt ein kurzes Tagesfazit – auf Wunsch automatisch jede Nacht für den Vortag
 - Health Score, Wasser, Gewicht (Apple Health), Widgets, Backup und CSV-Export
 - Hell- und Dunkelmodus, Pixel-Katze mit Stimmungen und Animationen
 
