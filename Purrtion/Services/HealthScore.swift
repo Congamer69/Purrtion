@@ -7,7 +7,9 @@ import Foundation
 /// - GBD 2017 Diet Collaborators, The Lancet 2019: high sodium, low whole grains/fibre and low fruit
 ///   are the leading dietary risks for mortality.
 /// - EU nutrient reference values (NRV) for vitamin & mineral coverage.
-struct HealthScore {
+struct HealthScore: Equatable {
+    static func == (a: HealthScore, b: HealthScore) -> Bool { a.score == b.score && a.completeness == b.completeness }
+
     struct Component: Identifiable {
         let id: String
         let title: String
@@ -43,11 +45,12 @@ struct HealthScore {
                                            .vitaminB3, .vitaminB6, .vitaminB12, .folate, .calcium, .magnesium, .iron,
                                            .zinc, .potassium, .iodine]
 
-    init(entries: [FoodEntry], goalKcal: Double, goalProtein: Double) {
+    /// `withoutAI`: score as it would be without the micronutrients the AI added on "Tag abschließen".
+    init(entries: [FoodEntry], goalKcal: Double, goalProtein: Double, withoutAI: Bool = false) {
         var total = Nutrients()
         var fruitVeg = 0.0
         for e in entries {
-            total = total + e.nutrients
+            total = total + (withoutAI ? e.nutrientsWithoutAI : e.nutrients)
             if Self.isFruitOrVegetable(e.food) { fruitVeg += e.grams }
         }
         self.init(total: total, fruitVegGrams: fruitVeg, goalKcal: goalKcal, goalProtein: goalProtein)

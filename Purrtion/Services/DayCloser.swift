@@ -39,6 +39,7 @@ enum DayCloser {
 
         // 2) Verdict, based on the now complete numbers.
         let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
+        let scoreBefore = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein, withoutAI: true)
         let verdict = try await judge(entries: entries, score: score, goals: goals, provider: provider)
 
         let existing = try ctx.fetch(FetchDescriptor<DayReview>(predicate: #Predicate { $0.day == d }))
@@ -58,6 +59,7 @@ enum DayCloser {
         review.enrichedCount = estimatedFoodCount(entries)
         review.providerName = provider.name
         review.score = score.score
+        review.scoreBefore = scoreBefore.score
         try ctx.save()
         WidgetBridge.update(ctx, goals: goals)
         return review
@@ -69,10 +71,15 @@ enum DayCloser {
     private static func merge(_ food: FoodItem, _ micros: [String: Double]?) -> FoodItem? {
         guard let micros else { return nil }
         var f = food
+        var added = Set(f.aiNutrientKeys ?? [])
         for (key, value) in micros where f.per100.extra[key] == nil && value.isFinite && value >= 0 {
             f.per100.extra[key] = value
+            added.insert(key)
         }
+        let before = Set(f.per100.extra.keys)
         f.per100.normalize()
+        added.formUnion(Set(f.per100.extra.keys).subtracting(before))
+        f.aiNutrientKeys = added.sorted()
         f.microsEstimated = true
         return f
     }

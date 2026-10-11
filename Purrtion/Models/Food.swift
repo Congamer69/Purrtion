@@ -48,6 +48,16 @@ struct FoodItem: Codable, Hashable, Identifiable {
     var recipeIngredients: [RecipeIngredient]? = nil
     /// Missing micronutrients were filled in by the AI when the day was closed.
     var microsEstimated: Bool? = nil
+    /// Which nutrient keys in `per100` were added by the AI (so the score can be shown without them).
+    var aiNutrientKeys: [String]? = nil
+
+    /// Nutrients per 100 g as they came from label / database, without AI-added values.
+    var per100WithoutAI: Nutrients {
+        guard let keys = aiNutrientKeys, !keys.isEmpty else { return per100 }
+        var n = per100
+        for k in keys { n.extra[k] = nil }
+        return n
+    }
 
     var displayName: String { name.isEmpty ? "Unbenannt" : name }
 
@@ -130,6 +140,18 @@ final class FoodEntry {
 
     var nutrients: Nutrients {
         food?.nutrients(grams: grams) ?? Nutrients(kcal: kcal, protein: protein, carbs: carbs, fat: fat)
+    }
+
+    /// Same as `nutrients`, but without micronutrients the AI filled in when the day was closed.
+    var nutrientsWithoutAI: Nutrients {
+        if isComposite {
+            let list = ingredients
+            let total = list.reduce(Nutrients()) { $0 + $1.food.per100WithoutAI.scaled($1.grams / 100) }
+            let ingredientGrams = list.reduce(0) { $0 + $1.grams }
+            return ingredientGrams > 0 ? total.scaled(grams / ingredientGrams) : total
+        }
+        guard let food else { return nutrients }
+        return food.per100WithoutAI.scaled(grams / 100)
     }
 
     func update(quantity: Double, serving: ServingOption, food: FoodItem) {

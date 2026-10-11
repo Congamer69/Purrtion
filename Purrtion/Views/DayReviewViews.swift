@@ -122,12 +122,17 @@ struct DayReviewSheet: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         if let score = review.score {
-                            info("heart.text.square", "Health Score beim Abschluss: \(score)/100")
+                            if let before = review.scoreBefore, before != score {
+                                info("heart.text.square", "Health Score: \(before) → \(score) durch KI-ergänzte Mikronährstoffe")
+                            } else {
+                                info("heart.text.square", "Health Score beim Abschluss: \(score)/100")
+                            }
                         }
                         info("leaf", review.enrichedCount == 0
                              ? "Alle Lebensmittel hatten bereits vollständige Mikronährstoffe."
                              : "\(review.enrichedCount) Lebensmittel um fehlende Mikronährstoffe ergänzt (KI-Schätzung).")
-                        info("sparkles", "Bewertet mit \(review.providerName) · \(review.createdAt.formatted(date: .omitted, time: .shortened)) Uhr")
+                        info(review.automatic ? "moon.stars" : "sparkles",
+                             "\(review.automatic ? "Automatisch über Nacht bewertet" : "Bewertet") mit \(review.providerName) · \(review.createdAt.formatted(date: .abbreviated, time: .shortened)) Uhr")
                         Text("KI-Einschätzung, ersetzt keine Ernährungsberatung.")
                             .font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
                     }

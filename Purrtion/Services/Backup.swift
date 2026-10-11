@@ -42,6 +42,7 @@ enum Backup {
         struct Review: Codable {
             var day: Date; var createdAt: Date; var rating: String; var tone: String; var pointsData: Data?
             var signature: String; var enrichedCount: Int; var providerName: String; var score: Int?
+            var scoreBefore: Int?; var automatic: Bool?
         }
     }
 
@@ -68,7 +69,8 @@ enum Backup {
         p.weights = try ctx.fetch(FetchDescriptor<WeightLog>()).map { .init(date: $0.date, kg: $0.kg) }
         p.reviews = try ctx.fetch(FetchDescriptor<DayReview>()).map {
             .init(day: $0.day, createdAt: $0.createdAt, rating: $0.rating, tone: $0.tone, pointsData: $0.pointsData,
-                  signature: $0.signature, enrichedCount: $0.enrichedCount, providerName: $0.providerName, score: $0.score)
+                  signature: $0.signature, enrichedCount: $0.enrichedCount, providerName: $0.providerName, score: $0.score,
+                  scoreBefore: $0.scoreBefore, automatic: $0.automatic)
         }
         for (k, v) in UserDefaults.standard.dictionaryRepresentation()
         where settingPrefixes.contains(where: { k.hasPrefix($0) }) && k != bookmarkKey {
@@ -129,6 +131,8 @@ enum Backup {
             review.createdAt = r.createdAt; review.rating = r.rating; review.tone = r.tone; review.pointsData = r.pointsData
             review.signature = r.signature; review.enrichedCount = r.enrichedCount; review.providerName = r.providerName
             review.score = r.score
+            review.scoreBefore = r.scoreBefore
+            review.automatic = r.automatic ?? false
             ctx.insert(review)
         }
         try ctx.save()

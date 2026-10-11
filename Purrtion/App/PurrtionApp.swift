@@ -1,12 +1,26 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct PurrtionApp: App {
     @StateObject private var goals = Goals()
     @AppStorage("appearance") private var appearance = Appearance.system
 
-    init() { BLSDatabase.shared.preload() }
+    /// Shared so the nightly background analysis can use the same store.
+    static let container: ModelContainer = {
+        do {
+            return try ModelContainer(for: FoodEntry.self, SavedFood.self, WaterLog.self, WeightLog.self, CustomFood.self, DayReview.self)
+        } catch {
+            fatalError("Datenbank konnte nicht geöffnet werden: \(error)")
+        }
+    }()
+
+    init() {
+        BLSDatabase.shared.preload()
+        AutoClose.register()
+        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -15,7 +29,7 @@ struct PurrtionApp: App {
                 .tint(Theme.accent)
                 .preferredColorScheme(appearance.colorScheme)
         }
-        .modelContainer(for: [FoodEntry.self, SavedFood.self, WaterLog.self, WeightLog.self, CustomFood.self, DayReview.self])
+        .modelContainer(Self.container)
     }
 }
 
@@ -55,6 +69,8 @@ struct RootView: View {
             WidgetBridge.update(ctx, goals: goals)
             Backup.autoBackupIfNeeded(ctx)
             Task { await HealthSync.importWeights(into: ctx) }
+            AutoClose.schedule()
+            Task { await AutoClose.runIfNeeded(container: PurrtionApp.container) }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { WidgetBridge.update(ctx, goals: goals) }
@@ -84,6 +100,7 @@ extension RootView {
         (try? ctx.fetch(FetchDescriptor<FoodEntry>()))?.forEach(ctx.delete)
         (try? ctx.fetch(FetchDescriptor<WaterLog>()))?.forEach(ctx.delete)
         (try? ctx.fetch(FetchDescriptor<WeightLog>()))?.forEach(ctx.delete)
+        (try? ctx.fetch(FetchDescriptor<DayReview>()))?.forEach(ctx.delete)
         try? ctx.save()
         let db = BLSDatabase.shared
         func food(_ q: String) -> FoodItem? { db.search(q, limit: 1).first }
@@ -101,7 +118,13 @@ extension RootView {
         let porridge = FoodEntry(mealName: "Porridge-Bowl", ingredients: bowl, source: .custom, day: today)
         porridge.createdAt = .now.addingTimeInterval(1)
         ctx.insert(porridge)
-        let lunch = [("Reis gekocht", 180.0), ("Lachs", 130), ("Brokkoli", 120), ("Avocado", 50)].compactMap { ing($0.0, $0.1) }
+        // Like a real photo scan: the AI only delivered macros (+ fibre) for each component.
+        let lunch = [("Reis gekocht", 180.0), ("Lachs", 130), ("Brokkoli", 120), ("Avocado", 50)].compactMap { q, g -> RecipeIngredient? in
+            guard var f = food(q) else { return nil }
+            f.id = "ai-demo-\(q)"; f.source = .ai; f.origin = "KI-Schätzung · pro 100 g"
+            f.per100.extra = f.per100.extra.filter { $0.key == "fiber" || $0.key == "sugar" }
+            return RecipeIngredient(food: f, quantity: g, serving: .base(f.unit))
+        }
         let salmon = FoodEntry(mealName: "Lachs-Bowl", ingredients: lunch, source: .ai, day: today)
         salmon.createdAt = .now.addingTimeInterval(2)
         ctx.insert(salmon)

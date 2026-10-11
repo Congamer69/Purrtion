@@ -7,7 +7,7 @@ enum AddSheet: Identifiable {
     case meal(FoodEntry)
     case ingredient(FoodEntry, UUID)
     case nutrients(Nutrients)
-    case score(HealthScore)
+    case score(HealthScore, baseline: HealthScore?)
     case review(DayReview)
     case calendar
     /// Pick the day to copy entries from.
@@ -42,6 +42,7 @@ struct TodayView: View {
     /// The calendar day the app last considered "today" – used to follow midnight.
     @State private var todayAnchor = Calendar.current.startOfDay(for: .now)
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var router = NotificationRouter.shared
     @State private var sheet: AddSheet?
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
@@ -92,6 +93,11 @@ struct TodayView: View {
                     followMidnight()
                 }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { followMidnight() } }
+                .onChange(of: router.reviewDay) { _, target in
+                    guard let target else { return }
+                    router.reviewDay = nil
+                    openReview(for: target)
+                }
         }
         .sheet(item: $sheet, onDismiss: {
             // chain: calendar → entry picker
@@ -108,8 +114,8 @@ struct TodayView: View {
             case .nutrients(let total):
                 NavigationStack { NutrientsDayView(total: total, title: "Nährstoffe") }
                     .presentationDetents([.medium, .large])
-            case .score(let score):
-                HealthScoreView(score: score).presentationDetents([.large])
+            case .score(let score, let baseline):
+                HealthScoreView(score: score, baseline: baseline).presentationDetents([.large])
             case .review(let review):
                 DayReviewSheet(review: review)
             case .calendar:
@@ -128,6 +134,15 @@ struct TodayView: View {
             Button("Speichern") { saveRecipe() }
         } message: {
             Text(recipeFromSelection ? "Die ausgewählten Einträge werden zu einem Rezept." : "Alle Einträge dieses Tages werden zu einem Rezept.")
+        }
+    }
+
+    /// Notification tap: show that day and its verdict.
+    private func openReview(for target: Date) {
+        let d = Calendar.current.startOfDay(for: target)
+        withAnimation(.snappy) { day = d }
+        if let review = try? ctx.fetch(FetchDescriptor<DayReview>(predicate: #Predicate { $0.day == d })).first {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { sheet = .review(review) }
         }
     }
 
@@ -426,6 +441,15 @@ struct DayContent: View {
         _reviews = Query(filter: #Predicate<DayReview> { $0.day == d })
     }
 
+    /// Score without AI-added micronutrients – nil when the AI did not change anything.
+    private func aiBaseline(_ score: HealthScore) -> HealthScore? {
+        guard entries.contains(where: { e in
+            e.isComposite ? e.ingredients.contains { !($0.food.aiNutrientKeys ?? []).isEmpty } : !(e.food?.aiNutrientKeys ?? []).isEmpty
+        }) else { return nil }
+        let before = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein, withoutAI: true)
+        return before.score == score.score ? nil : before
+    }
+
     private var reviewOutdated: Bool {
         guard let review = reviews.first else { return false }
         return review.signature != DayReview.signature(for: entries)
@@ -465,7 +489,8 @@ struct DayContent: View {
                     .buttonStyle(SquishButtonStyle())
                 if goals.healthScoreEnabled, !entries.isEmpty {
                     let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
-                    Button { sheet = .score(score) } label: { HealthScoreCard(score: score) }
+                    let baseline = aiBaseline(score)
+                    Button { sheet = .score(score, baseline: baseline) } label: { HealthScoreCard(score: score, baseline: baseline) }
                         .buttonStyle(SquishButtonStyle())
                 }
                 if let review = reviews.first, !entries.isEmpty {

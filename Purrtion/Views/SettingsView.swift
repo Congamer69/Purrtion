@@ -9,6 +9,8 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearance = Appearance.system
     @AppStorage(VisionProvider.storageKey) private var visionProvider = VisionProvider.apple.rawValue
     @AppStorage(HealthSync.enabledKey) private var healthSync = false
+    @AppStorage(AutoClose.enabledKey) private var autoClose = false
+    @State private var notificationsDenied = false
     @State private var showDeleteAll = false
     @State private var exportURLs: [URL] = []
     @State private var exportError: String?
@@ -63,8 +65,26 @@ struct SettingsView: View {
                         }
                     }
                     Toggle(isOn: $goals.healthScoreEnabled) { Label("Health Score", systemImage: "heart.text.square.fill") }
+                    Toggle(isOn: $autoClose) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Vortag nachts analysieren")
+                                if notificationsDenied {
+                                    Text("Mitteilungen sind aus – in den iOS-Einstellungen erlauben.")
+                                        .font(Theme.font(12)).foregroundStyle(Theme.danger)
+                                }
+                            }
+                        } icon: {
+                            Image(systemName: "moon.stars.fill")
+                        }
+                    }
+                    .onChange(of: autoClose) { _, on in
+                        AutoClose.schedule()
+                        guard on else { notificationsDenied = false; return }
+                        Task { notificationsDenied = !(await AutoClose.requestPermission()) }
+                    }
                 } header: { Text("Funktionen") } footer: {
-                    Text("Der Health Score bewertet jeden Tag von 0–100 nach Empfehlungen von WHO und DGE.")
+                    Text("Der Health Score bewertet jeden Tag von 0–100 nach Empfehlungen von WHO und DGE. Bei der automatischen Analyse schließt die KI ab etwa 0:30 Uhr den Vortag ab (mit deinem Anbieter aus „Foto-Erkennung“) und du bekommst eine Mitteilung. iOS bestimmt den genauen Zeitpunkt, meist nachts beim Laden – sonst passiert es beim nächsten Öffnen der App.")
                 }
                 .listRowBackground(Theme.card)
 

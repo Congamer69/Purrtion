@@ -17,6 +17,10 @@ final class DayReview {
     var enrichedCount: Int = 0
     var providerName: String = ""
     var score: Int?
+    /// Health score without the AI-added micronutrients.
+    var scoreBefore: Int?
+    /// Created automatically by the nightly analysis.
+    var automatic: Bool = false
 
     init(day: Date) {
         self.day = Calendar.current.startOfDay(for: day)
