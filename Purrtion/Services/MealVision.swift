@@ -124,16 +124,16 @@ enum CloudVision {
     """
 
     static let micronutrientProperties: [String: Any] = Dictionary(uniqueKeysWithValues:
-        NutrientKey.allCases.map { ($0.rawValue, ["type": "number", "minimum": 0] as [String: Any]) }
+        NutrientKey.allCases.map { ($0.rawValue, ["type": "number"] as [String: Any]) }
     )
 
     static let nutritionSchema: [String: Any] = [
         "type": "object",
         "properties": [
-            "kcal": ["type": "number", "minimum": 0],
-            "protein": ["type": "number", "minimum": 0],
-            "carbs": ["type": "number", "minimum": 0],
-            "fat": ["type": "number", "minimum": 0],
+            "kcal": ["type": "number"],
+            "protein": ["type": "number"],
+            "carbs": ["type": "number"],
+            "fat": ["type": "number"],
             "micronutrients": ["type": "object", "properties": micronutrientProperties, "additionalProperties": false],
         ],
         "required": ["kcal", "protein", "carbs", "fat"],
@@ -146,7 +146,7 @@ enum CloudVision {
             "dish": ["type": "string"],
             "items": ["type": "array", "items": [
                 "type": "object",
-                "properties": ["name": ["type": "string"], "grams": ["type": "number", "minimum": 1],
+                "properties": ["name": ["type": "string"], "grams": ["type": "number"],
                                "confidence": ["type": "string", "enum": ["hoch", "mittel", "niedrig"]],
                                "nutrients_per_100g": nutritionSchema],
                 "required": ["name", "grams", "confidence", "nutrients_per_100g"],
