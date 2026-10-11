@@ -606,11 +606,10 @@ private struct ActivityGoalSection: View {
             })) { Label("Aktivitätskalorien", systemImage: "flame.fill") }
             if goals.activityEnabled {
                 LabeledContent("Heute laut Apple Health", value: "\(todayActive.kcalString) kcal")
-                Picker("Aufs Kalorienziel anrechnen", selection: $goals.activityPercent) {
-                    Text("Nein").tag(0.0)
-                    Text("50 %").tag(50.0)
-                    Text("75 %").tag(75.0)
-                    Text("100 %").tag(100.0)
+                SliderField(title: "Aufs Ziel anrechnen", value: $goals.activityPercent, range: 0...100, step: 5, unit: "%")
+                if goals.activityPercent > 0 {
+                    LabeledContent("Heute dazu", value: "+\((todayActive * goals.activityPercent / 100).kcalString) kcal")
+                        .foregroundStyle(Theme.accent)
                 }
                 if failed {
                     Text("Kein Zugriff auf Apple Health – in der Health-App unter Teilen → Apps → Purrtion erlauben.")
@@ -619,7 +618,7 @@ private struct ActivityGoalSection: View {
             }
         } header: { Text("Aktivität (Apple Health)") } footer: {
             Text(goals.activityEnabled
-                 ? "„Nein“ zeigt die Kalorien nur an. Mit Anrechnung steigt dein Tagesziel um den gewählten Anteil deiner aktiven Kalorien (Fitness-Ringe). Uhren überschätzen den Verbrauch oft – 50–75 % ist ein guter Kompromiss. Dein Grundumsatz ist im Kalorienziel schon enthalten."
+                 ? "0 % zeigt die Kalorien nur an. Sonst steigt dein Tagesziel um diesen Anteil deiner aktiven Kalorien (Fitness-Ringe). Uhren überschätzen den Verbrauch oft – 50–75 % ist ein guter Kompromiss. Dein Grundumsatz ist im Kalorienziel schon enthalten. Manuell eingetragene Aktivität (Heute → oberste Karte antippen) zählt immer voll."
                  : "Zeigt deine aktiven Kalorien aus Apple Health (z. B. Apple Watch) auf der Heute-Seite – auf Wunsch werden sie aufs Ziel angerechnet.")
         }
         .listRowBackground(Theme.card)

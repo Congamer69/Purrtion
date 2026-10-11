@@ -33,6 +33,15 @@ struct MealPhotoView: View {
         var isAIEstimate: Bool
         /// Added through the normal food flow; its amount was selected in FoodDetailView.
         var isDatabaseAddition = false
+        /// Fixed upper end of the amount slider – chosen once, so dragging can never grow the range.
+        var sliderMax: Double = 0
+
+        static let maxGrams: Double = 5000
+
+        mutating func fixSliderRange() {
+            grams = min(max(0, grams), Self.maxGrams)
+            if sliderMax <= 0 { sliderMax = min(Self.maxGrams, max(600, (grams * 2.5 / 50).rounded(.up) * 50)) }
+        }
 
         var kcal: Double { food.nutrients(grams: grams).kcal }
     }
@@ -226,8 +235,10 @@ struct MealPhotoView: View {
                 else { result = try await MealVision.analyze(image: image!, hint: hint) }
                 dish = result.dish
                 items = result.items.map {
-                    EditableItem(recognized: $0.name, food: $0.food, grams: $0.grams.rounded(),
-                                 confidence: $0.confidence, isAIEstimate: $0.isAIEstimate)
+                    var item = EditableItem(recognized: $0.name, food: $0.food, grams: $0.grams.rounded(),
+                                            confidence: $0.confidence, isAIEstimate: $0.isAIEstimate)
+                    item.fixSliderRange()
+                    return item
                 }
                 Haptics.success()
                 withAnimation(.spring) { phase = .result }
@@ -283,8 +294,14 @@ struct MealPhotoView: View {
                     .foregroundStyle(Theme.accent)
                     HStack(spacing: 10) {
                         Button { item.grams = max(0, item.grams - 10) } label: { Image(systemName: "minus") }
-                        Slider(value: $item.grams, in: 0...max(800, item.grams * 2), step: 5)
-                        Button { item.grams += 10 } label: { Image(systemName: "plus") }
+                        Slider(value: Binding(get: { min(item.grams, item.sliderMax) },
+                                              set: { item.grams = min(max(0, $0), item.sliderMax) }),
+                               in: 0...max(item.sliderMax, 10), step: 5)
+                        Button {
+                            item.grams = min(item.grams + 10, EditableItem.maxGrams)
+                            // "+" may go beyond the slider; then the slider grows once, in fixed steps.
+                            if item.grams > item.sliderMax { item.sliderMax = min(EditableItem.maxGrams, item.sliderMax * 2) }
+                        } label: { Image(systemName: "plus") }
                         Text("\(item.grams.clean) \(item.food.unit)").font(Theme.font(14, .semibold)).frame(width: 64, alignment: .trailing)
                     }
                     .font(.system(size: 14, weight: .bold))
@@ -297,6 +314,7 @@ struct MealPhotoView: View {
             }
             .opacity(item.include ? 1 : 0.5)
             .card(padding: 14)
+            .onAppear { item.fixSliderRange() }
         }
     }
 }

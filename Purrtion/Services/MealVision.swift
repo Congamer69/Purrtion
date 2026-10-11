@@ -74,14 +74,14 @@ enum MealVision {
     """
 
     static func aiItem(name: String, grams: Double, confidence: String, per100: Nutrients) -> Item? {
-        guard grams > 0, per100.kcal > 0 || per100.protein + per100.carbs + per100.fat > 0 else { return nil }
+        guard grams > 0, grams.isFinite, per100.kcal > 0 || per100.protein + per100.carbs + per100.fat > 0 else { return nil }
         var nutrients = per100
         nutrients.normalize()
         let cleanedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedName.isEmpty else { return nil }
         let food = FoodItem(id: "ai-\(UUID().uuidString)", name: cleanedName, source: .ai,
                             per100: nutrients, unit: "g", origin: "KI-Schätzung · pro 100 g")
-        return Item(name: cleanedName, grams: grams, confidence: confidence, food: food, isAIEstimate: true)
+        return Item(name: cleanedName, grams: min(grams, 3000), confidence: confidence, food: food, isAIEstimate: true)
     }
 
     static let prompt = """

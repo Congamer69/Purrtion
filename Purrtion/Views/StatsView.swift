@@ -21,6 +21,10 @@ struct StatsView: View {
         /// Goal that applied on that day.
         var goal: Double = 0
         var goalProtein: Double = 0
+        /// Goal without the activity bonus (weekday goal).
+        var baseGoal: Double = 0
+        var active: Double = 0
+        var bonus: Double = 0
         var id: Date { day }
     }
 
@@ -53,7 +57,8 @@ struct StatsView: View {
     private func stat(_ d: Date, _ es: [FoodEntry]) -> DayStat {
         let t = goals.target(for: d)
         return DayStat(day: d, entries: es, kcal: es.reduce(0) { $0 + $1.kcal }, protein: es.reduce(0) { $0 + $1.protein },
-                       carbs: es.reduce(0) { $0 + $1.carbs }, fat: es.reduce(0) { $0 + $1.fat }, goal: t.kcal, goalProtein: t.protein)
+                       carbs: es.reduce(0) { $0 + $1.carbs }, fat: es.reduce(0) { $0 + $1.fat }, goal: t.kcal, goalProtein: t.protein,
+                       baseGoal: t.baseKcal, active: t.activeKcal, bonus: t.activityBonus)
     }
 
     private func avg(_ list: [DayStat], _ k: KeyPath<DayStat, Double>) -> Double {
@@ -85,6 +90,7 @@ struct StatsView: View {
                     overviewCard(logged)
                     goalCard(all)
                     kcalCard(all, logged)
+                    if all.contains(where: { $0.active > 0 }) { activityCard(all) }
                     if goals.healthScoreEnabled { scoreCard(logged) }
                     macroCard(logged)
                     weekdayCard(logged)
@@ -169,12 +175,20 @@ struct StatsView: View {
                         .foregroundStyle(GoalStatus(kcal: d.kcal, goal: d.goal).color)
                         .cornerRadius(range > 30 ? 1 : 5)
                 }
-                // The goal of each day (weekday goals, activity, earlier goals) as a stepped line.
+                // Base goal of each day (weekday goals, earlier goals) as a stepped grey line …
                 ForEach(all) { d in
-                    LineMark(x: .value("Tag", d.day, unit: .day), y: .value("Ziel", d.goal), series: .value("Serie", "Ziel"))
+                    LineMark(x: .value("Tag", d.day, unit: .day), y: .value("Ziel", d.baseGoal), series: .value("Serie", "Ziel"))
                         .interpolationMethod(.stepCenter)
                         .foregroundStyle(Theme.textSecondary)
                         .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                }
+                // … and the activity bonus on top as an orange "flame" segment.
+                ForEach(all.filter { $0.bonus > 0 }) { d in
+                    RectangleMark(x: .value("Tag", d.day, unit: .day),
+                                  yStart: .value("Ziel", d.baseGoal), yEnd: .value("Ziel+", d.goal),
+                                  width: .ratio(range == 7 ? 0.28 : 0.5))
+                        .foregroundStyle(Theme.accent)
+                        .cornerRadius(2)
                 }
             }
             .chartXAxis {
@@ -183,12 +197,69 @@ struct StatsView: View {
                 }
             }
             .frame(height: 190)
+            HStack(spacing: 14) {
+                HStack(spacing: 4) {
+                    Rectangle().fill(Theme.textSecondary).frame(width: 12, height: 2)
+                    Text(goals.weekdayEnabled ? "Grundziel (je Wochentag)" : "Grundziel")
+                }
+                if all.contains(where: { $0.bonus > 0 }) {
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2).fill(Theme.accent).frame(width: 5, height: 12)
+                        Text("+ Aktivität")
+                    }
+                }
+            }
+            .font(Theme.font(11, .medium)).foregroundStyle(Theme.textSecondary)
             if !logged.isEmpty {
                 let balance = logged.reduce(0) { $0 + ($1.kcal - $1.goal) }
                 Text(balance <= 0 ? "Insgesamt \(abs(balance).kcalString) kcal unter dem Ziel (≈ \((abs(balance) / 7700).formatted(.number.precision(.fractionLength(1)))) kg Fett)."
                                   : "Insgesamt \(balance.kcalString) kcal über dem Ziel (≈ \((balance / 7700).formatted(.number.precision(.fractionLength(1)))) kg).")
                     .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
             }
+        }
+        .card()
+    }
+
+    private func activityCard(_ all: [DayStat]) -> some View {
+        let past = all.filter { $0.day <= cal.startOfDay(for: .now) }
+        let active = past.filter { $0.active > 0 }
+        let avgActive = active.isEmpty ? 0 : active.reduce(0) { $0 + $1.active } / Double(active.count)
+        let credited = past.reduce(0) { $0 + $1.bonus }
+        let net = past.filter { $0.kcal > 0 }
+        let avgNet = net.isEmpty ? 0 : net.reduce(0) { $0 + ($1.kcal - $1.active) } / Double(net.count)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Aktivität", systemImage: "flame.fill").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Text("Ø \(avgActive.kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
+            }
+            Chart {
+                ForEach(past) { d in
+                    BarMark(x: .value("Tag", d.day, unit: .day), y: .value("aktiv", d.active))
+                        .foregroundStyle(Theme.accent.opacity(0.35))
+                        .cornerRadius(range > 30 ? 1 : 4)
+                    // Overlay, not stacked: the credited part sits inside the activity bar.
+                    if d.bonus > 0 {
+                        RectangleMark(x: .value("Tag", d.day, unit: .day), yStart: .value("0", 0),
+                                      yEnd: .value("angerechnet", min(d.bonus, d.active)), width: .ratio(0.6))
+                            .foregroundStyle(Theme.accent)
+                            .cornerRadius(range > 30 ? 1 : 4)
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : range == 30 ? 7 : 30)) { _ in
+                    AxisValueLabel(format: range == 7 ? .dateTime.weekday(.narrow) : .dateTime.day().month(.defaultDigits))
+                }
+            }
+            .frame(height: 120)
+            HStack(spacing: 14) {
+                miniStat("\(past.reduce(0) { $0 + $1.active }.kcalString)", "aktiv gesamt")
+                miniStat("\(credited.kcalString)", "aufs Ziel angerechnet")
+                miniStat("\(avgNet.kcalString)", "Ø netto gegessen")
+            }
+            Text("Heller Balken = aktive Kalorien, kräftiger Teil = davon aufs Ziel angerechnet. Netto = gegessen minus aktiv.")
+                .font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
         }
         .card()
     }

@@ -27,7 +27,10 @@ struct DayTarget: Equatable {
     var fat: Double
     /// Goal before the activity bonus.
     var baseKcal: Double
+    /// Apple Health + manually added activity.
     var activeKcal: Double
+    var healthKcal: Double
+    var manualKcal: Double
     var activityBonus: Double
 }
 
@@ -124,8 +127,11 @@ final class Goals: ObservableObject {
             ? currentPlan(from: d)
             : (history.last { $0.from <= d } ?? history.first ?? currentPlan(from: d))
         let base = plan.weekdayKcal[cal.component(.weekday, from: d)] ?? plan.kcal
-        let active = activityEnabled ? ActivityStore.kcal(for: d) : 0
-        let bonus = (active * plan.activityPercent / 100).rounded()
+        let health = activityEnabled ? ActivityStore.kcal(for: d) : 0
+        let manual = ActivityStore.manual(for: d)
+        let active = health + manual
+        // Manually added activity always counts in full – it was entered on purpose.
+        let bonus = (health * plan.activityPercent / 100 + manual).rounded()
         let total = base + bonus
         // Protein stays; the extra/missing energy is shared by carbs and fat in their usual ratio.
         let delta = total - plan.kcal
@@ -134,7 +140,7 @@ final class Goals: ObservableObject {
         return DayTarget(kcal: total, protein: plan.protein,
                          carbs: max(0, (plan.carbs + delta * share / 4).rounded()),
                          fat: max(0, (plan.fat + delta * (1 - share) / 9).rounded()),
-                         baseKcal: base, activeKcal: active, activityBonus: bonus)
+                         baseKcal: base, activeKcal: active, healthKcal: health, manualKcal: manual, activityBonus: bonus)
     }
 
     /// Re-renders views after new activity data arrived.

@@ -9,6 +9,7 @@ enum AddSheet: Identifiable {
     case nutrients(Nutrients)
     case score(HealthScore, baseline: HealthScore?)
     case review(DayReview)
+    case overview
     case calendar
     /// Pick the day to copy entries from.
     case copyFromDay
@@ -29,6 +30,7 @@ enum AddSheet: Identifiable {
         case .nutrients: "nutrients"
         case .score: "score"
         case .review(let r): "review-\(r.day.timeIntervalSince1970)"
+        case .overview: "overview"
         case .calendar: "calendar"
         case .copyFromDay: "copyFromDay"
         case .copyPicker(let d): "copyPicker-\(d.timeIntervalSince1970)"
@@ -126,6 +128,8 @@ struct TodayView: View {
                 HealthScoreView(score: score, baseline: baseline).presentationDetents([.large])
             case .review(let review):
                 DayReviewSheet(review: review)
+            case .overview:
+                DayOverviewSheet(day: day)
             case .calendar:
                 CalendarSheet(title: "Tag wählen") { picked in day = picked }
             case .copyFromDay:
@@ -494,7 +498,8 @@ struct DayContent: View {
     var body: some View {
         List {
             Group {
-                SummaryCard(total: total, mood: mood, burst: burst, target: target)
+                Button { sheet = .overview } label: { SummaryCard(total: total, mood: mood, burst: burst, target: target) }
+                    .buttonStyle(SquishButtonStyle())
                 Button { sheet = .nutrients(total) } label: { MacroCard(total: total, target: target) }
                     .buttonStyle(SquishButtonStyle())
                 if goals.healthScoreEnabled, !entries.isEmpty {
@@ -742,7 +747,7 @@ struct SummaryCard: View {
                         .animation(.snappy, value: remaining)
                     Text("kcal").font(Theme.font(13, .semibold)).foregroundStyle(Theme.textSecondary)
                 }
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     stat("Gegessen", total.kcal)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(target.kcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
@@ -755,12 +760,13 @@ struct SummaryCard: View {
                         }
                         .lineLimit(1)
                     }
-                    if goals.activityEnabled {
+                    if goals.activityEnabled || target.manualKcal > 0 {
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 2) {
                                 Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent)
                                 Text(target.activeKcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
                                     .contentTransition(.numericText(value: target.activeKcal))
+                                    .lineLimit(1).fixedSize()
                             }
                             Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                         }

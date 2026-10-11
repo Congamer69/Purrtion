@@ -4,6 +4,8 @@ import HealthKit
 /// Active energy per day from Apple Health (Fitness rings), cached so past days work offline.
 enum ActivityStore {
     private static let cacheKey = "activity.cache"
+    /// Manually added activity (e.g. workouts without a watch), per day.
+    private static let manualKey = "activity.manual"
     private static let store = HKHealthStore()
     private static let type = HKQuantityType(.activeEnergyBurned)
 
@@ -20,7 +22,21 @@ enum ActivityStore {
         set { UserDefaults.standard.set(newValue, forKey: cacheKey) }
     }
 
+    /// Active energy from Apple Health.
     static func kcal(for day: Date) -> Double { cache[formatter.string(from: day)] ?? 0 }
+
+    static func manual(for day: Date) -> Double { manualStore[formatter.string(from: day)] ?? 0 }
+
+    static func setManual(_ kcal: Double, for day: Date) {
+        var m = manualStore
+        m[formatter.string(from: day)] = kcal > 0 ? kcal.rounded() : nil
+        manualStore = m
+    }
+
+    private static var manualStore: [String: Double] {
+        get { UserDefaults.standard.dictionary(forKey: manualKey) as? [String: Double] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: manualKey) }
+    }
 
     #if DEBUG
     /// Simulator testing: plausible active energy for the last weeks.
