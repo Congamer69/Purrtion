@@ -82,6 +82,7 @@ enum AutoClose {
         }
 
         defaults.set(now, forKey: lastAttemptKey)
+        if UserDefaults.standard.bool(forKey: "activity.enabled") { await ActivityStore.refresh(days: 3) }
         do {
             let review = try await DayCloser.close(day: yesterday, goals: Goals(), ctx: ctx)
             review.automatic = true

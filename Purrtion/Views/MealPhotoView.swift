@@ -5,6 +5,10 @@ import SwiftData
 /// Photo of a meal → AI estimates components and nutrients directly → user adjusts or replaces → log.
 struct MealPhotoView: View {
     let day: Date
+    /// Text mode: estimate from a description ("Käsespätzle vom Restaurant") instead of a photo.
+    var textQuery: String? = nil
+    /// Called after logging in text mode (the search sheet stays open).
+    var onLogged: ((String) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @State private var image: UIImage?
@@ -41,7 +45,7 @@ struct MealPhotoView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    photoCard
+                    if let textQuery { textCard(textQuery) } else { photoCard }
                     switch phase {
                     case .idle: idleContent
                     case .analyzing:
@@ -60,9 +64,10 @@ struct MealPhotoView: View {
                 .padding(.bottom, 80)
             }
             .background(Theme.background.ignoresSafeArea())
-            .navigationTitle("Gericht scannen")
+            .navigationTitle(textQuery == nil ? "Gericht scannen" : "KI-Schätzung")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } } }
+            .task { if textQuery != nil, phase == .idle { analyze() } }
             .safeAreaInset(edge: .bottom) { bottomButton }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker(image: $image).ignoresSafeArea()
@@ -89,6 +94,19 @@ struct MealPhotoView: View {
         }
     }
 
+    private func textCard(_ text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "sparkles").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent)
+                .frame(width: 44, height: 44).background(Theme.accentSoft, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("„\(text)“").font(Theme.font(17, .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("Schätzung mit \(AITask.photo.provider.name)").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .card(padding: 14)
+    }
+
     private var photoCard: some View {
         ZStack {
             if let image {
@@ -101,7 +119,7 @@ struct MealPhotoView: View {
                         CatMascot(mood: .idle, pixel: 4)
                         PixelSpriteView(sprite: Sprites.bowl, pixel: 4)
                     }
-                    Text("Fotografiere dein Essen – ich erkenne die Bestandteile, schätze die Mengen und hole die Nährwerte aus dem Bundeslebensmittelschlüssel.")
+                    Text("Fotografiere dein Essen – ich erkenne die Bestandteile und schätze Mengen und Nährwerte.")
                         .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
                 }
                 .padding(20)
@@ -152,10 +170,12 @@ struct MealPhotoView: View {
             .buttonStyle(PillButtonStyle(filled: false))
             Text("Die KI-Nährwerte sind Schätzungen. Über „Ersetzen durch“ kannst du jeden Eintrag aus den Lebensmitteldatenbanken auswählen; die Menge bleibt erhalten.")
                 .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-            Button {
-                phase = .idle; image = nil; items = []; pickerItem = nil
-            } label: { Label("Neues Foto", systemImage: "arrow.counterclockwise") }
-                .font(Theme.font(15, .semibold))
+            if textQuery == nil {
+                Button {
+                    phase = .idle; image = nil; items = []; pickerItem = nil
+                } label: { Label("Neues Foto", systemImage: "arrow.counterclockwise") }
+                    .font(Theme.font(15, .semibold))
+            }
         }
     }
 
@@ -175,12 +195,19 @@ struct MealPhotoView: View {
                     RecipeIngredient(food: $0.food, quantity: $0.grams, serving: .base($0.food.unit))
                 }
                 let mealName = dish.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "KI-Mahlzeit" : dish
-                ctx.insert(FoodEntry(mealName: mealName, ingredients: ingredients, source: .ai, day: day))
-                try? ctx.save()
+                if selectedItems.count == 1, let only = selectedItems.first {
+                    // A single dish is logged like any other food and keeps its estimated portion for next time.
+                    var food = only.food
+                    food.servings = [ServingOption(name: "1 Portion", grams: only.grams)]
+                    ctx.log(food, quantity: only.grams, serving: .base(food.unit), day: day)
+                } else {
+                    ctx.insert(FoodEntry(mealName: mealName, ingredients: ingredients, source: .ai, day: day))
+                    try? ctx.save()
+                }
                 Haptics.success()
-                dismiss()
+                if let onLogged { onLogged(selectedItems.count == 1 ? selectedItems[0].food.displayName : mealName) } else { dismiss() }
             } label: {
-                Label("\(selectedItems.count) Einträge · \(totalKcal.kcalString) kcal", systemImage: "pawprint.fill")
+                Label(selectedItems.count == 1 ? "Eintragen · \(totalKcal.kcalString) kcal" : "\(selectedItems.count) Einträge · \(totalKcal.kcalString) kcal", systemImage: "pawprint.fill")
             }
             .buttonStyle(PillButtonStyle())
             .disabled(selectedItems.isEmpty)
@@ -190,11 +217,13 @@ struct MealPhotoView: View {
     }
 
     private func analyze() {
-        guard let image else { return }
+        guard image != nil || textQuery != nil else { return }
         withAnimation { phase = .analyzing }
         Task {
             do {
-                let result = try await MealVision.analyze(image: image, hint: hint)
+                let result: MealVision.Result
+                if let textQuery { result = try await MealVision.analyze(text: textQuery) }
+                else { result = try await MealVision.analyze(image: image!, hint: hint) }
                 dish = result.dish
                 items = result.items.map {
                     EditableItem(recognized: $0.name, food: $0.food, grams: $0.grams.rounded(),

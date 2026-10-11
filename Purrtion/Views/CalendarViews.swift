@@ -111,7 +111,7 @@ struct CalendarMonthView: View {
 
     private func cell(_ day: Date, kcal: Double?) -> some View {
         let future = !allowFuture && day > cal.startOfDay(for: .now)
-        let color = GoalStatus(kcal: kcal ?? 0, goal: goals.kcal).color
+        let color = GoalStatus(kcal: kcal ?? 0, goal: goals.target(for: day).kcal).color
         let isSelected = selected.map { cal.isDate($0, inSameDayAs: day) } ?? false
         return Button { if !future { Haptics.tap(); onSelect(day) } } label: {
             Text("\(cal.component(.day, from: day))")
@@ -177,17 +177,18 @@ struct DaySummarySheet: View {
         NavigationStack {
             List {
                 let total = entries.reduce(Nutrients()) { $0 + $1.nutrients }
+                let target = goals.target(for: day)
                 Section {
                     HStack {
                         VStack(alignment: .leading) {
                             Text("\(total.kcal.kcalString) kcal").font(Theme.font(26, .heavy))
-                            let status = GoalStatus(kcal: total.kcal, goal: goals.kcal)
-                            Text(total.kcal <= goals.kcal ? "Im Ziel (\(goals.kcal.kcalString))" : "\((total.kcal - goals.kcal).kcalString) kcal über dem Ziel")
+                            let status = GoalStatus(kcal: total.kcal, goal: target.kcal)
+                            Text(total.kcal <= target.kcal ? "Im Ziel (\(target.kcal.kcalString))" : "\((total.kcal - target.kcal).kcalString) kcal über dem Ziel")
                                 .font(Theme.font(13)).foregroundStyle(status == .none ? Theme.fiber : status.color)
                         }
                         Spacer()
                         if goals.healthScoreEnabled, !entries.isEmpty {
-                            let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
+                            let score = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein)
                             VStack(spacing: 0) {
                                 Text("\(score.score)").font(Theme.font(22, .heavy)).foregroundStyle(score.color)
                                 Text("Score").font(Theme.font(11)).foregroundStyle(Theme.textSecondary)

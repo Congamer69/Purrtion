@@ -18,6 +18,7 @@ struct PurrtionApp: App {
 
     init() {
         BLSDatabase.shared.preload()
+        SwissDatabase.shared.preload()
         AutoClose.register()
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
@@ -69,6 +70,14 @@ struct RootView: View {
             WidgetBridge.update(ctx, goals: goals)
             Backup.autoBackupIfNeeded(ctx)
             Task { await HealthSync.importWeights(into: ctx) }
+            if goals.activityEnabled {
+                Task {
+                    if await ActivityStore.refresh(days: 14) {
+                        goals.activityUpdated()
+                        WidgetBridge.update(ctx, goals: goals)
+                    }
+                }
+            }
             AutoClose.schedule()
             Task { await AutoClose.runIfNeeded(container: PurrtionApp.container) }
         }

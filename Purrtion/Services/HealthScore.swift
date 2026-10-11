@@ -90,7 +90,7 @@ struct HealthScore: Equatable {
         let fvPts = 10 * min(1, fruitVegGrams / 400)
         c.append(Component(id: "fruitveg", title: "Obst & Gemüse", icon: "carrot.fill", points: fvPts, maxPoints: 10,
                            valueText: "\(Int(fruitVegGrams)) g", targetText: "≥ 400 g (WHO, „5 am Tag“)",
-                           explanation: "Mindestens 400 g Obst und Gemüse täglich sind mit geringerer Sterblichkeit verbunden (Aune et al., 2017). Gezählt werden Lebensmittel aus dem BLS.",
+                           explanation: "Mindestens 400 g Obst und Gemüse täglich sind mit geringerer Sterblichkeit verbunden (Aune et al., 2017). Gezählt werden Lebensmittel aus dem BLS und der Schweizer Nährwertdatenbank.",
                            tip: fruitVegGrams < 400 ? "Noch \(Int(max(0, 400 - fruitVegGrams))) g Obst oder Gemüse bis zum Ziel." : nil))
 
         // 5) Sugar – 10
@@ -146,6 +146,10 @@ struct HealthScore: Equatable {
 
     /// BLS groups F (fruit), G (vegetables), mushrooms (K7) and legumes (H7) – without juices and dried fruit.
     static func isFruitOrVegetable(_ food: FoodItem?) -> Bool {
+        if let food, food.source == .swiss, food.id.hasPrefix("ch-") {
+            let category = SwissDatabase.shared.category(code: String(food.id.dropFirst(3))) ?? ""
+            return SwissDatabase.isFruitOrVegetable(category: category, name: food.origin ?? food.name)
+        }
         guard let food, food.source == .bls, food.id.hasPrefix("bls-") else { return false }
         let code = String(food.id.dropFirst(4))
         let name = (food.origin ?? food.name).lowercased()

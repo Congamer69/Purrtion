@@ -2,13 +2,14 @@ import Foundation
 import SwiftData
 
 enum FoodSource: String, Codable {
-    case bls, openFoodFacts, ai, custom
+    case bls, openFoodFacts, ai, custom, swiss
     // legacy sources from earlier versions, kept so old entries still decode
     case basic, usda
 
     var label: String {
         switch self {
         case .bls: "Bundeslebensmittelschlüssel 4.0"
+        case .swiss: "Schweizer Nährwertdatenbank"
         case .basic: "Basis"
         case .openFoodFacts: "Open Food Facts"
         case .usda: "USDA"

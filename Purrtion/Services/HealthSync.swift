@@ -61,15 +61,16 @@ enum WidgetBridge {
         s.protein = entries.reduce(0) { $0 + $1.protein }
         s.carbs = entries.reduce(0) { $0 + $1.carbs }
         s.fat = entries.reduce(0) { $0 + $1.fat }
-        s.kcalGoal = goals.kcal
-        s.proteinGoal = goals.protein; s.carbsGoal = goals.carbs; s.fatGoal = goals.fat
+        let target = goals.target(for: today)
+        s.kcalGoal = target.kcal
+        s.proteinGoal = target.protein; s.carbsGoal = target.carbs; s.fatGoal = target.fat
         s.waterML = water.reduce(0) { $0 + $1.ml }
         s.waterGoal = goals.waterML
         s.waterEnabled = goals.waterEnabled
         s.entryCount = entries.count
         s.paletteID = UserDefaults.standard.string(forKey: "catPalette") ?? "ginger"
         if goals.healthScoreEnabled, !entries.isEmpty {
-            let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
+            let score = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein)
             s.score = score.isPreliminary ? nil : score.score
         }
         s.save()

@@ -1,0 +1,64 @@
+import Foundation
+import HealthKit
+
+/// Active energy per day from Apple Health (Fitness rings), cached so past days work offline.
+enum ActivityStore {
+    private static let cacheKey = "activity.cache"
+    private static let store = HKHealthStore()
+    private static let type = HKQuantityType(.activeEnergyBurned)
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static var cache: [String: Double] {
+        get { UserDefaults.standard.dictionary(forKey: cacheKey) as? [String: Double] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: cacheKey) }
+    }
+
+    static func kcal(for day: Date) -> Double { cache[formatter.string(from: day)] ?? 0 }
+
+    #if DEBUG
+    /// Simulator testing: plausible active energy for the last weeks.
+    static func seedDemo() {
+        var c = cache
+        for i in 0..<40 {
+            let d = Calendar.current.date(byAdding: .day, value: -i, to: .now)!
+            c[formatter.string(from: d)] = Double([420, 310, 650, 280, 520, 380, 720][i % 7])
+        }
+        cache = c
+    }
+    #endif
+
+    static func requestAuthorization() async throws {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        try await store.requestAuthorization(toShare: [], read: [type])
+    }
+
+    /// Loads daily sums for the last `days` days into the cache.
+    @discardableResult
+    static func refresh(days: Int = 120) async -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-fakeActivity") { seedDemo(); return true }
+        #endif
+        guard HKHealthStore.isHealthDataAvailable() else { return false }
+        let cal = Calendar.current
+        let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: .now))!
+        let start = cal.date(byAdding: .day, value: -days, to: end)!
+        let descriptor = HKStatisticsCollectionQueryDescriptor(
+            predicate: .quantitySample(type: type, predicate: HKQuery.predicateForSamples(withStart: start, end: end)),
+            options: .cumulativeSum, anchorDate: start, intervalComponents: DateComponents(day: 1))
+        guard let collection = try? await descriptor.result(for: store) else { return false }
+        var c = cache
+        collection.enumerateStatistics(from: start, to: end) { stats, _ in
+            let kcal = stats.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
+            c[formatter.string(from: stats.startDate)] = kcal.rounded()
+        }
+        cache = c
+        return true
+    }
+}

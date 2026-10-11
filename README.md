@@ -43,15 +43,21 @@ Xcode 27 und iOS 27 (Simulator oder iPhone).
 > Das Projekt liegt in einem iCloud-synchronisierten Ordner. Build-Produkte im Projektordner
 > brechen dort die Code-Signatur ("resource fork … not allowed") – `run.sh` legt sie deshalb in `$TMPDIR` ab.
 
-## Datenquellen (alles kostenlos)
+## Datenquellen (alles kostenlos, in Profil → Datenquellen einzeln abschaltbar)
 | Quelle | Wofür |
 |---|---|
+| **Schweizer Nährwertdatenbank** (BLV, V 7.1) | ~1.200 Lebensmittel, darunter ~150 fertige Gerichte (Burger, Kebab, Pizza, Gratins …), offline in `Purrtion/Resources/swiss.json` |
+| KI-Schätzung | alles ohne Datenbankeintrag oder ganze Sätze („2 Eier und ein Toast“), nutzt den KI-Anbieter der Foto-Erkennung |
 | **Bundeslebensmittelschlüssel 4.0** (Max Rubner-Institut, CC BY 4.0) | ~7.100 Lebensmittel mit bis zu 138 Nährstoffen, offline in `Purrtion/Resources/bls.json` |
 | Purrtion-Beliebtliste (`PopularFoods.swift`) | ~100 Alltagslebensmittel mit Namen & echten Portionsgrößen, auf BLS-Einträge gemappt |
 | Open Food Facts | Barcodes & Markenprodukte, deutsche Produkte bevorzugt, unplausible Werte markiert |
 
 BLS aktualisieren: Excel von https://blsdb.de laden und
 `python tools/convert_bls.py BLS_4_0_Daten_2025_DE.xlsx Purrtion/Resources/bls.json` (braucht `openpyxl`).
+Schweizer Datenbank aktualisieren: Excel von https://naehrwertdaten.ch/de/downloads/ laden und
+`python tools/convert_swiss.py Schweizer_Nahrwertdatenbank.xlsx Purrtion/Resources/swiss.json`.
+
+Die Suche verzeiht Tippfehler, Mehrzahl und getrennte Wörter („Käsespätzle“ findet „Spätzle mit Käse“).
 
 ## KI (Profil → KI-Modelle)
 Foto-Erkennung und Tagesanalyse („Tag abschließen“) können unterschiedliche Anbieter und Modelle nutzen – z. B. Claude Opus für Fotos und das günstigere Sonnet oder Gemini für die Tagesanalyse. Standardmäßig folgt die Tagesanalyse der Foto-Erkennung.
@@ -76,7 +82,8 @@ Schlüssel liegen in der Keychain und gelten pro Anbieter für beide Aufgaben; d
 - **Eigene Lebensmittel & Rezepte** (Meal Prep mit Portionen) – `Models/CustomFood.swift`, `Views/CustomFoodViews.swift`
 - **Sicherung:** JSON-Backup etwa täglich in einen gewählten (iCloud-Drive-)Ordner + Wiederherstellen – `Services/Backup.swift`
 - **CSV-Export** (Essen, Tage, Gewicht; Semikolon + deutsches Komma für Excel)
-- **Apple Health:** Gewicht in beide Richtungen – `Services/HealthSync.swift`
+- **Apple Health:** Gewicht in beide Richtungen – `Services/HealthSync.swift`; Aktivitätskalorien anzeigen und optional (50/75/100 %) aufs Ziel anrechnen – `Services/ActivityStore.swift`
+- **Ziele:** eigenes Kalorienziel pro Wochentag; Zieländerungen gelten ab heute, vergangene Tage behalten ihr damaliges Ziel – `Models/Goals.swift`
 - **Widgets:** Homescreen (quadratisch, breit) und Sperrbildschirm – Ziel `PurrtionWidget`, Daten über App Group `group.com.const.purrtion`
 
 ## Auf dem echten iPhone installieren
@@ -99,4 +106,5 @@ Nährwerte, Foto-Schätzungen und der Health Score sind Richtwerte und ersetzen 
 
 ### Lizenzen der Daten
 Bundeslebensmittelschlüssel 4.0 © Max Rubner-Institut, lizenziert unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Schweizer Nährwertdatenbank V 7.1, Bundesamt für Lebensmittelsicherheit und Veterinärwesen BLV, [naehrwertdaten.ch](https://naehrwertdaten.ch) – frei nutzbar mit Quellenangabe.
 Produktdaten von [Open Food Facts](https://world.openfoodfacts.org) (ODbL), werden zur Laufzeit abgefragt.

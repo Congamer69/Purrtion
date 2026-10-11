@@ -79,10 +79,12 @@ final class BLSDatabase: @unchecked Sendable {
     func search(_ query: String, limit: Int = 40) -> [FoodItem] {
         loadIfNeeded()
         let q = Self.fold(query).trimmingCharacters(in: .whitespacesAndNewlines)
-        let tokens = q.split(whereSeparator: { $0 == " " || $0 == "," }).map(String.init)
+        let tokens = SearchMatcher.tokens(q)
         guard !tokens.isEmpty else { return [] }
+        let phrase = tokens.joined(separator: " ")
 
         var scored: [(Int, Int)] = []
+        var strictHits = Set<Int>()
         for i in folded.indices {
             let name = folded[i]
             let popular = PopularFoods.byCode[codes[i]]
@@ -95,28 +97,36 @@ final class BLSDatabase: @unchecked Sendable {
             let allWords = words + popularWords
             // A token must start a word or a part of a German compound ("milch" in "Vollmilch"),
             // not hide inside a syllable ("latte" in "Blätterteig").
-            guard tokens.allSatisfy({ t in allWords.contains { Self.matches(word: $0, token: t) } }) else { continue }
+            guard tokens.allSatisfy({ t in allWords.contains { SearchMatcher.strict($0, t) } }) else { continue }
             let prefixHit = tokens.allSatisfy { t in allWords.contains { $0.hasPrefix(t) } }
             if !prefixHit { score -= 150 }
             if let popular, prefixHit {
                 score += 600
-                if popular.searchTerms.contains(q) { score += 2000 }
-                else if popular.searchTerms.contains(where: { $0.hasPrefix(q) }) { score += 800 }
+                if popular.searchTerms.contains(phrase) { score += 2000 }
+                else if popular.searchTerms.contains(where: { $0.hasPrefix(phrase) }) { score += 800 }
             }
             if let first = words.first, first.hasPrefix(tokens[0]) { score += 300 }
-            if name.hasPrefix(q) { score += 150 }
+            if name.hasPrefix(phrase) { score += 150 }
             for t in tokens where words.contains(where: { $0 == t }) { score += 60 }
             if name.contains(" roh") { score += 25 }
             if let c = codes[i].first, "XY".contains(c), tokens.count == 1 { score -= 30 }
             score -= name.count * 2
             scored.append((i, score))
+            strictHits.insert(i)
+        }
+
+        // Second, forgiving pass: typos, plurals and split compounds ("Käsespätzle" → "Spätzle mit Käse").
+        if scored.count < 8 {
+            for i in folded.indices where !strictHits.contains(i) {
+                let name = folded[i]
+                guard tokens.allSatisfy({ SearchMatcher.mayMatch(name, $0) }) else { continue }
+                let words = name.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+                guard tokens.allSatisfy({ t in words.contains { SearchMatcher.relaxed($0, t) } || SearchMatcher.compound(t, name: name, words: words) })
+                else { continue }
+                scored.append((i, -400 - folded[i].count * 2))
+            }
         }
         return scored.sorted { $0.1 > $1.1 }.prefix(limit).map { food(at: $0.0) }
-    }
-
-    private static func matches(word: Substring, token: String) -> Bool {
-        // start of a word, or the last part of a compound ("vollmilch", "hafermilch")
-        word.hasPrefix(token) || (word.count > token.count + 2 && word.hasSuffix(token))
     }
 
     // MARK: Units & portions

@@ -18,6 +18,9 @@ struct StatsView: View {
         let day: Date
         let entries: [FoodEntry]
         let kcal, protein, carbs, fat: Double
+        /// Goal that applied on that day.
+        var goal: Double = 0
+        var goalProtein: Double = 0
         var id: Date { day }
     }
 
@@ -31,8 +34,7 @@ struct StatsView: View {
         return (0..<range).map { i in
             let d = cal.date(byAdding: .day, value: i, to: start)!
             let es = grouped[d] ?? []
-            return DayStat(day: d, entries: es, kcal: es.reduce(0) { $0 + $1.kcal }, protein: es.reduce(0) { $0 + $1.protein },
-                           carbs: es.reduce(0) { $0 + $1.carbs }, fat: es.reduce(0) { $0 + $1.fat })
+            return stat(d, es)
         }
     }
 
@@ -44,9 +46,14 @@ struct StatsView: View {
         return (0..<7).map { i in
             let d = mcal.date(byAdding: .day, value: i, to: monday)!
             let es = grouped[d] ?? []
-            return DayStat(day: d, entries: es, kcal: es.reduce(0) { $0 + $1.kcal }, protein: es.reduce(0) { $0 + $1.protein },
-                           carbs: es.reduce(0) { $0 + $1.carbs }, fat: es.reduce(0) { $0 + $1.fat })
+            return stat(d, es)
         }
+    }
+
+    private func stat(_ d: Date, _ es: [FoodEntry]) -> DayStat {
+        let t = goals.target(for: d)
+        return DayStat(day: d, entries: es, kcal: es.reduce(0) { $0 + $1.kcal }, protein: es.reduce(0) { $0 + $1.protein },
+                       carbs: es.reduce(0) { $0 + $1.carbs }, fat: es.reduce(0) { $0 + $1.fat }, goal: t.kcal, goalProtein: t.protein)
     }
 
     private func avg(_ list: [DayStat], _ k: KeyPath<DayStat, Double>) -> Double {
@@ -106,7 +113,7 @@ struct StatsView: View {
     // MARK: Cards
 
     private func overviewCard(_ logged: [DayStat]) -> some View {
-        let within = logged.filter { $0.kcal <= goals.kcal }.count
+        let within = logged.filter { $0.kcal <= $0.goal }.count
         return HStack(spacing: 14) {
             CatMascot(mood: streak > 0 ? .happy : .sleeping, pixel: 3.5)
             VStack(alignment: .leading, spacing: 6) {
@@ -143,7 +150,7 @@ struct StatsView: View {
                 }
                 .buttonStyle(SquishButtonStyle())
             }
-            RangeGoalGrid(days: all, goal: goals.kcal, range: range) { selectedDay = $0 }
+            RangeGoalGrid(days: all, range: range) { selectedDay = $0 }
             GoalLegend()
         }
         .card()
@@ -159,15 +166,16 @@ struct StatsView: View {
             Chart {
                 ForEach(all) { d in
                     BarMark(x: .value("Tag", d.day, unit: .day), y: .value("kcal", d.kcal))
-                        .foregroundStyle(GoalStatus(kcal: d.kcal, goal: goals.kcal).color)
+                        .foregroundStyle(GoalStatus(kcal: d.kcal, goal: d.goal).color)
                         .cornerRadius(range > 30 ? 1 : 5)
                 }
-                RuleMark(y: .value("Ziel", goals.kcal))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                    .annotation(position: .top, alignment: .leading) {
-                        Text("Ziel").font(Theme.font(11, .semibold)).foregroundStyle(Theme.textSecondary)
-                    }
+                // The goal of each day (weekday goals, activity, earlier goals) as a stepped line.
+                ForEach(all) { d in
+                    LineMark(x: .value("Tag", d.day, unit: .day), y: .value("Ziel", d.goal), series: .value("Serie", "Ziel"))
+                        .interpolationMethod(.stepCenter)
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                }
             }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : range == 30 ? 7 : 30)) { _ in
@@ -176,7 +184,7 @@ struct StatsView: View {
             }
             .frame(height: 190)
             if !logged.isEmpty {
-                let balance = logged.reduce(0) { $0 + ($1.kcal - goals.kcal) }
+                let balance = logged.reduce(0) { $0 + ($1.kcal - $1.goal) }
                 Text(balance <= 0 ? "Insgesamt \(abs(balance).kcalString) kcal unter dem Ziel (≈ \((abs(balance) / 7700).formatted(.number.precision(.fractionLength(1)))) kg Fett)."
                                   : "Insgesamt \(balance.kcalString) kcal über dem Ziel (≈ \((balance / 7700).formatted(.number.precision(.fractionLength(1)))) kg).")
                     .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
@@ -187,7 +195,7 @@ struct StatsView: View {
 
     private func scoreCard(_ logged: [DayStat]) -> some View {
         let points: [(Date, Int)] = logged.map { d in
-            (d.day, HealthScore(entries: d.entries, goalKcal: goals.kcal, goalProtein: goals.protein).score)
+            (d.day, HealthScore(entries: d.entries, goalKcal: d.goal, goalProtein: d.goalProtein).score)
         }
         let average = points.isEmpty ? 0 : points.reduce(0) { $0 + $1.1 } / points.count
         return VStack(alignment: .leading, spacing: 12) {
@@ -253,9 +261,11 @@ struct StatsView: View {
         let cal = Calendar.mondayFirst
         let grouped = Dictionary(grouping: logged) { cal.component(.weekday, from: $0.day) }
         let order = (0..<7).map { (cal.firstWeekday - 1 + $0) % 7 + 1 }
-        let data: [(String, Double)] = order.map { wd in
+        let data: [(String, Double, Double)] = order.map { wd in
             let list = grouped[wd] ?? []
-            return (cal.shortWeekdaySymbols[wd - 1], list.isEmpty ? 0 : list.reduce(0) { $0 + $1.kcal } / Double(list.count))
+            let avgKcal = list.isEmpty ? 0 : list.reduce(0) { $0 + $1.kcal } / Double(list.count)
+            let avgGoal = list.isEmpty ? goals.kcal(forWeekday: wd) : list.reduce(0) { $0 + $1.goal } / Double(list.count)
+            return (cal.shortWeekdaySymbols[wd - 1], avgKcal, avgGoal)
         }
         let top = data.max { $0.1 < $1.1 }
         return VStack(alignment: .leading, spacing: 12) {
@@ -268,9 +278,11 @@ struct StatsView: View {
             }
             Chart(data, id: \.0) { d in
                 BarMark(x: .value("Tag", d.0), y: .value("kcal", d.1))
-                    .foregroundStyle(GoalStatus(kcal: d.1, goal: goals.kcal).color.opacity(0.85))
+                    .foregroundStyle(GoalStatus(kcal: d.1, goal: d.2).color.opacity(0.85))
                     .cornerRadius(5)
-                RuleMark(y: .value("Ziel", goals.kcal)).foregroundStyle(Theme.textSecondary)
+                LineMark(x: .value("Tag", d.0), y: .value("Ziel", d.2), series: .value("Serie", "Ziel"))
+                    .interpolationMethod(.stepCenter)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
             .frame(height: 130)
@@ -474,12 +486,11 @@ struct WeightSheet: View {
 /// Coloured day cells for the selected range (7 → one week row, 30/90 → weekday-aligned grid).
 struct RangeGoalGrid: View {
     let days: [StatsView.DayStat]
-    let goal: Double
     let range: Int
     let onSelect: (Date) -> Void
     private var cal: Calendar { .mondayFirst }
 
-    private func color(_ d: StatsView.DayStat) -> Color { GoalStatus(kcal: d.kcal, goal: goal).color }
+    private func color(_ d: StatsView.DayStat) -> Color { GoalStatus(kcal: d.kcal, goal: d.goal).color }
     private func isFuture(_ d: StatsView.DayStat) -> Bool { d.day > cal.startOfDay(for: .now) }
 
     var body: some View {

@@ -279,7 +279,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Purrtion;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Purrtion nutzt die Kamera, um Barcodes und Gerichte zu scannen.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Purrtion liest dein Gewicht aus Apple Health, um deinen Verlauf anzuzeigen.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Purrtion liest dein Gewicht und deine Aktivitätskalorien aus Apple Health, um Verlauf und Kalorienziel anzuzeigen.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Purrtion speichert dein eingetragenes Gewicht in Apple Health.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Purrtion nutzt Fotos, um Gerichte zu analysieren.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -313,7 +313,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Purrtion;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Purrtion nutzt die Kamera, um Barcodes und Gerichte zu scannen.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Purrtion liest dein Gewicht aus Apple Health, um deinen Verlauf anzuzeigen.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Purrtion liest dein Gewicht und deine Aktivitätskalorien aus Apple Health, um Verlauf und Kalorienziel anzuzeigen.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Purrtion speichert dein eingetragenes Gewicht in Apple Health.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Purrtion nutzt Fotos, um Gerichte zu analysieren.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

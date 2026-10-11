@@ -1,4 +1,35 @@
 import SwiftUI
+import Combine
+
+/// Targets valid from a certain day on – changing the goal never rewrites past days.
+struct GoalPlan: Codable, Equatable {
+    var from: Date
+    var kcal: Double
+    var protein: Double
+    var carbs: Double
+    var fat: Double
+    /// Calendar weekday (1 = Sunday … 7 = Saturday) → own calorie goal.
+    var weekdayKcal: [Int: Double] = [:]
+    /// Share of the active energy from Apple Health that is added to the goal (0 = only shown).
+    var activityPercent: Double = 0
+
+    func sameTargets(as other: GoalPlan) -> Bool {
+        kcal == other.kcal && protein == other.protein && carbs == other.carbs && fat == other.fat
+            && weekdayKcal == other.weekdayKcal && activityPercent == other.activityPercent
+    }
+}
+
+/// The resolved goal of one day (weekday goal + activity bonus applied).
+struct DayTarget: Equatable {
+    var kcal: Double
+    var protein: Double
+    var carbs: Double
+    var fat: Double
+    /// Goal before the activity bonus.
+    var baseKcal: Double
+    var activeKcal: Double
+    var activityBonus: Double
+}
 
 /// Daily targets + body profile, persisted in UserDefaults.
 final class Goals: ObservableObject {
@@ -10,6 +41,104 @@ final class Goals: ObservableObject {
     @AppStorage("goal.waterStep") var waterStep: Int = 250
     @AppStorage("goal.waterEnabled") var waterEnabled = true
     @AppStorage("goal.healthScoreEnabled") var healthScoreEnabled = true
+
+    /// Different calorie goals per weekday.
+    @AppStorage("goal.weekdayEnabled") var weekdayEnabled = false
+    @AppStorage("goal.weekdayKcal") private var weekdayJSON = ""
+    /// Share of Apple Health active energy added to the goal (0 = only shown).
+    @AppStorage("goal.activityPercent") var activityPercent: Double = 0
+    /// Show active energy from Apple Health.
+    @AppStorage("activity.enabled") var activityEnabled = false
+    @AppStorage("goal.history") private var historyJSON = ""
+
+    private var bag: Set<AnyCancellable> = []
+
+    init() {
+        if history.isEmpty { history = [currentPlan(from: .distantPast)] }
+        // Record goal changes (debounced) so they apply from today on.
+        objectWillChange
+            .debounce(for: .milliseconds(700), scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.recordPlan() }
+            .store(in: &bag)
+    }
+
+    // MARK: Weekday goals
+
+    var weekdayKcal: [Int: Double] {
+        get {
+            guard let data = weekdayJSON.data(using: .utf8),
+                  let dict = try? JSONDecoder().decode([String: Double].self, from: data) else { return [:] }
+            return Dictionary(uniqueKeysWithValues: dict.compactMap { k, v in Int(k).map { ($0, v) } })
+        }
+        set {
+            let dict = Dictionary(uniqueKeysWithValues: newValue.map { ("\($0.key)", $0.value) })
+            weekdayJSON = (try? JSONEncoder().encode(dict)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        }
+    }
+
+    func kcal(forWeekday wd: Int) -> Double { weekdayKcal[wd] ?? kcal }
+
+    func setKcal(_ value: Double, forWeekday wd: Int) {
+        var dict = weekdayKcal
+        dict[wd] = value
+        weekdayKcal = dict
+    }
+
+    // MARK: History
+
+    private(set) var history: [GoalPlan] {
+        get {
+            guard let data = historyJSON.data(using: .utf8) else { return [] }
+            let dec = JSONDecoder()
+            dec.dateDecodingStrategy = .iso8601
+            return (try? dec.decode([GoalPlan].self, from: data)) ?? []
+        }
+        set {
+            let enc = JSONEncoder()
+            enc.dateEncodingStrategy = .iso8601
+            historyJSON = (try? enc.encode(newValue)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        }
+    }
+
+    private func currentPlan(from: Date) -> GoalPlan {
+        GoalPlan(from: from, kcal: kcal, protein: protein, carbs: carbs, fat: fat,
+                 weekdayKcal: weekdayEnabled ? weekdayKcal : [:], activityPercent: activityEnabled ? activityPercent : 0)
+    }
+
+    /// Stores the current targets as valid from today (same-day edits replace each other).
+    func recordPlan() {
+        let today = Calendar.current.startOfDay(for: .now)
+        var h = history
+        let plan = currentPlan(from: today)
+        if let last = h.last, last.sameTargets(as: plan) { return }
+        if let last = h.last, last.from >= today { h[h.count - 1] = plan } else { h.append(plan) }
+        history = h
+    }
+
+    // MARK: Goal of a day
+
+    func target(for day: Date) -> DayTarget {
+        let cal = Calendar.current
+        let d = cal.startOfDay(for: day)
+        let plan: GoalPlan = d >= cal.startOfDay(for: .now)
+            ? currentPlan(from: d)
+            : (history.last { $0.from <= d } ?? history.first ?? currentPlan(from: d))
+        let base = plan.weekdayKcal[cal.component(.weekday, from: d)] ?? plan.kcal
+        let active = activityEnabled ? ActivityStore.kcal(for: d) : 0
+        let bonus = (active * plan.activityPercent / 100).rounded()
+        let total = base + bonus
+        // Protein stays; the extra/missing energy is shared by carbs and fat in their usual ratio.
+        let delta = total - plan.kcal
+        let carbE = plan.carbs * 4, fatE = plan.fat * 9
+        let share = carbE + fatE > 0 ? carbE / (carbE + fatE) : 0.6
+        return DayTarget(kcal: total, protein: plan.protein,
+                         carbs: max(0, (plan.carbs + delta * share / 4).rounded()),
+                         fat: max(0, (plan.fat + delta * (1 - share) / 9).rounded()),
+                         baseKcal: base, activeKcal: active, activityBonus: bonus)
+    }
+
+    /// Re-renders views after new activity data arrived.
+    func activityUpdated() { objectWillChange.send() }
 
     /// Macros as fixed grams or as % of the calorie goal (always adds up to 100 %).
     @AppStorage("goal.macroMode") var macroMode: MacroMode = .percent

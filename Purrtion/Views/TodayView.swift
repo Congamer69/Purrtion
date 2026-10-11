@@ -93,6 +93,14 @@ struct TodayView: View {
                     followMidnight()
                 }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { followMidnight() } }
+                #if DEBUG
+                .task {
+                    if UserDefaults.standard.string(forKey: "debugSearch") != nil {
+                        try? await Task.sleep(for: .seconds(1.6))
+                        sheet = .search
+                    }
+                }
+                #endif
                 .onChange(of: router.reviewDay) { _, target in
                     guard let target else { return }
                     router.reviewDay = nil
@@ -446,7 +454,7 @@ struct DayContent: View {
         guard entries.contains(where: { e in
             e.isComposite ? e.ingredients.contains { !($0.food.aiNutrientKeys ?? []).isEmpty } : !(e.food?.aiNutrientKeys ?? []).isEmpty
         }) else { return nil }
-        let before = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein, withoutAI: true)
+        let before = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein, withoutAI: true)
         return before.score == score.score ? nil : before
     }
 
@@ -471,24 +479,26 @@ struct DayContent: View {
 
     private var total: Nutrients { entries.reduce(Nutrients()) { $0 + $1.nutrients } }
     private var selecting: Bool { selection != nil }
+    /// Goal of the shown day (weekday goal, activity bonus, goal valid at that time).
+    private var target: DayTarget { goals.target(for: day) }
 
     private var mood: CatMood {
         if justAte { return .eating }
         let kcal = entries.reduce(0) { $0 + $1.kcal }
         if entries.isEmpty { return .sleeping }
-        if kcal > goals.kcal * 1.08 { return .full }
-        if kcal >= goals.kcal * 0.85 { return .happy }
+        if kcal > target.kcal * 1.08 { return .full }
+        if kcal >= target.kcal * 0.85 { return .happy }
         return .idle
     }
 
     var body: some View {
         List {
             Group {
-                SummaryCard(total: total, mood: mood, burst: burst)
-                Button { sheet = .nutrients(total) } label: { MacroCard(total: total) }
+                SummaryCard(total: total, mood: mood, burst: burst, target: target)
+                Button { sheet = .nutrients(total) } label: { MacroCard(total: total, target: target) }
                     .buttonStyle(SquishButtonStyle())
                 if goals.healthScoreEnabled, !entries.isEmpty {
-                    let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
+                    let score = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein)
                     let baseline = aiBaseline(score)
                     Button { sheet = .score(score, baseline: baseline) } label: { HealthScoreCard(score: score, baseline: baseline) }
                         .buttonStyle(SquishButtonStyle())
@@ -707,11 +717,12 @@ struct SummaryCard: View {
     let total: Nutrients
     let mood: CatMood
     let burst: Int
+    let target: DayTarget
     @EnvironmentObject private var goals: Goals
 
     var body: some View {
-        let remaining = goals.kcal - total.kcal
-        let progress = total.kcal / max(goals.kcal, 1)
+        let remaining = target.kcal - total.kcal
+        let progress = total.kcal / max(target.kcal, 1)
         HStack(spacing: 18) {
             ZStack {
                 CalorieRing(progress: progress, lineWidth: 14)
@@ -733,7 +744,27 @@ struct SummaryCard: View {
                 }
                 HStack(spacing: 14) {
                     stat("Gegessen", total.kcal)
-                    stat("Ziel", goals.kcal)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(target.kcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
+                            .contentTransition(.numericText(value: target.kcal))
+                        HStack(spacing: 3) {
+                            Text("Ziel").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                            if target.activityBonus > 0 {
+                                Text("+\(target.activityBonus.kcalString)").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
+                            }
+                        }
+                        .lineLimit(1)
+                    }
+                    if goals.activityEnabled {
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 2) {
+                                Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent)
+                                Text(target.activeKcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
+                                    .contentTransition(.numericText(value: target.activeKcal))
+                            }
+                            Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        }
+                    }
                 }
             }
             Spacer(minLength: 0)
@@ -777,13 +808,13 @@ struct CalorieRing: View {
 
 struct MacroCard: View {
     let total: Nutrients
-    @EnvironmentObject private var goals: Goals
+    let target: DayTarget
 
     var body: some View {
         HStack(spacing: 14) {
-            MacroBar(name: "Protein", value: total.protein, goal: goals.protein, color: Theme.protein)
-            MacroBar(name: "Kohlenh.", value: total.carbs, goal: goals.carbs, color: Theme.carbs)
-            MacroBar(name: "Fett", value: total.fat, goal: goals.fat, color: Theme.fat)
+            MacroBar(name: "Protein", value: total.protein, goal: target.protein, color: Theme.protein)
+            MacroBar(name: "Kohlenh.", value: total.carbs, goal: target.carbs, color: Theme.carbs)
+            MacroBar(name: "Fett", value: total.fat, goal: target.fat, color: Theme.fat)
         }
         .card()
     }

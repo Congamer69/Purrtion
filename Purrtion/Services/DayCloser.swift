@@ -38,9 +38,10 @@ enum DayCloser {
         }
 
         // 2) Verdict, based on the now complete numbers.
-        let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
-        let scoreBefore = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein, withoutAI: true)
-        let verdict = try await judge(entries: entries, score: score, goals: goals, provider: provider)
+        let target = goals.target(for: d)
+        let score = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein)
+        let scoreBefore = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein, withoutAI: true)
+        let verdict = try await judge(entries: entries, score: score, target: target, provider: provider)
 
         let existing = try ctx.fetch(FetchDescriptor<DayReview>(predicate: #Predicate { $0.day == d }))
         existing.dropFirst().forEach(ctx.delete)
@@ -224,7 +225,7 @@ enum DayCloser {
         "additionalProperties": false,
     ]
 
-    static func dayDescription(entries: [FoodEntry], score: HealthScore, goals: Goals) -> String {
+    static func dayDescription(entries: [FoodEntry], score: HealthScore, target: DayTarget) -> String {
         let total = entries.reduce(Nutrients()) { $0 + $1.nutrients }
         let foods = entries.map { e -> String in
             var line = "- \(e.name) (\(e.amountText)): \(Int(e.kcal)) kcal, P \(Int(e.protein)) g, K \(Int(e.carbs)) g, F \(Int(e.fat)) g"
@@ -238,7 +239,7 @@ enum DayCloser {
         let good = coverage.filter { $0.1 >= 1 }.map { $0.0.name }
         let components = score.components.map { "\($0.title): \(Int($0.points.rounded()))/\(Int($0.maxPoints)) (\($0.valueText))" }
         return """
-        Ziele: \(Int(goals.kcal)) kcal, Protein \(Int(goals.protein)) g, Kohlenhydrate \(Int(goals.carbs)) g, Fett \(Int(goals.fat)) g.
+        Ziele: \(Int(target.kcal)) kcal\(target.activityBonus > 0 ? " (inkl. \(Int(target.activityBonus)) kcal Aktivität)" : ""), Protein \(Int(target.protein)) g, Kohlenhydrate \(Int(target.carbs)) g, Fett \(Int(target.fat)) g.\(target.activeKcal > 0 ? " Aktivitätskalorien laut Apple Health: \(Int(target.activeKcal)) kcal." : "")
         Gegessen:
         \(foods.joined(separator: "\n"))
         Summe: \(Int(total.kcal)) kcal, Protein \(Int(total.protein)) g, Kohlenhydrate \(Int(total.carbs)) g, Fett \(Int(total.fat)) g.
@@ -258,8 +259,8 @@ enum DayCloser {
     konkrete Tipps für morgen.
     """
 
-    private static func judge(entries: [FoodEntry], score: HealthScore, goals: Goals, provider: VisionProvider) async throws -> Verdict {
-        let day = dayDescription(entries: entries, score: score, goals: goals)
+    private static func judge(entries: [FoodEntry], score: HealthScore, target: DayTarget, provider: VisionProvider) async throws -> Verdict {
+        let day = dayDescription(entries: entries, score: score, target: target)
         let verdict: Verdict
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-fakeAI") {

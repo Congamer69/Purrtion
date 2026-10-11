@@ -7,3 +7,6 @@ Third-party data bundled with or used by this app keeps its own license:
   https://creativecommons.org/licenses/by/4.0/
 - Open Food Facts product data (fetched at runtime), licensed under ODbL
   https://opendatacommons.org/licenses/odbl/1-0/
+- Schweizer Nährwertdatenbank V 7.1 (Purrtion/Resources/swiss.json)
+  © Bundesamt für Lebensmittelsicherheit und Veterinärwesen BLV, naehrwertdaten.ch
+  Free to use, also in diary apps, with source attribution.

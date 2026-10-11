@@ -16,6 +16,18 @@ struct AddFoodView: View {
     @State private var path: [FoodItem] = []
     @State private var showBarcode = false
     @State private var addedName: String?
+    @State private var aiQuery: AIQuery?
+    @AppStorage(SearchSource.ai.storageKey) private var aiEnabled = true
+
+    struct AIQuery: Identifiable { let text: String; var id: String { text } }
+
+    private var trimmedQuery: String { search.query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// Natural sentences ("2 Eier und ein Toast") go to the AI first, single words below the database hits.
+    private var looksLikeSentence: Bool {
+        let words = trimmedQuery.split(separator: " ")
+        return words.count >= 3 || trimmedQuery.contains(where: \.isNumber) || trimmedQuery.contains(",")
+            || words.contains { ["und", "mit", "dazu", "plus"].contains($0.lowercased()) }
+    }
 
     private var favorites: [SavedFood] { saved.filter(\.isFavorite) }
     private var recents: [SavedFood] { Array(saved.prefix(25)) }
@@ -52,20 +64,38 @@ struct AddFoodView: View {
             .sheet(isPresented: $showBarcode) {
                 BarcodeFlowView(day: day)
             }
+            .sheet(item: $aiQuery) { q in
+                MealPhotoView(day: day, textQuery: q.text) { name in
+                    aiQuery = nil
+                    flashAdded(name)
+                }
+            }
             .sheet(isPresented: $newRecipe) { RecipeEditor(existing: nil) }
             .sheet(isPresented: $newFood) { CustomFoodEditor(existing: nil) }
         }
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            #if DEBUG
+            if let q = UserDefaults.standard.string(forKey: "debugSearch"), search.query.isEmpty {
+                search.query = q
+                search.queryChanged()
+            }
+            #endif
+        }
     }
 
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(Theme.textSecondary)
-            TextField("z. B. Apfel, Skyr, Pizza …", text: $search.query)
+            TextField(aiEnabled ? "z. B. Skyr oder „2 Eier und ein Toast“" : "z. B. Apfel, Skyr, Pizza …", text: $search.query)
                 .font(Theme.font(17))
                 .focused($focused)
                 .submitLabel(.search)
                 .autocorrectionDisabled()
+                .onSubmit {
+                    // Enter on a sentence or without hits → let the AI estimate it.
+                    if aiEnabled, trimmedQuery.count >= 2, looksLikeSentence || search.isEmpty { aiQuery = AIQuery(text: trimmedQuery) }
+                }
                 .onChange(of: search.query) { _, _ in search.queryChanged() }
             if search.isLoading {
                 ProgressView().controlSize(.small)
@@ -149,7 +179,7 @@ struct AddFoodView: View {
                 VStack(spacing: 12) {
                     CatMascot(mood: .idle, pixel: 5)
                     Text("Wonach hast du Hunger?").font(Theme.font(17, .semibold)).foregroundStyle(Theme.textPrimary)
-                    Text("7.100 Lebensmittel aus dem Bundeslebensmittelschlüssel – offline – plus Millionen Produkte von Open Food Facts.")
+                    Text("Über 8.000 Lebensmittel und Gerichte aus dem Bundeslebensmittelschlüssel und der Schweizer Nährwertdatenbank – offline – plus Millionen Produkte von Open Food Facts. Alles andere schätzt die KI.")
                         .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
@@ -185,16 +215,42 @@ struct AddFoodView: View {
         .plainRow()
     }
 
+    private var aiRow: some View {
+        Button { aiQuery = AIQuery(text: trimmedQuery) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 44, height: 44).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("„\(trimmedQuery)“ mit KI schätzen").font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(2)
+                    Text(looksLikeSentence ? "Erkennt alle genannten Lebensmittel und Mengen" : "Für Restaurant- und Imbissgerichte ohne Datenbankeintrag")
+                        .font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.accent)
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .plainRow()
+    }
+
     @ViewBuilder
     private var resultsContent: some View {
+        if aiEnabled, trimmedQuery.count >= 2, looksLikeSentence { aiRow }
         if !matchingCustom.isEmpty {
             Section { ForEach(matchingCustom) { foodRow($0.food) } } header: { SectionTitle("Meine", icon: "fork.knife") }
         }
         if !search.foods.isEmpty {
             Section { ForEach(search.foods) { foodRow($0) } } header: { SectionTitle("Lebensmittel · BLS", icon: "leaf.fill") }
         }
+        if !search.swiss.isEmpty {
+            Section { ForEach(search.swiss) { foodRow($0) } } header: { SectionTitle("Lebensmittel & Gerichte · Schweiz", icon: "mountain.2.fill") }
+        }
         if !search.products.isEmpty {
             Section { ForEach(search.products) { foodRow($0) } } header: { SectionTitle("Produkte · Open Food Facts", icon: "cart.fill") }
+        }
+        if aiEnabled, trimmedQuery.count >= 2, !looksLikeSentence, !search.isLoading || !search.isEmpty {
+            Section { aiRow } header: { SectionTitle("Nicht dabei?", icon: "sparkles") }
         }
         if search.isLoading && search.products.isEmpty {
             WalkingCatLoader(pixel: 2.5, width: 200, text: "Suche Produkte …")
@@ -206,7 +262,7 @@ struct AddFoodView: View {
             VStack(spacing: 10) {
                 PixelSpriteView(sprite: Sprites.fish, pixel: 4)
                 Text("Nichts gefunden").font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
-                Text("Probier einen anderen Begriff oder trag es über ⚡ schnell selbst ein.")
+                Text(aiEnabled ? "Lass es oben von der KI schätzen oder trag es über ⚡ schnell selbst ein." : "Probier einen anderen Begriff oder trag es über ⚡ schnell selbst ein.")
                     .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 30).plainRow()
@@ -221,7 +277,7 @@ struct AddFoodView: View {
     private func savedRow(_ s: SavedFood) -> some View {
         HStack(spacing: 8) {
             if let food = s.food {
-                NavigationLink(value: food) { FoodRow(food: food, subtitle: lastUsedText(s)) }
+                NavigationLink(value: food) { FoodRow(food: food, subtitle: lastUsedText(s), amountGrams: lastGrams(s, food)) }
                 Button {
                     let serving = s.lastServing ?? food.defaultServing
                     ctx.log(food, quantity: s.lastQuantity, serving: serving, day: day)
@@ -242,6 +298,11 @@ struct AddFoodView: View {
                 .tint(Theme.carbs)
             Button(role: .destructive) { ctx.delete(s) } label: { Label("Entfernen", systemImage: "trash") }
         }
+    }
+
+    /// Amount that the "+" button logs, in g/ml.
+    private func lastGrams(_ s: SavedFood, _ food: FoodItem) -> Double {
+        s.lastQuantity * (s.lastServing?.grams ?? (s.lastServingName == food.unit ? 1 : food.defaultServing.grams))
     }
 
     private func lastUsedText(_ s: SavedFood) -> String {
@@ -281,6 +342,8 @@ struct AddFoodView: View {
 struct FoodRow: View {
     let food: FoodItem
     var subtitle: String? = nil
+    /// When set (recents/favourites), the big number is what actually gets logged.
+    var amountGrams: Double? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -296,8 +359,14 @@ struct FoodRow: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 0) {
-                Text(food.per100.kcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
-                Text("kcal/100\(food.unit)").font(Theme.font(10, .medium)).foregroundStyle(Theme.textSecondary)
+                if let amountGrams {
+                    Text(food.nutrients(grams: amountGrams).kcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
+                    Text("kcal").font(Theme.font(10, .medium)).foregroundStyle(Theme.textSecondary)
+                    Text("\(food.per100.kcal.kcalString)/100\(food.unit)").font(Theme.font(9, .medium)).foregroundStyle(Theme.textSecondary.opacity(0.8))
+                } else {
+                    Text(food.per100.kcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
+                    Text("kcal/100\(food.unit)").font(Theme.font(10, .medium)).foregroundStyle(Theme.textSecondary)
+                }
             }
         }
         .padding(.vertical, 4)
@@ -338,6 +407,18 @@ struct FoodThumb: View {
         switch food.source {
         case .ai: return Sprites.star
         case .custom: return Sprites.paw
+        case .swiss:
+            let category = SwissDatabase.shared.category(code: String(food.id.dropFirst(3))) ?? ""
+            if food.unit == "ml" { return Sprites.drop }
+            if category.hasPrefix("Gerichte") { return Sprites.bowl }
+            if category.hasPrefix("Brote") || category.hasPrefix("Getreide") { return Sprites.bread }
+            if category.hasPrefix("Gemüse") { return Sprites.carrot }
+            if category.hasPrefix("Milch") { return Sprites.cheese }
+            if category.hasPrefix("Süss") { return Sprites.candy }
+            if category.hasPrefix("Fisch") { return Sprites.fish }
+            if category.hasPrefix("Fleisch") { return Sprites.drumstick }
+            if category.hasPrefix("Eier") { return Sprites.egg }
+            return Sprites.apple
         default: break
         }
         if food.unit == "ml" { return Sprites.drop }

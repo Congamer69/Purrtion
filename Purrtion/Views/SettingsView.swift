@@ -120,10 +120,7 @@ struct SettingsView: View {
                 BackupSection()
 
                 Section {
-                    sourceRow("leaf.fill", "Bundeslebensmittelschlüssel 4.0",
-                              "7.140 Lebensmittel, bis zu 138 Nährstoffe, im Labor analysiert. Offline in der App.")
-                    sourceRow("cart.fill", "Open Food Facts",
-                              "Barcodes & Markenprodukte, deutsche Produkte bevorzugt. Unplausible Werte werden markiert.")
+                    ForEach(SearchSource.allCases) { SourceToggle(source: $0) }
                     NavigationLink { VisionSettingsView() } label: {
                         HStack {
                             Label("KI-Modelle", systemImage: "sparkles")
@@ -132,7 +129,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: { Text("Datenquellen") } footer: {
-                    Text(BLSDatabase.attribution)
+                    Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)")
                 }
                 .listRowBackground(Theme.card)
 
@@ -169,17 +166,29 @@ struct SettingsView: View {
     private func export() {
         do { exportURLs = try CSVExport.files(ctx); exportError = nil } catch { exportError = error.localizedDescription }
     }
+}
 
-    func sourceRow(_ icon: String, _ title: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
-                .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(Theme.font(15, .semibold))
-                Text(text).font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+private struct SourceToggle: View {
+    let source: SearchSource
+    @AppStorage private var on: Bool
+
+    init(source: SearchSource) {
+        self.source = source
+        _on = AppStorage(wrappedValue: true, source.storageKey)
+    }
+
+    var body: some View {
+        Toggle(isOn: $on) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: source.icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(source.title).font(Theme.font(15, .semibold))
+                    Text(source.detail).font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                }
             }
+            .padding(.vertical, 2)
         }
-        .padding(.vertical, 2)
     }
 }
 
@@ -483,12 +492,16 @@ struct GoalsEditor: View {
     var body: some View {
         Form {
             Section {
-                SliderField(title: "Kalorienziel", value: $goals.kcal, range: 1000...5000, step: 10, unit: "kcal")
+                SliderField(title: goals.weekdayEnabled ? "Standard-Kalorienziel" : "Kalorienziel", value: $goals.kcal, range: 1000...5000, step: 10, unit: "kcal")
                     .onChange(of: goals.kcal) { _, _ in goals.syncMacros() }
             } footer: {
-                Text("Tipp: Zahl antippen und direkt eintippen.")
+                Text("Änderungen gelten ab heute – vergangene Tage behalten das Ziel, das damals galt. Tipp: Zahl antippen und direkt eintippen.")
             }
             .listRowBackground(Theme.card)
+
+            WeekdayGoalsSection()
+
+            ActivityGoalSection()
 
             Section {
                 Picker("Makros einstellen in", selection: $goals.macroMode) {
@@ -532,6 +545,90 @@ struct GoalsEditor: View {
         .navigationTitle("Ziele")
         .keyboardDoneButton()
         .onAppear { goals.syncMacros() }
+    }
+}
+
+/// Own calorie goal per weekday (e.g. more on training days or at the weekend).
+private struct WeekdayGoalsSection: View {
+    @EnvironmentObject private var goals: Goals
+    /// Monday first.
+    private let weekdays = [2, 3, 4, 5, 6, 7, 1]
+
+    var body: some View {
+        Section {
+            Toggle(isOn: Binding(get: { goals.weekdayEnabled }, set: { on in
+                if on {
+                    var dict = goals.weekdayKcal
+                    for wd in weekdays where dict[wd] == nil { dict[wd] = goals.kcal }
+                    goals.weekdayKcal = dict
+                }
+                withAnimation(.snappy) { goals.weekdayEnabled = on }
+            })) { Label("Ziel pro Wochentag", systemImage: "calendar.badge.clock") }
+            if goals.weekdayEnabled {
+                ForEach(weekdays, id: \.self) { wd in
+                    SliderField(title: Calendar.current.weekdaySymbols[wd - 1],
+                                value: Binding(get: { goals.kcal(forWeekday: wd) }, set: { goals.setKcal($0, forWeekday: wd) }),
+                                range: 1000...5000, step: 10, unit: "kcal")
+                }
+                Button("Alle auf \(goals.kcal.kcalString) kcal zurücksetzen") {
+                    goals.weekdayKcal = Dictionary(uniqueKeysWithValues: weekdays.map { ($0, goals.kcal) })
+                }
+                .font(Theme.font(14, .semibold))
+            }
+        } footer: {
+            Text(goals.weekdayEnabled
+                 ? "Protein bleibt an jedem Tag gleich, Kohlenhydrate und Fett gleichen den Unterschied aus."
+                 : "Zum Beispiel mehr an Trainingstagen oder am Wochenende.")
+        }
+        .listRowBackground(Theme.card)
+    }
+}
+
+/// Active energy from Apple Health – shown on Today and optionally added to the goal.
+private struct ActivityGoalSection: View {
+    @EnvironmentObject private var goals: Goals
+    @Environment(\.modelContext) private var ctx
+    @State private var todayActive: Double = ActivityStore.kcal(for: .now)
+    @State private var failed = false
+
+    var body: some View {
+        Section {
+            Toggle(isOn: Binding(get: { goals.activityEnabled }, set: { on in
+                withAnimation(.snappy) { goals.activityEnabled = on }
+                guard on else { return }
+                Task {
+                    do { try await ActivityStore.requestAuthorization() } catch { failed = true }
+                    await ActivityStore.refresh()
+                    todayActive = ActivityStore.kcal(for: .now)
+                    goals.activityUpdated()
+                    WidgetBridge.update(ctx, goals: goals)
+                }
+            })) { Label("Aktivitätskalorien", systemImage: "flame.fill") }
+            if goals.activityEnabled {
+                LabeledContent("Heute laut Apple Health", value: "\(todayActive.kcalString) kcal")
+                Picker("Aufs Kalorienziel anrechnen", selection: $goals.activityPercent) {
+                    Text("Nein").tag(0.0)
+                    Text("50 %").tag(50.0)
+                    Text("75 %").tag(75.0)
+                    Text("100 %").tag(100.0)
+                }
+                if failed {
+                    Text("Kein Zugriff auf Apple Health – in der Health-App unter Teilen → Apps → Purrtion erlauben.")
+                        .font(Theme.font(12)).foregroundStyle(Theme.danger)
+                }
+            }
+        } header: { Text("Aktivität (Apple Health)") } footer: {
+            Text(goals.activityEnabled
+                 ? "„Nein“ zeigt die Kalorien nur an. Mit Anrechnung steigt dein Tagesziel um den gewählten Anteil deiner aktiven Kalorien (Fitness-Ringe). Uhren überschätzen den Verbrauch oft – 50–75 % ist ein guter Kompromiss. Dein Grundumsatz ist im Kalorienziel schon enthalten."
+                 : "Zeigt deine aktiven Kalorien aus Apple Health (z. B. Apple Watch) auf der Heute-Seite – auf Wunsch werden sie aufs Ziel angerechnet.")
+        }
+        .listRowBackground(Theme.card)
+        .task {
+            guard goals.activityEnabled else { return }
+            await ActivityStore.refresh()
+            todayActive = ActivityStore.kcal(for: .now)
+            goals.activityUpdated()
+        }
     }
 }
 

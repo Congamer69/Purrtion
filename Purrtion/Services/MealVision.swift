@@ -48,6 +48,31 @@ enum MealVision {
         return try await ClassifierVision.analyze(image: image)
     }
 
+    /// Same estimate from a description instead of a photo: "Käsespätzle vom Restaurant", "2 Eier und ein Toast".
+    static func analyze(text: String) async throws -> Result {
+        let provider = AITask.photo.provider
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-fakeAI") {
+            try await Task.sleep(for: .seconds(1))
+            let n = Nutrients(kcal: 245, protein: 10, carbs: 24, fat: 12, extra: ["fiber": 1.5, "salt": 0.9, "calcium": 180])
+            return Result(dish: text.capitalized, items: [aiItem(name: text.capitalized, grams: 350, confidence: "mittel", per100: n)!])
+        }
+        #endif
+        if provider != .apple {
+            return try await CloudVision.analyze(provider: provider, text: text)
+        }
+        return try await AppleVision.analyze(text: text)
+    }
+
+    static let textPrompt = """
+    Die Person beschreibt in eigenen Worten, was sie gegessen hat – ein einzelnes Lebensmittel, ein Gericht \
+    (z. B. aus dem Restaurant oder vom Imbiss) oder mehrere Dinge mit Mengenangaben.
+    Gibt es nur ein Lebensmittel oder ein typisches Gericht, liefere genau einen Eintrag für das ganze Gericht \
+    mit einer üblichen Portionsgröße (bzw. der genannten Menge) und den Nährwerten pro 100 g.
+    Werden mehrere Lebensmittel genannt, liefere je Lebensmittel einen Eintrag mit der genannten oder einer typischen Menge.
+    Nenne die Einträge mit kurzen deutschen Namen. Berücksichtige typische Zubereitung (Öl, Butter, Soße, Käse).
+    """
+
     static func aiItem(name: String, grams: Double, confidence: String, per100: Nutrients) -> Item? {
         guard grams > 0, per100.kcal > 0 || per100.protein + per100.carbs + per100.fat > 0 else { return nil }
         var nutrients = per100
@@ -198,6 +223,18 @@ enum CloudVision {
                               per100: $0.nutrientsPer100.nutrients())
         }
         guard !items.isEmpty else { throw MealVision.VisionError.empty }
+        return MealVision.Result(dish: payload.dish, items: items)
+    }
+
+    static func analyze(provider: VisionProvider, text: String) async throws -> MealVision.Result {
+        let prompt = MealVision.textPrompt + "\n" + jsonInstruction + "\nBeschreibung: \(text)"
+        let raw = try await request(provider: provider, model: AITask.photo.model, text: prompt, b64: nil, schema: schema)
+        guard let payload = decode(Payload.self, from: raw) else { throw MealVision.VisionError.failed("Antwort nicht lesbar") }
+        let items = payload.items.compactMap {
+            MealVision.aiItem(name: $0.name, grams: $0.grams.rounded(), confidence: $0.confidence ?? "mittel",
+                              per100: $0.nutrientsPer100.nutrients())
+        }
+        guard !items.isEmpty else { throw MealVision.VisionError.failed("Dazu konnte ich nichts schätzen.") }
         return MealVision.Result(dish: payload.dish, items: items)
     }
 
@@ -442,7 +479,30 @@ private enum AppleVision {
             throw MealVision.VisionError.failed(error.localizedDescription)
         }
 
-        let items = guess.items.compactMap { component in
+        let items = convert(guess)
+        guard !items.isEmpty else { throw MealVision.VisionError.empty }
+        return MealVision.Result(dish: guess.dish, items: items)
+    }
+
+    static func analyze(text: String) async throws -> MealVision.Result {
+        let model = SystemLanguageModel.default
+        guard model.isAvailable else {
+            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Profil → KI-Modelle einen anderen Anbieter.")
+        }
+        let session = LanguageModelSession(model: model, instructions: instructions + "\n" + MealVision.textPrompt)
+        let guess: MealGuess
+        do {
+            guess = try await session.respond(to: "Beschreibung: \(text)", generating: MealGuess.self).content
+        } catch {
+            throw MealVision.VisionError.failed(error.localizedDescription)
+        }
+        let items = convert(guess)
+        guard !items.isEmpty else { throw MealVision.VisionError.failed("Dazu konnte ich nichts schätzen.") }
+        return MealVision.Result(dish: guess.dish, items: items)
+    }
+
+    private static func convert(_ guess: MealGuess) -> [MealVision.Item] {
+        guess.items.compactMap { component in
             var extras: [String: Double] = [:]
             if let value = component.nutrientsPer100.fiber, value > 0 { extras[NutrientKey.fiber.rawValue] = Double(value) }
             if let value = component.nutrientsPer100.sugar, value > 0 { extras[NutrientKey.sugar.rawValue] = Double(value) }
@@ -459,8 +519,6 @@ private enum AppleVision {
             return MealVision.aiItem(name: component.name, grams: Double(component.grams),
                                      confidence: component.confidence, per100: nutrition)
         }
-        guard !items.isEmpty else { throw MealVision.VisionError.empty }
-        return MealVision.Result(dish: guess.dish, items: items)
     }
 }
 
