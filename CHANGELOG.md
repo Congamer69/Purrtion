@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2 – 11. Oktober 2026
+
+### Neu
+- **Tag abschließen:** Ein Button am Ende der Tagesliste lässt die KI (derselbe Anbieter und Schlüssel wie bei der Foto-Erkennung) fehlende Mikronährstoffe für alle Einträge ergänzen – Barcode-Produkte, KI-Scans, eigene Lebensmittel und Rezept-Zutaten. Etikett- und BLS-Werte bleiben unverändert, der Health Score rechnet danach mit den vollständigen Werten.
+- **Tagesfazit:** Nach dem Abschluss ordnet die KI den Tag in 1–2 Worten ein; ein Tipp darauf zeigt Stichpunkte zu dem, was gut lief, was fehlte, und Tipps für morgen. Ändert sich der Tag danach, wird das Fazit als „veraltet“ markiert und lässt sich neu bewerten.
+
+### Verbessert
+- **Mitternacht:** „Heute“ wechselt um 0 Uhr automatisch auf den neuen Tag, Widgets zeigen ab Mitternacht den leeren neuen Tag.
+- **Sicherung** enthält jetzt auch die Zutaten von Mahlzeiten und die Tagesfazits.
+- **API-Schlüssel:** Leerzeichen und Zeilenumbrüche beim Einfügen werden ignoriert; Gemini-Schlüssel werden bei Bedarf auf zweitem Weg übergeben.
+
 ## 1.1 – 10. Oktober 2026
 
 ### Neu

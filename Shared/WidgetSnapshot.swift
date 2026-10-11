@@ -22,10 +22,14 @@ struct WidgetSnapshot: Codable {
     var entryCount = 0
 
     /// Values for today – a snapshot from yesterday counts as an empty day.
-    var forToday: WidgetSnapshot {
-        guard !Calendar.current.isDateInToday(day) else { return self }
+    var forToday: WidgetSnapshot { values(on: .now) }
+
+    /// Values as they will be shown on `date`: anything recorded for an earlier day counts as empty.
+    func values(on date: Date) -> WidgetSnapshot {
+        let target = Calendar.current.startOfDay(for: date)
+        guard day < target else { return self }
         var s = self
-        s.day = Calendar.current.startOfDay(for: .now)
+        s.day = target
         s.kcal = 0; s.protein = 0; s.carbs = 0; s.fat = 0; s.waterML = 0; s.score = nil; s.entryCount = 0
         return s
     }

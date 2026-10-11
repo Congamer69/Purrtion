@@ -57,7 +57,7 @@ struct FoodDetailView: View {
                 nutritionCard
                 NutrientList(nutrients: n, compact: true)
                     .card()
-                Text("Quelle: \(food.source.label)\(food.barcode.map { " · EAN \($0)" } ?? "")\(food.source == .bls ? " · Max Rubner-Institut, CC BY 4.0" : "")")
+                Text("Quelle: \(food.source.label)\(food.barcode.map { " · EAN \($0)" } ?? "")\(food.source == .bls ? " · Max Rubner-Institut, CC BY 4.0" : "")\(food.microsEstimated == true ? " · fehlende Mikronährstoffe KI-geschätzt" : "")")
                     .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                     .padding(.bottom, 90)
             }

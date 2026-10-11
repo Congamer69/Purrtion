@@ -56,7 +56,8 @@ enum VisionProvider: String, CaseIterable, Identifiable {
         return m.isEmpty ? defaultModel : m
     }
 
-    var apiKey: String { Keychain.get(keychainKey) ?? "" }
+    /// Pasted keys often carry a stray space or line break – trim them.
+    var apiKey: String { (Keychain.get(keychainKey) ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var keyURL: URL? {
         switch self {

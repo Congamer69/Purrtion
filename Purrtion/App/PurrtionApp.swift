@@ -15,7 +15,7 @@ struct PurrtionApp: App {
                 .tint(Theme.accent)
                 .preferredColorScheme(appearance.colorScheme)
         }
-        .modelContainer(for: [FoodEntry.self, SavedFood.self, WaterLog.self, WeightLog.self, CustomFood.self])
+        .modelContainer(for: [FoodEntry.self, SavedFood.self, WaterLog.self, WeightLog.self, CustomFood.self, DayReview.self])
     }
 }
 
@@ -58,6 +58,9 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { WidgetBridge.update(ctx, goals: goals) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+            WidgetBridge.update(ctx, goals: goals)
         }
         .fullScreenCover(isPresented: Binding(get: { !goals.onboarded && !showSplash }, set: { _ in })) {
             OnboardingView()
@@ -102,6 +105,11 @@ extension RootView {
         let salmon = FoodEntry(mealName: "Lachs-Bowl", ingredients: lunch, source: .ai, day: today)
         salmon.createdAt = .now.addingTimeInterval(2)
         ctx.insert(salmon)
+        // A brand product with label values only – shows how "Tag abschließen" fills in the micronutrients.
+        let bar = FoodItem(id: "demo-proteinbar", name: "Proteinriegel Schoko", brand: "Demo", source: .openFoodFacts,
+                           per100: Nutrients(kcal: 380, protein: 33, carbs: 30, fat: 12, extra: ["sugar": 4, "fiber": 8, "salt": 0.5]),
+                           servings: [ServingOption(name: "1 Riegel", grams: 55)])
+        ctx.insert(FoodEntry(food: bar, quantity: 1, serving: bar.servings[0], day: today))
         ctx.insert(WaterLog(day: today, ml: 1500))
 
         // History: varied days – mostly within goal, some slightly / clearly over.

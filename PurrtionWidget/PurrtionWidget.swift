@@ -31,8 +31,10 @@ struct SnapshotProvider: TimelineProvider {
         let now = Date()
         let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now))!
         // Refresh right after midnight so the widget starts the new day empty; the app reloads on every change.
-        completion(Timeline(entries: [SnapshotEntry(date: now, snapshot: WidgetSnapshot.load().forToday),
-                                      SnapshotEntry(date: midnight, snapshot: WidgetSnapshot.load().forToday)],
+        // The midnight entry must be computed for the new day, not for the moment the timeline is built.
+        let snapshot = WidgetSnapshot.load()
+        completion(Timeline(entries: [SnapshotEntry(date: now, snapshot: snapshot.values(on: now)),
+                                      SnapshotEntry(date: midnight, snapshot: snapshot.values(on: midnight))],
                             policy: .after(midnight.addingTimeInterval(60))))
     }
 }

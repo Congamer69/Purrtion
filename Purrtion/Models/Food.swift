@@ -46,6 +46,8 @@ struct FoodItem: Codable, Hashable, Identifiable {
     var warning: String? = nil
     /// Present for logged recipes and AI meals so their components remain editable after logging.
     var recipeIngredients: [RecipeIngredient]? = nil
+    /// Missing micronutrients were filled in by the AI when the day was closed.
+    var microsEstimated: Bool? = nil
 
     var displayName: String { name.isEmpty ? "Unbenannt" : name }
 

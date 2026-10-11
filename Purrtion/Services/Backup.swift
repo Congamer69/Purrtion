@@ -20,12 +20,14 @@ enum Backup {
         var custom: [Custom] = []
         var water: [Water] = []
         var weights: [Weight] = []
+        var reviews: [Review]? = nil
         var settings: [String: String] = [:]
 
         struct Entry: Codable {
             var day: Date; var createdAt: Date; var name: String; var brand: String?
             var quantity: Double; var servingName: String; var servingGrams: Double
             var kcal: Double; var protein: Double; var carbs: Double; var fat: Double; var foodData: Data?
+            var ingredientsData: Data?
         }
         struct Saved: Codable {
             var key: String; var name: String; var brand: String?; var kcalPer100: Double; var foodData: Data?
@@ -37,6 +39,10 @@ enum Backup {
         }
         struct Water: Codable { var day: Date; var ml: Int }
         struct Weight: Codable { var date: Date; var kg: Double }
+        struct Review: Codable {
+            var day: Date; var createdAt: Date; var rating: String; var tone: String; var pointsData: Data?
+            var signature: String; var enrichedCount: Int; var providerName: String; var score: Int?
+        }
     }
 
     // MARK: Export / import
@@ -47,7 +53,7 @@ enum Backup {
         p.entries = try ctx.fetch(FetchDescriptor<FoodEntry>()).map {
             .init(day: $0.day, createdAt: $0.createdAt, name: $0.name, brand: $0.brand, quantity: $0.quantity,
                   servingName: $0.servingName, servingGrams: $0.servingGrams, kcal: $0.kcal, protein: $0.protein,
-                  carbs: $0.carbs, fat: $0.fat, foodData: $0.foodData)
+                  carbs: $0.carbs, fat: $0.fat, foodData: $0.foodData, ingredientsData: $0.ingredientsData)
         }
         p.saved = try ctx.fetch(FetchDescriptor<SavedFood>()).map {
             .init(key: $0.key, name: $0.name, brand: $0.brand, kcalPer100: $0.kcalPer100, foodData: $0.foodData,
@@ -60,6 +66,10 @@ enum Backup {
         }
         p.water = try ctx.fetch(FetchDescriptor<WaterLog>()).map { .init(day: $0.day, ml: $0.ml) }
         p.weights = try ctx.fetch(FetchDescriptor<WeightLog>()).map { .init(date: $0.date, kg: $0.kg) }
+        p.reviews = try ctx.fetch(FetchDescriptor<DayReview>()).map {
+            .init(day: $0.day, createdAt: $0.createdAt, rating: $0.rating, tone: $0.tone, pointsData: $0.pointsData,
+                  signature: $0.signature, enrichedCount: $0.enrichedCount, providerName: $0.providerName, score: $0.score)
+        }
         for (k, v) in UserDefaults.standard.dictionaryRepresentation()
         where settingPrefixes.contains(where: { k.hasPrefix($0) }) && k != bookmarkKey {
             if let s = v as? String { p.settings[k] = "s:" + s }
@@ -88,6 +98,7 @@ enum Backup {
         try ctx.delete(model: CustomFood.self)
         try ctx.delete(model: WaterLog.self)
         try ctx.delete(model: WeightLog.self)
+        try ctx.delete(model: DayReview.self)
 
         for e in p.entries {
             let entry = FoodEntry(food: FoodItem(id: "restored", name: e.name, source: .custom, per100: Nutrients()),
@@ -95,6 +106,7 @@ enum Backup {
             entry.createdAt = e.createdAt; entry.name = e.name; entry.brand = e.brand
             entry.kcal = e.kcal; entry.protein = e.protein; entry.carbs = e.carbs; entry.fat = e.fat
             entry.foodData = e.foodData
+            entry.ingredientsData = e.ingredientsData
             ctx.insert(entry)
         }
         for s in p.saved {
@@ -112,6 +124,13 @@ enum Backup {
         }
         for w in p.water { ctx.insert(WaterLog(day: w.day, ml: w.ml)) }
         for w in p.weights { ctx.insert(WeightLog(date: w.date, kg: w.kg)) }
+        for r in p.reviews ?? [] {
+            let review = DayReview(day: r.day)
+            review.createdAt = r.createdAt; review.rating = r.rating; review.tone = r.tone; review.pointsData = r.pointsData
+            review.signature = r.signature; review.enrichedCount = r.enrichedCount; review.providerName = r.providerName
+            review.score = r.score
+            ctx.insert(review)
+        }
         try ctx.save()
 
         for (k, v) in p.settings {

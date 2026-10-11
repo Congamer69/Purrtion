@@ -8,6 +8,7 @@ enum AddSheet: Identifiable {
     case ingredient(FoodEntry, UUID)
     case nutrients(Nutrients)
     case score(HealthScore)
+    case review(DayReview)
     case calendar
     /// Pick the day to copy entries from.
     case copyFromDay
@@ -27,6 +28,7 @@ enum AddSheet: Identifiable {
         case .ingredient(let e, let id): "ingredient-\(e.id)-\(id)"
         case .nutrients: "nutrients"
         case .score: "score"
+        case .review(let r): "review-\(r.day.timeIntervalSince1970)"
         case .calendar: "calendar"
         case .copyFromDay: "copyFromDay"
         case .copyPicker(let d): "copyPicker-\(d.timeIntervalSince1970)"
@@ -37,6 +39,9 @@ enum AddSheet: Identifiable {
 
 struct TodayView: View {
     @State private var day = Calendar.current.startOfDay(for: .now)
+    /// The calendar day the app last considered "today" – used to follow midnight.
+    @State private var todayAnchor = Calendar.current.startOfDay(for: .now)
+    @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: AddSheet?
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
@@ -83,6 +88,10 @@ struct TodayView: View {
                     withAnimation(.snappy) { day = next }
                 })
                 .onChange(of: day) { _, _ in selection = nil }
+                .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+                    followMidnight()
+                }
+                .onChange(of: scenePhase) { _, phase in if phase == .active { followMidnight() } }
         }
         .sheet(item: $sheet, onDismiss: {
             // chain: calendar → entry picker
@@ -101,6 +110,8 @@ struct TodayView: View {
                     .presentationDetents([.medium, .large])
             case .score(let score):
                 HealthScoreView(score: score).presentationDetents([.large])
+            case .review(let review):
+                DayReviewSheet(review: review)
             case .calendar:
                 CalendarSheet(title: "Tag wählen") { picked in day = picked }
             case .copyFromDay:
@@ -118,6 +129,14 @@ struct TodayView: View {
         } message: {
             Text(recipeFromSelection ? "Die ausgewählten Einträge werden zu einem Rezept." : "Alle Einträge dieses Tages werden zu einem Rezept.")
         }
+    }
+
+    /// At midnight "Heute" moves on to the new day (unless another day is being looked at on purpose).
+    private func followMidnight() {
+        let now = Calendar.current.startOfDay(for: .now)
+        guard now != todayAnchor else { return }
+        if day == todayAnchor { withAnimation(.snappy) { day = now } }
+        todayAnchor = now
     }
 
     private func selectedEntries() -> [FoodEntry] {
@@ -392,6 +411,9 @@ struct DayContent: View {
     @State private var burst = 0
     @State private var pendingCelebration = false
     @State private var expandedMeals: Set<UUID> = []
+    @Query private var reviews: [DayReview]
+    @State private var closing = false
+    @State private var closeError: String?
 
     init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, onSaveRecipe: @escaping (Bool) -> Void) {
         self.day = day
@@ -401,6 +423,26 @@ struct DayContent: View {
         let d = day
         _entries = Query(filter: #Predicate<FoodEntry> { $0.day == d }, sort: \FoodEntry.createdAt, order: .reverse)
         _water = Query(filter: #Predicate<WaterLog> { $0.day == d })
+        _reviews = Query(filter: #Predicate<DayReview> { $0.day == d })
+    }
+
+    private var reviewOutdated: Bool {
+        guard let review = reviews.first else { return false }
+        return review.signature != DayReview.signature(for: entries)
+    }
+
+    private func closeDay() {
+        Haptics.tap()
+        withAnimation(.snappy) { closing = true }
+        Task {
+            do {
+                _ = try await DayCloser.close(day: day, goals: goals, ctx: ctx)
+                Haptics.success()
+            } catch {
+                closeError = error.localizedDescription
+            }
+            withAnimation(.snappy) { closing = false }
+        }
     }
 
     private var total: Nutrients { entries.reduce(Nutrients()) { $0 + $1.nutrients } }
@@ -425,6 +467,11 @@ struct DayContent: View {
                     let score = HealthScore(entries: entries, goalKcal: goals.kcal, goalProtein: goals.protein)
                     Button { sheet = .score(score) } label: { HealthScoreCard(score: score) }
                         .buttonStyle(SquishButtonStyle())
+                }
+                if let review = reviews.first, !entries.isEmpty {
+                    Button { sheet = .review(review) } label: { DayReviewCard(review: review, outdated: reviewOutdated) }
+                        .buttonStyle(SquishButtonStyle())
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
                 if goals.waterEnabled {
                     WaterCard(day: day, logs: water)
@@ -495,6 +542,12 @@ struct DayContent: View {
                             }
                         }
                     }
+                    if !selecting {
+                        DayCloseRow(hasReview: !reviews.isEmpty, outdated: reviewOutdated, running: closing, action: closeDay)
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
                 }
             } header: {
                 HStack {
@@ -526,6 +579,10 @@ struct DayContent: View {
         .scrollContentBackground(.hidden)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entries.count)
         .animation(.snappy, value: selecting)
+        .animation(.snappy, value: reviews.first?.createdAt)
+        .alert("Tag abschließen fehlgeschlagen", isPresented: Binding(get: { closeError != nil }, set: { if !$0 { closeError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(closeError ?? "") }
         .onChange(of: entries.map(\.kcal)) { _, _ in WidgetBridge.update(ctx, goals: goals) }
         .onChange(of: water.map(\.ml)) { _, _ in WidgetBridge.update(ctx, goals: goals) }
         .onChange(of: entries.count) { old, new in

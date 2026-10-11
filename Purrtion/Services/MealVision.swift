@@ -76,8 +76,8 @@ enum MealVision {
     """
 }
 
-/// Cloud vision models with the user's own API key. All return the same structured estimate.
-private enum CloudVision {
+/// Cloud models with the user's own API key – used for meal photos and, text-only, for closing a day.
+enum CloudVision {
     struct Payload: Decodable {
         struct Component: Decodable {
             let name: String
@@ -158,24 +158,13 @@ private enum CloudVision {
     ]
 
     static func analyze(provider: VisionProvider, image: UIImage, hint: String?) async throws -> MealVision.Result {
-        let key = provider.apiKey
-        guard !key.isEmpty else {
-            throw MealVision.VisionError.unavailable("Bitte hinterlege unter Profil → Foto-Erkennung deinen \(provider.name)-Schlüssel.")
-        }
         let jpeg = image.resizedForUpload(maxSide: 1280).jpegData(compressionQuality: 0.75) ?? Data()
         let b64 = jpeg.base64EncodedString()
         var text = MealVision.prompt + "\n" + jsonInstruction
         if let hint, !hint.isEmpty { text += "\nZusatzinfo vom Nutzer: \(hint)" }
 
-        let raw: String
-        switch provider {
-        case .claude: raw = try await claude(key: key, model: provider.model, b64: b64, text: text)
-        case .gemini: raw = try await gemini(key: key, model: provider.model, b64: b64, text: text)
-        case .openai: raw = try await openai(key: key, model: provider.model, b64: b64, text: text)
-        case .apple: throw MealVision.VisionError.empty
-        }
-
-        guard let payload = decode(raw) else { throw MealVision.VisionError.failed("Antwort nicht lesbar") }
+        let raw = try await request(provider: provider, text: text, b64: b64, schema: schema)
+        guard let payload = decode(Payload.self, from: raw) else { throw MealVision.VisionError.failed("Antwort nicht lesbar") }
         let items = payload.items.compactMap {
             MealVision.aiItem(name: $0.name, grams: $0.grams.rounded(), confidence: $0.confidence ?? "mittel",
                               per100: $0.nutrientsPer100.nutrients())
@@ -184,10 +173,24 @@ private enum CloudVision {
         return MealVision.Result(dish: payload.dish, items: items)
     }
 
+    /// Sends one prompt (optionally with a JPEG) to the selected cloud provider and returns the raw JSON text.
+    static func request(provider: VisionProvider, text: String, b64: String?, schema: [String: Any]) async throws -> String {
+        let key = provider.apiKey
+        guard !key.isEmpty else {
+            throw MealVision.VisionError.unavailable("Bitte hinterlege unter Profil → Foto-Erkennung deinen \(provider.name)-Schlüssel.")
+        }
+        switch provider {
+        case .claude: return try await claude(key: key, model: provider.model, b64: b64, text: text, schema: schema)
+        case .gemini: return try await gemini(key: key, model: provider.model, b64: b64, text: text)
+        case .openai: return try await openai(key: key, model: provider.model, b64: b64, text: text)
+        case .apple: throw MealVision.VisionError.empty
+        }
+    }
+
     /// Tolerates code fences or text around the JSON object.
-    private static func decode(_ raw: String) -> Payload? {
+    static func decode<T: Decodable>(_ type: T.Type, from raw: String) -> T? {
         guard let start = raw.firstIndex(of: "{"), let end = raw.lastIndex(of: "}") else { return nil }
-        return try? JSONDecoder().decode(Payload.self, from: Data(raw[start...end].utf8))
+        return try? JSONDecoder().decode(T.self, from: Data(raw[start...end].utf8))
     }
 
     private static func post(_ url: URL, headers: [String: String], body: [String: Any]) async throws -> [String: Any] {
@@ -208,18 +211,15 @@ private enum CloudVision {
     }
 
     // Claude Messages API (raw HTTP – there is no official Swift SDK).
-    private static func claude(key: String, model: String, b64: String, text: String) async throws -> String {
+    private static func claude(key: String, model: String, b64: String?, text: String, schema: [String: Any]) async throws -> String {
+        var content: [[String: Any]] = []
+        if let b64 { content.append(["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": b64]]) }
+        content.append(["type": "text", "text": text])
         var body: [String: Any] = [
             "model": model,
             "max_tokens": 16000,
             "output_config": ["effort": "low", "format": ["type": "json_schema", "schema": schema]],
-            "messages": [[
-                "role": "user",
-                "content": [
-                    ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": b64]],
-                    ["type": "text", "text": text],
-                ],
-            ]],
+            "messages": [["role": "user", "content": content]],
         ]
         var headers = ["x-api-key": key, "anthropic-version": "2023-06-01"]
         // Server-side refusal fallback is supported on the larger models only.
@@ -236,35 +236,36 @@ private enum CloudVision {
     }
 
     // Google Gemini generateContent.
-    private static func gemini(key: String, model: String, b64: String, text: String) async throws -> String {
+    private static func gemini(key: String, model: String, b64: String?, text: String) async throws -> String {
+        var parts: [[String: Any]] = []
+        if let b64 { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": b64]]) }
+        parts.append(["text": text])
         let body: [String: Any] = [
-            "contents": [[
-                "role": "user",
-                "parts": [
-                    ["inline_data": ["mime_type": "image/jpeg", "data": b64]],
-                    ["text": text],
-                ],
-            ]],
+            "contents": [["role": "user", "parts": parts]],
             "generationConfig": ["responseMimeType": "application/json", "temperature": 0.2],
         ]
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
-        let json = try await post(url, headers: ["x-goog-api-key": key], body: body)
-        let parts = ((json["candidates"] as? [[String: Any]])?.first?["content"] as? [String: Any])?["parts"] as? [[String: Any]] ?? []
-        return parts.compactMap { $0["text"] as? String }.joined()
+        let base = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent"
+        let json: [String: Any]
+        do {
+            json = try await post(URL(string: base)!, headers: ["x-goog-api-key": key], body: body)
+        } catch MealVision.VisionError.failed(let msg) where msg.hasPrefix("401") {
+            // Some key types are only accepted as query parameter.
+            var comps = URLComponents(string: base)!
+            comps.queryItems = [URLQueryItem(name: "key", value: key)]
+            json = try await post(comps.url!, headers: [:], body: body)
+        }
+        let answer = ((json["candidates"] as? [[String: Any]])?.first?["content"] as? [String: Any])?["parts"] as? [[String: Any]] ?? []
+        return answer.compactMap { $0["text"] as? String }.joined()
     }
 
     // OpenAI Chat Completions.
-    private static func openai(key: String, model: String, b64: String, text: String) async throws -> String {
+    private static func openai(key: String, model: String, b64: String?, text: String) async throws -> String {
+        var content: [[String: Any]] = [["type": "text", "text": text]]
+        if let b64 { content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(b64)"]]) }
         let body: [String: Any] = [
             "model": model,
             "response_format": ["type": "json_object"],
-            "messages": [[
-                "role": "user",
-                "content": [
-                    ["type": "text", "text": text],
-                    ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(b64)"]],
-                ],
-            ]],
+            "messages": [["role": "user", "content": content]],
         ]
         let json = try await post(URL(string: "https://api.openai.com/v1/chat/completions")!,
                                   headers: ["Authorization": "Bearer \(key)"], body: body)
