@@ -13,6 +13,12 @@ struct StatsView: View {
     @State private var month = Date()
     @State private var showMonth = false
     @State private var selectedDay: Date?
+    // Scrubbing selections per chart
+    @State private var scrubKcal: Date?
+    @State private var scrubActivity: Date?
+    @State private var scrubScore: Date?
+    @State private var scrubWeekday: String?
+    @State private var scrubWeight: Date?
 
     struct DayStat: Identifiable {
         let day: Date
@@ -25,6 +31,11 @@ struct StatsView: View {
         var baseGoal: Double = 0
         var active: Double = 0
         var bonus: Double = 0
+        /// Resting energy: Apple Health, otherwise estimated (Mifflin-St Jeor).
+        var basal: Double = 0
+        var basalFromHealth = false
+        /// Total energy expenditure = resting + active.
+        var burned: Double { basal + active }
         var id: Date { day }
     }
 
@@ -58,8 +69,22 @@ struct StatsView: View {
         let t = goals.target(for: d)
         return DayStat(day: d, entries: es, kcal: es.reduce(0) { $0 + $1.kcal }, protein: es.reduce(0) { $0 + $1.protein },
                        carbs: es.reduce(0) { $0 + $1.carbs }, fat: es.reduce(0) { $0 + $1.fat }, goal: t.kcal, goalProtein: t.protein,
-                       baseGoal: t.baseKcal, active: t.activeKcal, bonus: t.activityBonus)
+                       baseGoal: t.baseKcal, active: t.activeKcal, bonus: t.activityBonus,
+                       basal: ActivityStore.basal(for: d) > 0 ? ActivityStore.basal(for: d) : goals.bmr,
+                       basalFromHealth: ActivityStore.basal(for: d) > 0)
     }
+
+    /// Snaps a raw chart date to the shown day.
+    private func snapDay(_ all: [DayStat]) -> (Date) -> Date? {
+        { raw in
+            let d = Calendar.current.startOfDay(for: raw)
+            return all.contains(where: { $0.day == d }) ? d : nil
+        }
+    }
+
+    private func dayTitle(_ d: Date) -> String { d.formatted(.dateTime.weekday(.wide).day().month(.wide)) }
+
+    private func signedKcal(_ v: Double) -> String { (v > 0 ? "−" : "+") + abs(v).kcalString }
 
     private func avg(_ list: [DayStat], _ k: KeyPath<DayStat, Double>) -> Double {
         list.isEmpty ? 0 : list.reduce(0) { $0 + $1[keyPath: k] } / Double(list.count)
@@ -93,7 +118,8 @@ struct StatsView: View {
                     if all.contains(where: { $0.active > 0 }) { activityCard(all) }
                     if goals.healthScoreEnabled { scoreCard(logged) }
                     macroCard(logged)
-                    weekdayCard(logged)
+                    // Per-weekday averages only make sense over several weeks.
+                    if range > 7 { weekdayCard(logged) }
                     topFoodsCard(logged)
                     microCard(logged)
                     weightCard
@@ -113,6 +139,14 @@ struct StatsView: View {
                 DaySummarySheet(day: $0.date)
             }
             .task { await HealthSync.importWeights(into: ctx) }
+            #if DEBUG
+            .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("-scrubDemo") {
+                    let d = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: .now))!
+                    scrubKcal = d; scrubActivity = d
+                }
+            }
+            #endif
         }
     }
 
@@ -169,6 +203,18 @@ struct StatsView: View {
                 Spacer()
                 Text("Ø \(avg(logged, \.kcal).kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
             }
+            .opacity(scrubKcal == nil ? 1 : 0)
+            .overlay(alignment: .top) {
+                if let sel = scrubKcal, let d = all.first(where: { $0.day == sel }) {
+                    ScrubHeader(title: dayTitle(d.day), items: [
+                        .init(label: "gegessen", value: d.kcal.kcalString, color: d.kcal > 0 ? GoalStatus(kcal: d.kcal, goal: d.goal).color : Theme.textSecondary),
+                        .init(label: d.bonus > 0 ? "Ziel (+\(d.bonus.kcalString) aktiv)" : "Ziel", value: d.goal.kcalString),
+                        .init(label: d.kcal <= d.goal ? "übrig" : "drüber", value: abs(d.goal - d.kcal).kcalString,
+                              color: d.kcal <= d.goal ? Theme.fiber : Theme.danger),
+                    ])
+                }
+            }
+            .zIndex(1)
             Chart {
                 // Goal column behind each day: grey up to the base goal, orange tint for the activity bonus.
                 ForEach(all) { d in
@@ -189,8 +235,10 @@ struct StatsView: View {
                             width: .ratio(range > 30 ? 0.82 : 0.5))
                         .foregroundStyle(GoalStatus(kcal: d.kcal, goal: d.goal).color)
                         .cornerRadius(range > 30 ? 1 : 5)
+                        .opacity(scrubKcal == nil || scrubKcal == d.day ? 1 : 0.3)
                 }
             }
+            .chartScrub($scrubKcal, snap: snapDay(all))
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : range == 30 ? 7 : 30)) { _ in
                     AxisValueLabel(format: range == 7 ? .dateTime.weekday(.narrow) : .dateTime.day().month(.defaultDigits))
@@ -225,45 +273,73 @@ struct StatsView: View {
     }
 
     private func activityCard(_ all: [DayStat]) -> some View {
-        let past = all.filter { $0.day <= cal.startOfDay(for: .now) }
+        let today = cal.startOfDay(for: .now)
+        let past = all.filter { $0.day <= today }
         let active = past.filter { $0.active > 0 }
         let avgActive = active.isEmpty ? 0 : active.reduce(0) { $0 + $1.active } / Double(active.count)
         let credited = past.reduce(0) { $0 + $1.bonus }
-        let best = past.max { $0.active < $1.active }
+        // Deficit only for finished days with food logged – today isn't over yet.
+        let finished = past.filter { $0.day < today && $0.kcal > 0 }
+        let deficit = finished.reduce(0) { $0 + ($1.burned - $1.kcal) }
+        let estimated = finished.contains { !$0.basalFromHealth }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Label("Aktivität", systemImage: "flame.fill").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text("Ø \(avgActive.kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
             }
+            .opacity(scrubActivity == nil ? 1 : 0)
+            .overlay(alignment: .top) {
+                if let sel = scrubActivity, let d = past.first(where: { $0.day == sel }) {
+                    ScrubHeader(title: dayTitle(d.day), items: [
+                        .init(label: "aktiv", value: d.active.kcalString, color: Theme.accent),
+                        .init(label: "Verbrauch gesamt", value: d.burned.kcalString),
+                        .init(label: d.kcal == 0 ? "nichts erfasst" : (d.burned >= d.kcal ? "Defizit" : "Überschuss"),
+                              value: d.kcal == 0 ? "–" : signedKcal(d.burned - d.kcal),
+                              color: d.kcal == 0 ? Theme.textSecondary : (d.burned >= d.kcal ? Theme.fiber : Theme.danger)),
+                    ])
+                }
+            }
+            .zIndex(1)
             Chart {
                 ForEach(past) { d in
                     BarMark(x: .value("Tag", d.day, unit: .day), y: .value("aktiv", d.active))
                         .foregroundStyle(Theme.accent.opacity(0.35))
                         .cornerRadius(range > 30 ? 1 : 4)
+                        .opacity(scrubActivity == nil || scrubActivity == d.day ? 1 : 0.35)
                     // Overlay, not stacked: the credited part sits inside the activity bar.
                     if d.bonus > 0 {
                         RectangleMark(x: .value("Tag", d.day, unit: .day), yStart: .value("0", 0),
                                       yEnd: .value("angerechnet", min(d.bonus, d.active)), width: .ratio(0.6))
                             .foregroundStyle(Theme.accent)
                             .cornerRadius(range > 30 ? 1 : 4)
+                            .opacity(scrubActivity == nil || scrubActivity == d.day ? 1 : 0.35)
                     }
                 }
             }
+            .chartScrub($scrubActivity, snap: snapDay(past))
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : range == 30 ? 7 : 30)) { _ in
                     AxisValueLabel(format: range == 7 ? .dateTime.weekday(.narrow) : .dateTime.day().month(.defaultDigits))
                 }
             }
             .frame(height: 120)
-            HStack(spacing: 14) {
-                miniStat("\(past.reduce(0) { $0 + $1.active }.kcalString)", "aktiv gesamt")
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(finished.isEmpty ? "–" : signedKcal(deficit))
+                        .font(Theme.font(16, .bold)).foregroundStyle(deficit >= 0 ? Theme.fiber : Theme.danger)
+                    Text(deficit >= 0 ? "Kaloriendefizit" : "Überschuss").font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
+                    if !finished.isEmpty {
+                        Text("≈ \((abs(deficit) / 7700).formatted(.number.precision(.fractionLength(1)))) kg Fett")
+                            .font(Theme.font(11, .semibold)).foregroundStyle(Theme.textSecondary)
+                    }
+                }
                 miniStat("\(credited.kcalString)", "aufs Ziel angerechnet")
-                if let best, best.active > 0 {
+                if let best = past.max(by: { $0.active < $1.active }), best.active > 0 {
                     miniStat("\(best.active.kcalString)", "aktivster Tag · \(best.day.formatted(.dateTime.weekday(.abbreviated)))")
                 }
             }
-            Text("Heller Balken = aktive Kalorien, kräftiger Teil = davon aufs Kalorienziel angerechnet.")
+            Text("Defizit = Gesamtverbrauch (Grundumsatz + Aktivität\(estimated ? ", Grundumsatz teils geschätzt" : " aus Apple Health")) minus gegessen, für abgeschlossene Tage. Halte einen Balken gedrückt für Details.")
                 .font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
         }
         .card()
@@ -280,6 +356,18 @@ struct StatsView: View {
                 Spacer()
                 Text("Ø \(average)").font(Theme.font(15, .semibold)).foregroundStyle(Theme.fiber)
             }
+            .opacity(scrubScore == nil ? 1 : 0)
+            .overlay(alignment: .top) {
+                if let sel = scrubScore, let p = points.first(where: { $0.0 == sel }) {
+                    let ds = logged.first { $0.day == sel }
+                    ScrubHeader(title: dayTitle(sel), items: [
+                        .init(label: "Health Score", value: "\(p.1)", color: Theme.fiber),
+                        .init(label: "gegessen", value: (ds?.kcal ?? 0).kcalString),
+                        .init(label: "Protein", value: "\(Int((ds?.protein ?? 0).rounded())) g", color: Theme.protein),
+                    ])
+                }
+            }
+            .zIndex(1)
             if points.count >= 2 {
                 Chart(points, id: \.0) { p in
                     AreaMark(x: .value("Tag", p.0, unit: .day), y: .value("Score", p.1))
@@ -287,8 +375,17 @@ struct StatsView: View {
                         .interpolationMethod(.catmullRom)
                     LineMark(x: .value("Tag", p.0, unit: .day), y: .value("Score", p.1))
                         .foregroundStyle(Theme.fiber).lineStyle(StrokeStyle(lineWidth: 3)).interpolationMethod(.catmullRom)
+                    if scrubScore == p.0 {
+                        RuleMark(x: .value("Tag", p.0, unit: .day)).foregroundStyle(Theme.textSecondary.opacity(0.4))
+                        PointMark(x: .value("Tag", p.0, unit: .day), y: .value("Score", p.1))
+                            .foregroundStyle(Theme.fiber).symbolSize(110)
+                    }
                 }
                 .chartYScale(domain: 0...100)
+                .chartScrub($scrubScore) { raw in
+                    // nearest logged day
+                    points.min { abs($0.0.timeIntervalSince(raw)) < abs($1.0.timeIntervalSince(raw)) }?.0
+                }
                 .frame(height: 140)
             } else {
                 Text("Ab zwei erfassten Tagen siehst du hier deinen Verlauf.").font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
@@ -345,22 +442,40 @@ struct StatsView: View {
         }
         let top = data.max { $0.1 < $1.1 }
         return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Wochentage").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
-                Spacer()
-                if let top, top.1 > 0 {
-                    Text("Am meisten: \(top.0)").font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("Ø nach Wochentag").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    if let top, top.1 > 0 {
+                        Text("Am meisten: \(top.0)").font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+                    }
+                }
+                Text("Durchschnitt aller Montage, Dienstage … im gewählten Zeitraum – zeigt, an welchen Tagen du typischerweise mehr isst.")
+                    .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+            }
+            .opacity(scrubWeekday == nil ? 1 : 0)
+            .overlay(alignment: .top) {
+                if let sel = scrubWeekday, let d = data.first(where: { $0.0 == sel }) {
+                    let wd = order[data.firstIndex { $0.0 == sel } ?? 0]
+                    ScrubHeader(title: "Ø an allen \(cal.weekdaySymbols[wd - 1])en", items: [
+                        .init(label: "gegessen", value: d.1.kcalString, color: d.1 > 0 ? GoalStatus(kcal: d.1, goal: d.2).color : Theme.textSecondary),
+                        .init(label: "Ziel", value: d.2.kcalString),
+                        .init(label: "erfasst", value: "\((grouped[wd] ?? []).count) ×"),
+                    ])
                 }
             }
+            .zIndex(1)
             Chart(data, id: \.0) { d in
                 BarMark(x: .value("Tag", d.0), y: .value("kcal", d.1))
                     .foregroundStyle(GoalStatus(kcal: d.1, goal: d.2).color.opacity(0.85))
                     .cornerRadius(5)
+                    .opacity(scrubWeekday == nil || scrubWeekday == d.0 ? 1 : 0.3)
                 LineMark(x: .value("Tag", d.0), y: .value("Ziel", d.2), series: .value("Serie", "Ziel"))
                     .interpolationMethod(.stepCenter)
                     .foregroundStyle(Theme.textSecondary)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
+            .chartScrub($scrubWeekday) { raw in data.contains { $0.0 == raw } ? raw : nil }
             .frame(height: 130)
         }
         .card()
@@ -459,9 +574,24 @@ struct StatsView: View {
                 Chart(shown) { w in
                     LineMark(x: .value("Datum", w.date), y: .value("kg", w.kg))
                         .interpolationMethod(.catmullRom).foregroundStyle(Theme.accent).lineStyle(StrokeStyle(lineWidth: 3))
-                    PointMark(x: .value("Datum", w.date), y: .value("kg", w.kg)).foregroundStyle(Theme.accent).symbolSize(30)
+                    PointMark(x: .value("Datum", w.date), y: .value("kg", w.kg)).foregroundStyle(Theme.accent)
+                        .symbolSize(scrubWeight == w.date ? 120 : 30)
+                    if scrubWeight == w.date {
+                        RuleMark(x: .value("Datum", w.date)).foregroundStyle(Theme.textSecondary.opacity(0.4))
+                            .annotation(position: .top, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                                VStack(spacing: 0) {
+                                    Text("\(w.kg, format: .number.precision(.fractionLength(1))) kg").font(Theme.font(14, .heavy)).foregroundStyle(Theme.textPrimary)
+                                    Text(w.date.formatted(.dateTime.day().month(.abbreviated))).font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
+                                }
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(Theme.cardAlt, in: RoundedRectangle(cornerRadius: 8))
+                            }
+                    }
                 }
                 .chartYScale(domain: lo...hi)
+                .chartScrub($scrubWeight) { raw in
+                    shown.min { abs($0.date.timeIntervalSince(raw)) < abs($1.date.timeIntervalSince(raw)) }?.date
+                }
                 .frame(height: 160)
                 if let first = shown.first, let last = shown.last {
                     let diff = last.kg - first.kg
