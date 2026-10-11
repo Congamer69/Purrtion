@@ -5,13 +5,16 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.3** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.4** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
 - Schnelle Eingabe: Suche, Barcode, Foto vom Teller, Schnell-Eintrag, Favoriten, „Nochmal“ per Wischen
-- Makro- und Mikronährstoffe aus dem Bundeslebensmittelschlüssel, echte Portionsgrößen
-- Verlauf mit Zielfarben (grün / orange bis +5 % / rot), Wochen-, 30- und 90-Tage-Ansicht
+- Makro- und Mikronährstoffe aus Bundeslebensmittelschlüssel und Schweizer Nährwertdatenbank (offline), echte Portionsgrößen
+- Fehlertolerante Suche; was keine Datenbank kennt, schätzt die KI – auch ganze Sätze wie „2 Eier und ein Toast“
+- Ziel pro Wochentag, Aktivitätskalorien aus Apple Health (optional aufs Ziel angerechnet), Zieländerungen gelten ab heute
+- Verlauf mit Zielfarben (grün / orange bis +5 % / rot), Kaloriendefizit und Diagrammen zum Gedrückthalten und Durchwischen
+- Tagesübersicht mit fünf Share-Designs für WhatsApp, Instagram & Co.
 - „Tag abschließen“: KI ergänzt fehlende Mikronährstoffe und gibt ein kurzes Tagesfazit – auf Wunsch automatisch jede Nacht für den Vortag
 - Health Score, Wasser, Gewicht (Apple Health), Widgets, Backup und CSV-Export
 - Hell- und Dunkelmodus, Pixel-Katze mit Stimmungen und Animationen
@@ -82,7 +85,10 @@ Schlüssel liegen in der Keychain und gelten pro Anbieter für beide Aufgaben; d
 - **Eigene Lebensmittel & Rezepte** (Meal Prep mit Portionen) – `Models/CustomFood.swift`, `Views/CustomFoodViews.swift`
 - **Sicherung:** JSON-Backup etwa täglich in einen gewählten (iCloud-Drive-)Ordner + Wiederherstellen – `Services/Backup.swift`
 - **CSV-Export** (Essen, Tage, Gewicht; Semikolon + deutsches Komma für Excel)
-- **Apple Health:** Gewicht in beide Richtungen – `Services/HealthSync.swift`; Aktivitätskalorien anzeigen und optional (50/75/100 %) aufs Ziel anrechnen – `Services/ActivityStore.swift`
+- **Apple Health:** Gewicht in beide Richtungen – `Services/HealthSync.swift`; Aktivitäts- und Ruheenergie lesen, Aktivität per Slider (0–100 %) aufs Ziel anrechnen, eigene Aktivität ergänzen – `Services/ActivityStore.swift`
+- **Kaloriendefizit:** Gesamtverbrauch (Grundumsatz + Aktivität) minus gegessen, für abgeschlossene Tage; ohne Health-Daten wird der Grundumsatz nach Mifflin-St Jeor geschätzt
+- **Tagesübersicht & Teilen:** obere Karte auf „Heute“ antippen – Zielaufbau, Aktivität, Makros und fünf Share-Bilder (Kalorien, Makros, Health Score, Woche, Story) – `Views/DayOverviewViews.swift`
+- **Diagramme erkunden:** gedrückt halten und wischen wie in Health/Fitness, mit Haptik – `Views/ChartScrub.swift`
 - **Ziele:** eigenes Kalorienziel pro Wochentag; Zieländerungen gelten ab heute, vergangene Tage behalten ihr damaliges Ziel – `Models/Goals.swift`
 - **Widgets:** Homescreen (quadratisch, breit) und Sperrbildschirm – Ziel `PurrtionWidget`, Daten über App Group `group.com.const.purrtion`
 

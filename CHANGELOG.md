@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.4 – 12. Oktober 2026
+
+### Neu
+- **Mehr Lebensmittel:** die Schweizer Nährwertdatenbank (BLV) ist als zweite Offline-Datenbank dabei – 1.216 Lebensmittel, darunter rund 150 fertige Gerichte wie Burger, Kebab, Pizza, Lasagne oder Gratins.
+- **Mit KI schätzen:** Restaurantgerichte ohne Datenbankeintrag oder ganze Sätze („2 Eier und ein Toast“) direkt in der Suche schätzen lassen.
+- **Klügere Suche:** verzeiht Tippfehler und Mehrzahl, findet getrennte Wörter („Käsespätzle“ → „Spätzle mit Käse“) und ignoriert Füllwörter wie Mengenangaben.
+- **Datenquellen einzeln abschaltbar** (Profil → Datenquellen).
+- **Ziel pro Wochentag** – z. B. mehr an Trainingstagen oder am Wochenende.
+- **Aktivitätskalorien aus Apple Health:** werden auf der Heute-Seite angezeigt und lassen sich per Slider zu 0–100 % aufs Kalorienziel anrechnen. Aktivität ohne Uhr kann man auch selbst eintragen.
+- **Tagesübersicht:** Antippen der oberen Karte zeigt, wie sich das Tagesziel zusammensetzt, dazu Aktivität, Makros, Wasser und Score.
+- **Tag teilen:** fünf Designs zum Durchwischen (Kalorien, Makros, Health Score, Woche, Story) für WhatsApp, Instagram & Co.
+- **Diagramme erkunden:** im Verlauf auf ein Diagramm drücken und über die Balken wischen zeigt die Werte jedes Tages – mit Haptik, wie in Health/Fitness.
+- **Kaloriendefizit** im Verlauf: Gesamtverbrauch (Grundumsatz + Aktivität aus Apple Health) minus gegessen, pro Zeitraum und pro Tag.
+- **KI-Modelle getrennt wählbar:** Foto-Erkennung und Tagesanalyse können unterschiedliche Anbieter und Modelle nutzen.
+
+### Verbessert
+- **Zieländerungen gelten ab heute** – vergangene Tage behalten das Ziel, das damals galt.
+- **Kalorien-Diagramm:** hinter jedem Tag zeigt eine Zielsäule das Tagesziel inklusive Aktivitätsanteil.
+- **Zuletzt & Favoriten:** die große Zahl zeigt die kcal der Menge, die eingetragen wird; kcal pro 100 g stehen klein darunter.
+- **Ø nach Wochentag** erscheint nur noch bei 30/90 Tagen und erklärt, was sie zeigt.
+- Die Versionsnummer im Profil stimmt jetzt automatisch.
+
+### Behoben
+- Absturz bzw. absurde Werte bei den Mengen-Slidern der KI-Schätzung und Foto-Erkennung.
+- Foto-Erkennung und „Tag abschließen“ funktionieren jetzt auch mit Claude.
+
 ## 1.3 – 11. Oktober 2026
 
 ### Neu
