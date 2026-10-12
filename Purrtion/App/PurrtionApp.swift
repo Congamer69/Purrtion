@@ -4,6 +4,7 @@ import UserNotifications
 
 @main
 struct PurrtionApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var goals = Goals()
     @AppStorage("appearance") private var appearance = Appearance.system
 
@@ -20,7 +21,6 @@ struct PurrtionApp: App {
         BLSDatabase.shared.preload()
         SwissDatabase.shared.preload()
         AutoClose.register()
-        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
 
     var body: some Scene {
@@ -40,6 +40,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
     @State private var tab = 0
+    @ObservedObject private var router = NotificationRouter.shared
 
     var body: some View {
         ZStack {
@@ -60,6 +61,8 @@ struct RootView: View {
             // Short, cute splash – just long enough for the food database to finish loading.
             try? await Task.sleep(for: .milliseconds(1300))
             withAnimation(.easeInOut(duration: 0.4)) { showSplash = false }
+            try? await Task.sleep(for: .milliseconds(450))
+            router.appReady = true
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-seedMeal") { seedDemoMeal() }
             if ProcessInfo.processInfo.arguments.contains("-demoData") { seedDemoData() }
@@ -79,7 +82,12 @@ struct RootView: View {
                 }
             }
             AutoClose.schedule()
+            DatabaseUpdater.shared.autoUpdateIfNeeded()
             Task { await AutoClose.runIfNeeded(container: PurrtionApp.container) }
+        }
+        .onChange(of: router.reviewDay, initial: true) { _, day in
+            // A tapped review notification always lands on "Heute".
+            if day != nil { tab = 0 }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { WidgetBridge.update(ctx, goals: goals) }

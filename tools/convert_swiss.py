@@ -6,6 +6,7 @@ Usage: python convert_swiss.py Schweizer_Nahrwertdatenbank.xlsx ../Purrtion/Reso
 Needs openpyxl.
 """
 import json
+import re
 import sys
 
 import openpyxl
@@ -62,6 +63,8 @@ def number(v):
 def main(src, dst):
     wb = openpyxl.load_workbook(src, read_only=True)
     rows = list(wb["Generische Lebensmittel"].iter_rows(values_only=True))
+    m = re.search(r"V\s*(\d+(?:\.\d+)*)", str(rows[0][0] or ""))
+    version = m.group(1) if m else "?"
     header = rows[2]
     col = {h: i for i, h in enumerate(header) if h}
     idx = []
@@ -84,7 +87,7 @@ def main(src, dst):
         foods.append([f"CH{r[0]}", str(r[3]).strip(), values, r[5] or "", r[4] or ""])
 
     out = {
-        "source": "Schweizer Nährwertdatenbank V 7.1, Bundesamt für Lebensmittelsicherheit und Veterinärwesen BLV, naehrwertdaten.ch",
+        "source": f"Schweizer Nährwertdatenbank V {version}, Bundesamt für Lebensmittelsicherheit und Veterinärwesen BLV, naehrwertdaten.ch",
         "keys": [k for k, _, _ in FIELDS],
         "foods": foods,
     }

@@ -1,0 +1,37 @@
+name: Datenbanken aktualisieren
+
+# Prüft monatlich, ob die Schweizer Nährwertdatenbank eine neue Version hat, konvertiert sie
+# und erhöht die Revision im Manifest – die App lädt sie dann automatisch.
+on:
+  schedule:
+    - cron: "0 4 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  swiss:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install openpyxl
+      - name: Neueste Excel-Datei finden und konvertieren
+        run: |
+          url=$(curl -s https://naehrwertdaten.ch/de/downloads/ | grep -oE 'https://naehrwertdaten.ch/wp-content/uploads/[^"]+Schweizer_N[^"]+\.xlsx' | head -1)
+          echo "Quelle: $url"
+          test -n "$url"
+          curl -sL -o "$RUNNER_TEMP/swiss.xlsx" "$url"
+          python tools/convert_swiss.py "$RUNNER_TEMP/swiss.xlsx" Purrtion/Resources/swiss.json
+          python tools/update_manifest.py
+      - name: Änderungen committen
+        run: |
+          if git diff --quiet; then echo "Keine neue Version."; exit 0; fi
+          git config user.name "purrtion-bot"
+          git config user.email "purrtion-bot@users.noreply.github.com"
+          git add Purrtion/Resources/swiss.json data/manifest.json
+          git commit -m "Schweizer Nährwertdatenbank aktualisiert"
+          git push

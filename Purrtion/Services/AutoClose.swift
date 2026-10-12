@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import SwiftData
 import BackgroundTasks
 import UserNotifications
@@ -135,16 +136,34 @@ enum AutoClose {
 }
 
 /// Shows notifications while the app is open and routes taps to the review.
-final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate, ObservableObject {
+@MainActor
+final class NotificationRouter: NSObject, ObservableObject, @preconcurrency UNUserNotificationCenterDelegate {
     static let shared = NotificationRouter()
     /// Set when a review notification was tapped – Today opens that day's verdict.
-    @MainActor @Published var reviewDay: Date?
+    @Published var reviewDay: Date?
+    /// The splash is gone and the UI can present sheets.
+    @Published var appReady = false
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
-        -> UNNotificationPresentationOptions { [.banner, .sound] }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let t = response.notification.request.content.userInfo["reviewDay"] as? Double else { return }
-        await MainActor.run { reviewDay = Date(timeIntervalSince1970: t) }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let t = response.notification.request.content.userInfo["reviewDay"] as? Double {
+            reviewDay = Date(timeIntervalSince1970: t)
+        }
+        completionHandler()
+    }
+}
+
+/// Registers the notification delegate as early as iOS expects it (before launch finishes),
+/// so a tap that launches the app is delivered.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+        return true
     }
 }

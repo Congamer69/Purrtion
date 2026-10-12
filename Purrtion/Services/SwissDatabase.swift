@@ -30,7 +30,7 @@ final class SwissDatabase: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         guard !loaded else { return }
         loaded = true
-        guard let url = Bundle.main.url(forResource: "swiss", withExtension: "json"),
+        guard let url = DatabaseUpdater.fileURL(.swiss),
               let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let keys = json["keys"] as? [String],
@@ -46,6 +46,14 @@ final class SwissDatabase: @unchecked Sendable {
                                  category: f[3] as? String ?? "", synonyms: synonyms,
                                  values: vals.map { ($0 as? NSNumber)?.doubleValue }))
         }
+    }
+
+    func reload() {
+        lock.lock()
+        entries = []; keys = []; indexByCode = [:]
+        loaded = false
+        lock.unlock()
+        preload()
     }
 
     func food(code: String) -> FoodItem? {

@@ -24,7 +24,7 @@ final class BLSDatabase: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         guard !loaded else { return }
         loaded = true
-        guard let url = Bundle.main.url(forResource: "bls", withExtension: "json"),
+        guard let url = DatabaseUpdater.fileURL(.bls),
               let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let keys = json["keys"] as? [String],
@@ -39,6 +39,15 @@ final class BLSDatabase: @unchecked Sendable {
             folded.append(Self.fold(name))
             values.append(vals.map { ($0 as? NSNumber)?.doubleValue })
         }
+    }
+
+    /// Drops the loaded data so the next search reads the (updated) file again.
+    func reload() {
+        lock.lock()
+        codes = []; names = []; folded = []; values = []; keys = []; indexByCode = [:]
+        loaded = false
+        lock.unlock()
+        preload()
     }
 
     static func fold(_ s: String) -> String {

@@ -112,7 +112,7 @@ struct DayOverviewSheet: View {
                 HStack {
                     Text("Apple Health").font(Theme.font(14)).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Text("\(target.healthKcal.kcalString) kcal · \(Int(goals.activityPercent)) % angerechnet")
+                    Text("\(target.healthKcal.kcalString) kcal · \(Int(target.activityPercent)) % angerechnet")
                         .font(Theme.font(13, .medium)).foregroundStyle(Theme.textSecondary)
                 }
             }
@@ -261,7 +261,7 @@ struct DayOverviewSheet: View {
         }
         let top = Dictionary(grouping: entries, by: \.name).map { ($0.key, $0.value.reduce(0) { $0 + $1.kcal }) }
             .sorted { $0.1 > $1.1 }.prefix(4).map { ShareData.Food(name: $0.0, kcal: $0.1) }
-        let data = ShareData(day: day, total: total, target: target, activityPercent: goals.activityEnabled ? goals.activityPercent : 0,
+        let data = ShareData(day: day, total: total, target: target, activityPercent: target.activityPercent,
                              score: score, rating: reviews.first?.rating, ratingPoints: reviews.first?.points ?? [],
                              waterL: goals.waterEnabled ? Double(waterML) / 1000 : nil, waterGoalL: Double(goals.waterML) / 1000,
                              entries: entries.count, topFoods: Array(top), week: week, streak: streak,

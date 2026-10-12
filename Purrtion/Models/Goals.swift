@@ -32,6 +32,8 @@ struct DayTarget: Equatable {
     var healthKcal: Double
     var manualKcal: Double
     var activityBonus: Double
+    /// Share of Health activity credited on that day (the setting valid back then).
+    var activityPercent: Double = 0
 }
 
 /// Daily targets + body profile, persisted in UserDefaults.
@@ -140,7 +142,8 @@ final class Goals: ObservableObject {
         return DayTarget(kcal: total, protein: plan.protein,
                          carbs: max(0, (plan.carbs + delta * share / 4).rounded()),
                          fat: max(0, (plan.fat + delta * (1 - share) / 9).rounded()),
-                         baseKcal: base, activeKcal: active, healthKcal: health, manualKcal: manual, activityBonus: bonus)
+                         baseKcal: base, activeKcal: active, healthKcal: health, manualKcal: manual, activityBonus: bonus,
+                         activityPercent: plan.activityPercent)
     }
 
     /// Re-renders views after new activity data arrived.

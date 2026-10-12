@@ -103,11 +103,9 @@ struct TodayView: View {
                     }
                 }
                 #endif
-                .onChange(of: router.reviewDay) { _, target in
-                    guard let target else { return }
-                    router.reviewDay = nil
-                    openReview(for: target)
-                }
+                // Notification tap: open that day's verdict once the splash is gone (also on a cold start).
+                .onChange(of: router.reviewDay, initial: true) { _, _ in handleReviewTap() }
+                .onChange(of: router.appReady) { _, _ in handleReviewTap() }
         }
         .sheet(item: $sheet, onDismiss: {
             // chain: calendar → entry picker
@@ -147,6 +145,13 @@ struct TodayView: View {
         } message: {
             Text(recipeFromSelection ? "Die ausgewählten Einträge werden zu einem Rezept." : "Alle Einträge dieses Tages werden zu einem Rezept.")
         }
+    }
+
+    private func handleReviewTap() {
+        guard router.appReady, let target = router.reviewDay else { return }
+        router.reviewDay = nil
+        sheet = nil
+        openReview(for: target)
     }
 
     /// Notification tap: show that day and its verdict.
@@ -772,8 +777,8 @@ struct SummaryCard: View {
                             }
                             HStack(spacing: 3) {
                                 Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-                                if goals.activityEnabled, goals.activityPercent > 0, target.healthKcal > 0 {
-                                    Text("\(Int(goals.activityPercent)) %").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
+                                if target.activityPercent > 0, target.healthKcal > 0 {
+                                    Text("\(Int(target.activityPercent)) %").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
                                 }
                             }
                         }

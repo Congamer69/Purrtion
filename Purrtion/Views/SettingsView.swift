@@ -121,6 +121,7 @@ struct SettingsView: View {
 
                 Section {
                     ForEach(SearchSource.allCases) { SourceToggle(source: $0) }
+                    DatabaseUpdateRow()
                     NavigationLink { VisionSettingsView() } label: {
                         HStack {
                             Label("KI-Modelle", systemImage: "sparkles")
@@ -129,7 +130,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: { Text("Datenquellen") } footer: {
-                    Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)")
+                    Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)")
                 }
                 .listRowBackground(Theme.card)
 
@@ -165,6 +166,40 @@ struct SettingsView: View {
 
     private func export() {
         do { exportURLs = try CSVExport.files(ctx); exportError = nil } catch { exportError = error.localizedDescription }
+    }
+}
+
+/// Versions of the offline databases + manual / automatic update.
+private struct DatabaseUpdateRow: View {
+    @ObservedObject private var updater = DatabaseUpdater.shared
+    @AppStorage(DatabaseUpdater.autoKey) private var auto = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Datenbanken aktualisieren").font(Theme.font(15, .semibold))
+                    Text("BLS \(updater.version(.bls)) · Schweiz \(updater.version(.swiss))\(updater.lastCheck.map { " · geprüft \($0.formatted(.relative(presentation: .named)))" } ?? "")")
+                        .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                    if let status = updater.status {
+                        Text(status).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accent)
+                    }
+                }
+                Spacer(minLength: 0)
+                if updater.isChecking {
+                    ProgressView()
+                } else {
+                    Button("Prüfen") { Task { await updater.update() } }
+                        .font(Theme.font(14, .bold))
+                        .buttonStyle(.borderless)
+                }
+            }
+            Toggle("Automatisch (wöchentlich)", isOn: $auto)
+                .font(Theme.font(14))
+        }
+        .padding(.vertical, 2)
     }
 }
 

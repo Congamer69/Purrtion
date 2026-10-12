@@ -1,0 +1,18 @@
+{
+  "databases": {
+    "bls": {
+      "version": "4.0",
+      "revision": 1,
+      "url": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/Purrtion/Resources/bls.json",
+      "foods": 7140,
+      "sha256": "083210d25c327022f2e9393c43125fa108a4f0777b7a28f4bca547a49a9df7af"
+    },
+    "swiss": {
+      "version": "7.1",
+      "revision": 1,
+      "url": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/Purrtion/Resources/swiss.json",
+      "foods": 1216,
+      "sha256": "c070bfa05a5eb9d2d7baec0119eca41b09ff5a660a7dbc49ddc19b6bbcec3512"
+    }
+  }
+}
