@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.1 – 12. Oktober 2026
+
+### Neu
+- **Datenbanken aktualisieren** (Profil → Datenquellen): Neue Versionen von Bundeslebensmittelschlüssel und Schweizer Nährwertdatenbank werden über GitHub verteilt – automatisch einmal pro Woche oder per „Prüfen“. Die Dateien werden vor dem Einsatz auf Vollständigkeit geprüft und bleiben danach offline nutzbar.
+- Eine monatliche GitHub-Aktion übernimmt neue Versionen der Schweizer Nährwertdatenbank automatisch.
+
+### Behoben
+- **Mitteilung „Dein Vortag ist analysiert“** öffnet jetzt die App direkt mit dem Tagesfazit – auch wenn die App vorher geschlossen war.
+- **Aktivitäts-Prozentsatz:** vergangene Tage zeigen den Prozentsatz, der damals galt, statt der aktuellen Einstellung.
+- Das Aktivitäts-Diagramm im Verlauf zeigt immer den ganzen Zeitraum, auch am Wochenanfang.
+
 ## 1.4 – 12. Oktober 2026
 
 ### Neu
