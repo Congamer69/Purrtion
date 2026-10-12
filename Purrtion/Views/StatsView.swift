@@ -318,6 +318,8 @@ struct StatsView: View {
                 }
             }
             .chartScrub($scrubActivity, snap: snapDay(past))
+            // Always the whole range on the x axis, also when only a few days have passed.
+            .chartXScale(domain: (all.first?.day ?? .now)...cal.date(byAdding: .day, value: 1, to: all.last?.day ?? .now)!)
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : range == 30 ? 7 : 30)) { _ in
                     AxisValueLabel(format: range == 7 ? .dateTime.weekday(.narrow) : .dateTime.day().month(.defaultDigits))

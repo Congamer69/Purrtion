@@ -24,15 +24,15 @@ Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 <table>
   <tr>
     <td align="center" width="25%"><img src="docs/screenshots/today.png" width="190" alt="Heute"><br><sub><b>Heute</b></sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/meal.png" width="190" alt="Mahlzeit mit Zutaten"><br><sub><b>Mahlzeiten</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/meal.png" width="190" alt="Mahlzeiten"><br><sub><b>Mahlzeiten</b></sub></td>
     <td align="center" width="25%"><img src="docs/screenshots/search.png" width="190" alt="Suche"><br><sub><b>Suche</b></sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/detail.png" width="190" alt="Detailansicht"><br><sub><b>Details</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/overview.png" width="190" alt="Tagesübersicht"><br><sub><b>Tagesübersicht</b></sub></td>
   </tr>
   <tr>
     <td align="center" width="25%"><img src="docs/screenshots/history.png" width="190" alt="Verlauf"><br><sub><b>Verlauf</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/share.png" width="190" alt="Teilen"><br><sub><b>Teilen</b></sub></td>
     <td align="center" width="25%"><img src="docs/screenshots/score.png" width="190" alt="Health Score"><br><sub><b>Health Score</b></sub></td>
     <td align="center" width="25%"><img src="docs/screenshots/widget.png" width="190" alt="Widget"><br><sub><b>Widget</b></sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/splash.png" width="190" alt="Ladebildschirm"><br><sub><b>Ladebildschirm</b></sub></td>
   </tr>
 </table>
 
