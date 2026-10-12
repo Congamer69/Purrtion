@@ -58,6 +58,9 @@ final class DatabaseUpdater: ObservableObject {
     }
 
     private func revision(_ db: Database) -> Int {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-forceDBUpdate") { return 0 }
+        #endif
         let r = UserDefaults.standard.integer(forKey: "source.revision.\(db.rawValue)")
         return r == 0 ? db.bundledRevision : r
     }
