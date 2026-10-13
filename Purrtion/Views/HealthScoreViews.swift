@@ -205,7 +205,7 @@ struct HealthScoreView: View {
                         }
                         Spacer()
                         if let delta { AIDeltaBadge(delta: delta) }
-                        Text("\(Int(c.points.rounded()))/\(Int(c.maxPoints))").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
+                        Text(c.pointsText).font(Theme.font(15, .bold)).foregroundStyle(c.isPenalty ? Theme.danger : Theme.textPrimary)
                         Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.textSecondary)
                             .rotationEffect(.degrees(expanded ? 180 : 0))
                     }

@@ -55,8 +55,11 @@ struct TodayWidget: Widget {
 
 private func catSprite(for s: WidgetSnapshot) -> PixelSprite {
     if s.entryCount == 0 { return Sprites.sleep1 }
-    if s.progress > 1.08 { return Sprites.full }
-    if s.progress >= 0.85 { return Sprites.happy }
+    if s.progress > 1.15 { return Sprites.stuffed1 }
+    if s.progress > 1.05 { return Sprites.full }
+    let proteinOK = s.protein >= s.proteinGoal * 0.9
+    if s.progress >= 0.95 { return proteinOK ? Sprites.proud1 : Sprites.content2 }
+    if s.progress >= 0.85 { return proteinOK ? Sprites.proud1 : Sprites.happy }
     return Sprites.sit
 }
 

@@ -18,6 +18,7 @@ struct AnimatedSprite: View {
 
 enum CatMood: Equatable {
     case idle, happy, eating, sleeping, full
+    case yawning, hungry, tipsy, proud, content, stuffed, thirsty, sporty
 
     var frames: [PixelSprite] {
         switch self {
@@ -28,6 +29,14 @@ enum CatMood: Equatable {
         case .eating: return [Sprites.eat1, Sprites.eat2]
         case .sleeping: return [Sprites.sleep1, Sprites.sleep1, Sprites.sleep2, Sprites.sleep2]
         case .full: return [Sprites.full, Sprites.full, Sprites.full, Sprites.sitBlink]
+        case .yawning: return [Sprites.yawn1, Sprites.yawn1, Sprites.yawn1, Sprites.yawn2, Sprites.yawn2, Sprites.yawn1, Sprites.sitBlink, Sprites.yawn1]
+        case .hungry: return [Sprites.hungry2, Sprites.hungry2, Sprites.hungry1, Sprites.hungry2, Sprites.hungry1, Sprites.hungry2]
+        case .tipsy: return [Sprites.tipsy1, Sprites.tipsy1, Sprites.tipsy2, Sprites.tipsy2]
+        case .proud: return [Sprites.proud1, Sprites.proud2, Sprites.proud1, Sprites.proud2, Sprites.happy]
+        case .content: return [Sprites.content2, Sprites.content2, Sprites.content1, Sprites.content2, Sprites.content1, Sprites.content2]
+        case .stuffed: return [Sprites.stuffed1, Sprites.stuffed2]
+        case .thirsty: return [Sprites.thirsty1, Sprites.thirsty2, Sprites.thirsty1, Sprites.sitBlink]
+        case .sporty: return [Sprites.sporty1, Sprites.sporty2]
         }
     }
 
@@ -35,6 +44,7 @@ enum CatMood: Equatable {
         switch self {
         case .eating: return 6
         case .sleeping: return 1.5
+        case .yawning, .tipsy, .stuffed, .thirsty: return 2
         default: return 3
         }
     }
@@ -54,7 +64,7 @@ struct CatMascot: View {
             if mood == .sleeping { FloatingZs(pixel: pixel * 0.6).offset(x: pixel * 2, y: -pixel * 4) }
         }
         .onChange(of: mood) { _, new in
-            guard new == .eating || new == .happy else { return }
+            guard new == .eating || new == .happy || new == .proud else { return }
             withAnimation(.spring(response: 0.22, dampingFraction: 0.4)) { bounce = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { bounce = false }

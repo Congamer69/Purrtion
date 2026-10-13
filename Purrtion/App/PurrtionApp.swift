@@ -82,6 +82,8 @@ struct RootView: View {
                 }
             }
             AutoClose.schedule()
+            // Catch up on changes made while Health sync was off or the app was killed mid-sync.
+            Task { await NutritionSync.syncRecent(days: 3, container: PurrtionApp.container) }
             DatabaseUpdater.shared.autoUpdateIfNeeded()
             Task { await AutoClose.runIfNeeded(container: PurrtionApp.container) }
         }
@@ -171,6 +173,26 @@ extension RootView {
         }
         for i in stride(from: 0, through: 28, by: 4) {
             ctx.insert(WeightLog(date: cal.date(byAdding: .day, value: -i, to: today)!, kg: 78.4 - Double(28 - i) * 0.05 + (i % 8 == 0 ? 0.2 : 0)))
+        }
+        if ProcessInfo.processInfo.arguments.contains("-seedDrinks") {
+            // Two drinks this evening + favourites and a recipe for "Was passt noch?".
+            for (q, ml, minutesAgo) in [("Bier", 500.0, 150.0), ("Wein rot", 200, 60)] {
+                if let f = food(q) {
+                    let e = FoodEntry(food: f, quantity: ml, serving: .base(f.unit), day: today)
+                    e.createdAt = .now.addingTimeInterval(-minutesAgo * 60)
+                    ctx.insert(e)
+                }
+            }
+            for (q, g) in [("Skyr", 250.0), ("Hähnchenbrust", 150), ("Banane", 120), ("Mandel", 30), ("Vollkornbrot", 100)] {
+                if let f = food(q) {
+                    let s = SavedFood(food: f); s.isFavorite = true; s.lastQuantity = g; s.lastServingName = f.unit
+                    ctx.insert(s)
+                }
+            }
+            let pasta = [("Spaghetti", 300.0), ("Tomate", 200), ("Parmesan", 30), ("Olivenöl", 15)].compactMap { ing($0.0, $0.1) }
+            let existing = (try? ctx.fetch(FetchDescriptor<CustomFood>(predicate: #Predicate { $0.name == "Pasta Pomodoro" }))) ?? []
+            existing.forEach(ctx.delete)
+            ctx.insert(CustomFood(recipeName: "Pasta Pomodoro", ingredients: pasta, portions: 2))
         }
         try? ctx.save()
         WidgetBridge.update(ctx, goals: goals)

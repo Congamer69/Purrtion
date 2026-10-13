@@ -132,8 +132,10 @@ final class Goals: ObservableObject {
         let health = activityEnabled ? ActivityStore.kcal(for: d) : 0
         let manual = ActivityStore.manual(for: d)
         let active = health + manual
-        // Manually added activity always counts in full – it was entered on purpose.
-        let bonus = (health * plan.activityPercent / 100 + manual).rounded()
+        // Manually added activity counts with the same share as Health activity. Without Health
+        // there is no share to set, so it counts in full.
+        let manualPercent = activityEnabled || plan.activityPercent > 0 ? plan.activityPercent : 100
+        let bonus = (health * plan.activityPercent / 100 + manual * manualPercent / 100).rounded()
         let total = base + bonus
         // Protein stays; the extra/missing energy is shared by carbs and fat in their usual ratio.
         let delta = total - plan.kcal

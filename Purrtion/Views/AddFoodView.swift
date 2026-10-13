@@ -17,6 +17,7 @@ struct AddFoodView: View {
     @State private var showBarcode = false
     @State private var addedName: String?
     @State private var aiQuery: AIQuery?
+    @State private var showSuggestions = false
     @AppStorage(SearchSource.ai.storageKey) private var aiEnabled = true
 
     struct AIQuery: Identifiable { let text: String; var id: String { text } }
@@ -60,6 +61,9 @@ struct AddFoodView: View {
                     path.removeAll()
                     flashAdded(name)
                 }
+            }
+            .sheet(isPresented: $showSuggestions) {
+                SuggestionsSheet(day: day) { name in flashAdded(name) }
             }
             .sheet(isPresented: $showBarcode) {
                 BarcodeFlowView(day: day)
@@ -172,6 +176,26 @@ struct AddFoodView: View {
 
     @ViewBuilder
     private var emptyQueryContent: some View {
+        Button {
+            focused = false
+            showSuggestions = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "wand.and.stars").font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Was passt noch?").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
+                    Text("Vorschläge aus Favoriten & Rezepten").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.textSecondary)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(SquishButtonStyle())
+        .plainRow()
+        .listRowSeparator(.hidden)
         tabBar
         switch tab {
         case .recent:

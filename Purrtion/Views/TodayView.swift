@@ -10,6 +10,7 @@ enum AddSheet: Identifiable {
     case score(HealthScore, baseline: HealthScore?)
     case review(DayReview)
     case overview
+    case suggestions
     case calendar
     /// Pick the day to copy entries from.
     case copyFromDay
@@ -31,6 +32,7 @@ enum AddSheet: Identifiable {
         case .score: "score"
         case .review(let r): "review-\(r.day.timeIntervalSince1970)"
         case .overview: "overview"
+        case .suggestions: "suggestions"
         case .calendar: "calendar"
         case .copyFromDay: "copyFromDay"
         case .copyPicker(let d): "copyPicker-\(d.timeIntervalSince1970)"
@@ -128,6 +130,8 @@ struct TodayView: View {
                 DayReviewSheet(review: review)
             case .overview:
                 DayOverviewSheet(day: day)
+            case .suggestions:
+                SuggestionsSheet(day: day)
             case .calendar:
                 CalendarSheet(title: "Tag wählen") { picked in day = picked }
             case .copyFromDay:
@@ -488,16 +492,20 @@ struct DayContent: View {
 
     private var total: Nutrients { entries.reduce(Nutrients()) { $0 + $1.nutrients } }
     private var selecting: Bool { selection != nil }
+    /// Changes whenever something Apple Health should know about changes (entries, amounts, times, water).
+    private var healthSignature: String {
+        entries.map { "\($0.id):\(Int($0.kcal * 10)):\(Int($0.createdAt.timeIntervalSince1970))" }.joined(separator: "|")
+            + "#\(water.reduce(0) { $0 + $1.ml })"
+    }
     /// Goal of the shown day (weekday goal, activity bonus, goal valid at that time).
     private var target: DayTarget { goals.target(for: day) }
 
     private var mood: CatMood {
         if justAte { return .eating }
-        let kcal = entries.reduce(0) { $0 + $1.kcal }
-        if entries.isEmpty { return .sleeping }
-        if kcal > target.kcal * 1.08 { return .full }
-        if kcal >= target.kcal * 0.85 { return .happy }
-        return .idle
+        let promille = Calendar.current.isDateInToday(day)
+            ? BloodAlcohol.make(entries: entries, goals: goals, weight: nil).value(at: .now) : 0
+        return CatMood.of(entries: entries, target: target, waterML: water.reduce(0) { $0 + $1.ml }, goals: goals,
+                          day: day, promille: promille)
     }
 
     var body: some View {
@@ -630,6 +638,7 @@ struct DayContent: View {
         } message: { Text(closeError ?? "") }
         .onChange(of: entries.map(\.kcal)) { _, _ in WidgetBridge.update(ctx, goals: goals) }
         .onChange(of: water.map(\.ml)) { _, _ in WidgetBridge.update(ctx, goals: goals) }
+        .onChange(of: healthSignature) { _, _ in NutritionSync.schedule(day, container: PurrtionApp.container) }
         .onChange(of: entries.count) { old, new in
             guard new > old else { return }
             // Celebrate once the add sheet is gone so the user actually sees it.
@@ -646,6 +655,7 @@ struct DayContent: View {
 
     private var optionsMenu: some View {
         Menu {
+            Button { sheet = .suggestions } label: { Label("Was passt noch?", systemImage: "wand.and.stars") }
             Section("Übernehmen") {
                 Button { sheet = .copyPicker(source: Calendar.current.date(byAdding: .day, value: -1, to: day)!) } label: {
                     Label("Von gestern …", systemImage: "arrow.uturn.down")
@@ -777,7 +787,7 @@ struct SummaryCard: View {
                             }
                             HStack(spacing: 3) {
                                 Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-                                if target.activityPercent > 0, target.healthKcal > 0 {
+                                if target.activityPercent > 0, target.activeKcal > 0 {
                                     Text("\(Int(target.activityPercent)) %").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
                                 }
                             }

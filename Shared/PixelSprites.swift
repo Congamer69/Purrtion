@@ -415,3 +415,168 @@ enum Sprites {
         ".kkkkk.",
     ])
 }
+
+// MARK: - More moods (built from the sitting cat: ears 0–4, face 5–8, body 9–15)
+
+extension Sprites {
+    private static let ears = [
+        "..o.......o.....",
+        ".owo.....owo....",
+        ".opwo...owpo....",
+        ".opwwooowwpo....",
+        "owwwswswswwwo...",
+    ]
+    private static let body = [
+        ".owwllllllwo..o.",
+        "..owllllllo..owo",
+        ".owwllllllwo.owo",
+        "owwwllllllwwoowo",
+        "owwwllllllwwwwo.",
+        "owwowwwwowwwwo..",
+        ".ooooooooooooo..",
+    ]
+    /// Rows 0–4 with something drawn into the free space right of the head (cols 13–15).
+    private static func ears(_ extra: [String]) -> [String] {
+        ears.enumerated().map { i, row in
+            guard i < extra.count else { return row }
+            return String(row.prefix(13)) + extra[i]
+        }
+    }
+
+    // Morning, nothing eaten yet: sleepy eyes, then a big yawn.
+    static let yawn1 = PixelSprite(ears + [
+        "owwwwwwwwwwwo...",
+        "owweewwweewwo...",
+        "owcwwwpwwwcwo...",
+        "owwwwowowwwwo...",
+    ] + body)
+    static let yawn2 = PixelSprite(ears + [
+        "owwwwwwwwwwwo...",
+        "owoowwwwwoowo...",
+        "owcwwwpwwwcwo...",
+        "owwwwoooowwwo...",
+        ".owwwoppowwo..o.",
+        "..owloppolo..owo",
+        ".owwloooolwo.owo",
+    ] + Array(body.suffix(4)))
+
+    // Hungry: looks at its empty bowl and licks its lips.
+    private static let hungryHead = [
+        "..o.......o..........",
+        ".owo.....owo.........",
+        ".opwo...owpo.........",
+        ".opwwooowwpo.........",
+        "owwwswswswwwo........",
+        "owwwhewwwhewo........",
+        "owwweewwweewo........",
+        "owcwwwpwwwcwo........",
+        "owwwwowowwwwo........",
+    ]
+    private static let hungryBody = [
+        "..owllllllo..........",
+        ".owwllllllwo.........",
+        "owwwllllllwwo.ooooooo",
+        "owwwllllllwwo.okkkkko",
+        "owwowwwwowwwo..oKKKo.",
+        ".ooooooooooo....ooo..",
+    ]
+    static let hungry1 = PixelSprite(hungryHead + [".owwllplllwo........."] + hungryBody)
+    static let hungry2 = PixelSprite(hungryHead + [".owwllllllwo........."] + hungryBody)
+
+    // Tipsy: winking, blushing, hiccup bubbles.
+    static let tipsy1 = PixelSprite(ears(["...", "...", ".b.", "bWb", ".b."]) + [
+        "owwhewwwwwwwo...",
+        "owweewwwoowwo...",
+        "owccwwpwwccwo...",
+        "owwwowowowwwo...",
+    ] + body)
+    static let tipsy2 = PixelSprite(ears([".b.", "bWb", ".b.", "...", "..."]) + [
+        "owwwwwwwhewwo...",
+        "owwoowwweewwo...",
+        "owccwwpwwccwo...",
+        "owwowowowwwwo...",
+    ] + body)
+
+    // Great day: heart eyes and a twinkle.
+    private static let loveFace = [
+        "owrwrwwwrwrwo...",
+        "owwrwwwwwrwwo...",
+        "owcwwwpwwwcwo...",
+        "owwwwowowwwwo...",
+    ]
+    static let proud1 = PixelSprite(ears(["...", ".y.", "yWy", ".y.", "..."]) + loveFace + body)
+    static let proud2 = PixelSprite(ears(["...", "...", "...", "..y", "..."]) + loveFace + body)
+
+    // Goal reached: content, licking its lips.
+    static let content1 = PixelSprite(ears + [
+        "owowowwwowowo...",
+        "owwowwwwwowwo...",
+        "owcwwwpwwwcwo...",
+        "owwwwowowwwwo...",
+        ".owwlllpllwo..o.",
+    ] + Array(body.suffix(6)))
+    static let content2 = PixelSprite(ears + [
+        "owowowwwowowo...",
+        "owwowwwwwowwo...",
+        "owcwwwpwwwcwo...",
+        "owwwwowowwwwo...",
+    ] + body)
+
+    // Way too much: round belly, squeezed eyes, sweat.
+    private static let stuffedBody = [
+        ".owwllllllllwo..",
+        "owwllllllllllwo.",
+        "owllllllllllllwo",
+        "owllllllllllllwo",
+        "owllllllllllllwo",
+        ".owwllllllllwwo.",
+        "..oooooooooooo..",
+    ]
+    static let stuffed1 = PixelSprite(ears(["..b", ".bb", "...", "...", "..."]) + [
+        "owowwwwwwwowo...",
+        "owwowwwwwowwo...",
+        "owowwwpwwwowo...",
+        "owwwwwowwwwwo...",
+    ] + stuffedBody)
+    static let stuffed2 = PixelSprite(ears(["...", "..b", ".bb", "...", "..."]) + [
+        "owowwwwwwwowo...",
+        "owwowwwwwowwo...",
+        "owowwwpwwwowo...",
+        "owwwwwowwwwwo...",
+    ] + stuffedBody)
+
+    // Thirsty: dreams of a water drop.
+    static let thirsty1 = PixelSprite(ears([".b.", "bbb", "bBb", ".b.", "..."]) + [
+        "owwhewwwhewwo...",
+        "owweewwweewwo...",
+        "owcwwwpwwwcwo...",
+        "owwwwwowwwwwo...",
+    ] + body)
+    static let thirsty2 = PixelSprite(ears(["...", ".b.", "bbb", "bBb", ".b."]) + [
+        "owwhewwwhewwo...",
+        "owweewwweewwo...",
+        "owcwwwpwwwcwo...",
+        "owwwwwowwwwwo...",
+    ] + body)
+
+    // Lots of activity: sweatband.
+    private static let sportyEars = [
+        "..o.......o.....",
+        ".owo.....owo....",
+        ".opwo...owpo....",
+        ".opwwooowwpo....",
+        "orrrrrrrrrrro...",
+    ]
+    static let sporty1 = PixelSprite(sportyEars + [
+        "owwowwwwwowwo...",
+        "owowowwwowowob..",
+        "owcwwwpwwwcwo...",
+        "owwwwowowwwwo...",
+    ] + body)
+    static let sporty2 = PixelSprite(sportyEars + [
+        "owwowwwwwowwo...",
+        "owowowwwowowo...",
+        "owcwwwpwwwcwob..",
+        "owwwwowowwwwo...",
+    ] + body)
+}

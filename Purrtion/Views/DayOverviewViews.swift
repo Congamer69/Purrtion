@@ -37,9 +37,11 @@ struct DayOverviewSheet: View {
             ScrollView {
                 VStack(spacing: 14) {
                     goalCard
+                    AlcoholCard(day: day)
                     activityCard
                     macroCard
                     if let score { scoreRow(score) }
+                    suggestionsLink
                     shareCard
                 }
                 .padding(16)
@@ -140,7 +142,7 @@ struct DayOverviewSheet: View {
                 }
             }
             Text(goals.activityEnabled
-                 ? "Selbst eingetragene Aktivität (z. B. Training ohne Uhr) wird immer voll aufs Ziel angerechnet."
+                 ? "Selbst eingetragene Aktivität (z. B. Training ohne Uhr) wird wie Apple Health zu \(Int(target.activityPercent)) % aufs Ziel angerechnet."
                  : "Selbst eingetragene Aktivität wird voll aufs Ziel angerechnet. Apple Health kannst du unter Profil → Ziele verbinden.")
                 .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
         }
@@ -202,6 +204,28 @@ struct DayOverviewSheet: View {
             Spacer()
         }
         .card(padding: 14)
+    }
+
+    // MARK: Suggestions
+
+    private var suggestionsLink: some View {
+        NavigationLink {
+            SuggestionsList(day: day)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "wand.and.stars").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 40, height: 40).background(Theme.accentSoft, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Was passt noch?").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
+                    Text("Favoriten & Rezepte für die restlichen \(max(0, target.kcal - total.kcal).kcalString) kcal")
+                        .font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.textSecondary)
+            }
+            .card(padding: 14)
+        }
+        .buttonStyle(SquishButtonStyle())
     }
 
     // MARK: Share
@@ -310,7 +334,7 @@ struct ShareData {
     let palette: CatPalette
 
     var progress: Double { total.kcal / max(target.kcal, 1) }
-    var mood: CatMood { progress > 1.08 ? .full : progress >= 0.85 ? .happy : .idle }
+    var mood: CatMood { progress > 1.15 ? .stuffed : progress > 1.05 ? .full : progress >= 0.95 ? .content : progress >= 0.85 ? .happy : .idle }
 }
 
 /// Fixed-size images for WhatsApp, Instagram & co. Always in the dark look.

@@ -17,6 +17,7 @@ struct SettingsView: View {
         return photo == day ? photo.shortName : "\(photo.shortName) · \(day.shortName)"
     }
     @AppStorage(HealthSync.enabledKey) private var healthSync = false
+    @AppStorage(NutritionSync.enabledKey) private var nutritionSync = false
     @AppStorage(AutoClose.enabledKey) private var autoClose = false
     @State private var notificationsDenied = false
     @State private var showDeleteAll = false
@@ -112,8 +113,16 @@ struct SettingsView: View {
                                 await HealthSync.importWeights(into: ctx)
                             }
                         }
+                    Toggle(isOn: $nutritionSync) { Label("Ernährung in Apple Health", systemImage: "fork.knife.circle.fill") }
+                        .onChange(of: nutritionSync) { _, on in
+                            guard on else { return }
+                            Task {
+                                try? await NutritionSync.requestAuthorization()
+                                await NutritionSync.syncRecent(days: 30, container: PurrtionApp.container)
+                            }
+                        }
                 } footer: {
-                    Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort.")
+                    Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort. „Ernährung“ schreibt jeden Eintrag mit kcal, Makros und Mikronährstoffen sowie dein Wasser ins Ernährungsprotokoll von Health – Änderungen und Löschungen werden übernommen.")
                 }
                 .listRowBackground(Theme.card)
 
@@ -653,7 +662,7 @@ private struct ActivityGoalSection: View {
             }
         } header: { Text("Aktivität (Apple Health)") } footer: {
             Text(goals.activityEnabled
-                 ? "0 % zeigt die Kalorien nur an. Sonst steigt dein Tagesziel um diesen Anteil deiner aktiven Kalorien (Fitness-Ringe). Uhren überschätzen den Verbrauch oft – 50–75 % ist ein guter Kompromiss. Dein Grundumsatz ist im Kalorienziel schon enthalten. Manuell eingetragene Aktivität (Heute → oberste Karte antippen) zählt immer voll."
+                 ? "0 % zeigt die Kalorien nur an. Sonst steigt dein Tagesziel um diesen Anteil deiner aktiven Kalorien (Fitness-Ringe). Uhren überschätzen den Verbrauch oft – 50–75 % ist ein guter Kompromiss. Dein Grundumsatz ist im Kalorienziel schon enthalten. Manuell eingetragene Aktivität (Heute → oberste Karte antippen) zählt mit demselben Anteil."
                  : "Zeigt deine aktiven Kalorien aus Apple Health (z. B. Apple Watch) auf der Heute-Seite – auf Wunsch werden sie aufs Ziel angerechnet.")
         }
         .listRowBackground(Theme.card)

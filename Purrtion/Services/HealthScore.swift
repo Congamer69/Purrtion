@@ -7,6 +7,7 @@ import Foundation
 /// - GBD 2017 Diet Collaborators, The Lancet 2019: high sodium, low whole grains/fibre and low fruit
 ///   are the leading dietary risks for mortality.
 /// - EU nutrient reference values (NRV) for vitamin & mineral coverage.
+/// - Alcohol: WHO (2023) – no level of drinking is safe; DGE (2024) – best avoided. Deducted on top.
 struct HealthScore: Equatable {
     static func == (a: HealthScore, b: HealthScore) -> Bool { a.score == b.score && a.completeness == b.completeness }
 
@@ -21,14 +22,19 @@ struct HealthScore: Equatable {
         let explanation: String
         let tip: String?
 
-        var ratio: Double { points / maxPoints }
+        /// Deductions (alcohol) have no maximum; their bar shows how much is left of a 20-point range.
+        var isPenalty: Bool { maxPoints == 0 }
+        var ratio: Double { isPenalty ? 1 - min(1, -points / 20) : points / maxPoints }
+        var pointsText: String {
+            isPenalty ? "−\(Int((-points).rounded()))" : "\(Int(points.rounded()))/\(Int(maxPoints))"
+        }
     }
 
     let components: [Component]
     /// Share of the calorie goal already eaten – below ~40 % the score is only an interim value.
     let completeness: Double
 
-    var score: Int { Int(components.reduce(0) { $0 + $1.points }.rounded()) }
+    var score: Int { max(0, Int(components.reduce(0) { $0 + $1.points }.rounded())) }
     var isPreliminary: Bool { completeness < 0.4 }
 
     var rating: String {
@@ -133,6 +139,16 @@ struct HealthScore: Equatable {
                            valueText: "Ø \(Int(avg * 100)) % abgedeckt", targetText: "17 Nährstoffe, EU-Referenzwerte",
                            explanation: "Durchschnittliche Abdeckung von Vitamin A, C, D, E, K, B-Vitaminen, Folat, Calcium, Magnesium, Eisen, Zink, Kalium und Jod (je max. 100 %). Markenprodukte liefern oft nur Pflichtangaben.",
                            tip: lowest.isEmpty ? nil : "Am niedrigsten: " + lowest.map { $0.name }.joined(separator: ", ")))
+
+        // 9) Alcohol – deduction of up to 20 points (≈ 3 for a sip, 10 for a beer, 16 for two drinks)
+        let alcohol = n[.alcohol] ?? 0
+        if alcohol >= 1 {
+            let penalty = min(20, 3 + alcohol * 0.35)
+            c.append(Component(id: "alcohol", title: "Alkohol", icon: "wineglass.fill", points: -penalty, maxPoints: 0,
+                               valueText: "\(Int(alcohol.rounded())) g", targetText: "Abzug, am besten 0 g",
+                               explanation: "Laut WHO gibt es keine unbedenkliche Menge Alkohol; die DGE rät seit 2024, ganz darauf zu verzichten. Schon kleine Mengen erhöhen das Risiko für mehrere Krebsarten. Deshalb gibt es hier keine Punkte, sondern einen Abzug.",
+                               tip: "Alkohol kostet heute \(Int(penalty.rounded())) Punkte – alkoholfreie Alternativen sparen auch Kalorien."))
+        }
 
         components = c
     }

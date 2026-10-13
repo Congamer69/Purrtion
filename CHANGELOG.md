@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5 – 13. Oktober 2026
+
+### Neu
+- **Echter Verbrauch** (Verlauf): Purrtion misst deinen tatsächlichen Tagesverbrauch aus dem, was du isst, und deinem Gewichtstrend der letzten Wochen – unabhängig von Formeln und Uhr. Der Gewichtstrend kommt aus einer robusten Regression (Ausreißer durch Wasser zählen kaum), der Energiegehalt pro Kilo hängt vom Körperfett ab (Forbes/Hall-Modell). Bei wenig Daten stützt sich der Wert auf Apple Health bzw. dein Profil, mit jeder Woche zählt die Messung mehr. Aufgeteilt in **Grundumsatz, Verdauung und Bewegung**, mit Genauigkeit (± kcal), Abgleich mit den Aktivitätskalorien aus Apple Health und einem Knopf, um das passende Kalorienziel zu übernehmen.
+- **Was passt noch?** (Suche, Menü unter „Gegessen“, Tagesübersicht): Favoriten, Rezepte und eigene Lebensmittel, sortiert danach, wie gut Menge, Kalorien und Makros zum Rest des Tages passen. Wischen trägt direkt ein.
+- **Promille** in der Tagesübersicht: Schätzung aus Geschlecht, Alter, Größe, Gewicht und der Uhrzeit jedes Getränks, mit Verlauf, Höchstwert, „unter 0,5 ‰ ab“ und „nüchtern ab“. Uhrzeiten lassen sich nachträglich anpassen.
+- **Ernährung in Apple Health** (Profil): jeder Eintrag mit kcal, Makros und über 30 Mikronährstoffen sowie Wasser landet im Ernährungsprotokoll; Änderungen und Löschungen werden übernommen.
+- **Schnell eintragen** mit Alkohol (ml + Vol-% oder Gramm, Uhrzeit, Vorlagen für Bier, Wein, Sekt, Shot) und allen Mikronährstoffen.
+- **Mehr Katzen:** gähnt am Morgen, hungrig mit leerem Napf, beschwipst, durstig, mit Stirnband nach viel Sport, zufrieden, mit Herzaugen bei einem richtig guten Tag, kugelrund bei viel zu viel – und schläft nachts.
+
+### Verbessert
+- **Health Score:** Alkohol gibt einen Abzug (bis 20 Punkte), da es laut WHO keine unbedenkliche Menge gibt.
+- **Selbst eingetragene Aktivität** zählt jetzt mit demselben Prozentsatz wie Apple Health (ohne Apple Health weiterhin voll).
+- Das Health-Score-Diagramm im Verlauf zeigt Wochentage bzw. Daten statt Uhrzeiten.
+
 ## 1.4.1 – 12. Oktober 2026
 
 ### Neu

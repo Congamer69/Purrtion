@@ -19,6 +19,14 @@ struct StatsView: View {
     @State private var scrubScore: Date?
     @State private var scrubWeekday: String?
     @State private var scrubWeight: Date?
+    @State private var showExpenditure = false
+
+    /// Measured daily expenditure from intake and weight trend (always the last weeks, independent of the range).
+    private var expenditure: ExpenditureEstimate {
+        let intake = Dictionary(grouping: entries, by: \.day).mapValues { $0.reduce(0) { $0 + $1.kcal } }
+        return Expenditure.estimate(intakeByDay: intake, weights: weights.map { (date: $0.date, kg: $0.kg) },
+                                    goals: goals, activityEnabled: goals.activityEnabled)
+    }
 
     struct DayStat: Identifiable {
         let day: Date
@@ -116,6 +124,8 @@ struct StatsView: View {
                     goalCard(all)
                     kcalCard(all, logged)
                     if all.contains(where: { $0.active > 0 }) { activityCard(all) }
+                    Button { showExpenditure = true } label: { ExpenditureCard(estimate: expenditure) }
+                        .buttonStyle(SquishButtonStyle())
                     if goals.healthScoreEnabled { scoreCard(logged) }
                     macroCard(logged)
                     // Per-weekday averages only make sense over several weeks.
@@ -129,6 +139,7 @@ struct StatsView: View {
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Verlauf")
             .sheet(isPresented: $showWeight) { WeightSheet() }
+            .sheet(isPresented: $showExpenditure) { ExpenditureSheet(estimate: expenditure) }
             .sheet(isPresented: $showWeightList) { WeightListView() }
             .sheet(isPresented: $showMonth) {
                 CalendarSheet(title: "Monatsübersicht") { picked in
@@ -384,6 +395,14 @@ struct StatsView: View {
                     }
                 }
                 .chartYScale(domain: 0...100)
+                // Days, not hours – same axis as the other charts, over the whole range.
+                .chartXScale(domain: (days.first?.day ?? .now)...cal.date(byAdding: .day, value: range == 7 ? 1 : 0, to: days.last?.day ?? .now)!)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : range == 30 ? 7 : 30)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: range == 7 ? .dateTime.weekday(.narrow) : .dateTime.day().month(.defaultDigits))
+                    }
+                }
                 .chartScrub($scrubScore) { raw in
                     // nearest logged day
                     points.min { abs($0.0.timeIntervalSince(raw)) < abs($1.0.timeIntervalSince(raw)) }?.0

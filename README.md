@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.4.1** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.5** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
@@ -16,8 +16,11 @@ Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 - Verlauf mit Zielfarben (grün / orange bis +5 % / rot), Kaloriendefizit und Diagrammen zum Gedrückthalten und Durchwischen
 - Tagesübersicht mit fünf Share-Designs für WhatsApp, Instagram & Co.
 - „Tag abschließen“: KI ergänzt fehlende Mikronährstoffe und gibt ein kurzes Tagesfazit – auf Wunsch automatisch jede Nacht für den Vortag
-- Health Score, Wasser, Gewicht (Apple Health), Widgets, Backup und CSV-Export
-- Hell- und Dunkelmodus, Pixel-Katze mit Stimmungen und Animationen
+- **Echter Verbrauch:** aus Essen und Gewichtstrend gemessener Tagesverbrauch, aufgeteilt in Grundumsatz, Verdauung und Bewegung – inklusive Abgleich mit Apple Health
+- **Was passt noch?** schlägt Favoriten und Rezepte vor, die zu den restlichen Kalorien und Makros passen
+- Promille-Schätzung für eingetragene Getränke (Körperwasser nach Watson, Verlauf und „nüchtern ab“)
+- Health Score (mit Abzug für Alkohol), Wasser, Gewicht und Ernährung in Apple Health, Widgets, Backup und CSV-Export
+- Hell- und Dunkelmodus, Pixel-Katze mit vielen Stimmungen – gähnend, hungrig, beschwipst, stolz, vollgefressen …
 
 ## Screenshots
 

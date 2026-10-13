@@ -23,7 +23,7 @@ struct FoodDetailView: View {
     @State private var quantityText = "100"
     @FocusState private var amountFocused: Bool
 
-    init(food: FoodItem, mode: Mode, onDone: ((String) -> Void)? = nil) {
+    init(food: FoodItem, mode: Mode, preset: (quantity: Double, serving: ServingOption)? = nil, onDone: ((String) -> Void)? = nil) {
         _food = State(initialValue: food)
         self.mode = mode
         self.onDone = onDone
@@ -38,6 +38,10 @@ struct FoodDetailView: View {
             _serving = State(initialValue: food.allServings.first { $0.name == ing.serving.name } ?? ing.serving)
             _quantity = State(initialValue: ing.quantity)
             _quantityText = State(initialValue: ing.quantity.clean)
+        } else if let preset {
+            _serving = State(initialValue: food.allServings.first { $0.name == preset.serving.name } ?? preset.serving)
+            _quantity = State(initialValue: preset.quantity)
+            _quantityText = State(initialValue: preset.quantity.clean)
         } else {
             _serving = State(initialValue: food.defaultServing)
             _quantity = State(initialValue: food.defaultQuantity)
