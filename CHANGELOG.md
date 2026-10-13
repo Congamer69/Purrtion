@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 – 13. Oktober 2026
+
+### Verbessert
+- **Einstellungen statt Profil:** Der dritte Reiter heißt jetzt „Einstellungen“ (Zahnrad). Darin gibt es den eigenen Abschnitt **„Dein Profil“** mit Geschlecht, Alter, Größe und Gewicht auf einen Blick.
+- **Profil speichern ohne neues Ziel:** In „Dein Profil“ gibt es neben „Als Ziel übernehmen“ jetzt **„Nur Profil speichern“** – deine Angaben werden übernommen, das Kalorienziel bleibt unverändert. Änderungen werden erst beim Speichern übernommen.
+
 ## 1.5 – 13. Oktober 2026
 
 ### Neu

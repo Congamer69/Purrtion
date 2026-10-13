@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.5** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.5.1** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
@@ -49,7 +49,7 @@ Xcode 27 und iOS 27 (Simulator oder iPhone).
 > Das Projekt liegt in einem iCloud-synchronisierten Ordner. Build-Produkte im Projektordner
 > brechen dort die Code-Signatur ("resource fork … not allowed") – `run.sh` legt sie deshalb in `$TMPDIR` ab.
 
-## Datenquellen (alles kostenlos, in Profil → Datenquellen einzeln abschaltbar)
+## Datenquellen (alles kostenlos, in Einstellungen → Datenquellen einzeln abschaltbar)
 | Quelle | Wofür |
 |---|---|
 | **Schweizer Nährwertdatenbank** (BLV, V 7.1) | ~1.200 Lebensmittel, darunter ~150 fertige Gerichte (Burger, Kebab, Pizza, Gratins …), offline in `Purrtion/Resources/swiss.json` |
@@ -63,11 +63,11 @@ BLS aktualisieren: Excel von https://blsdb.de laden und
 Schweizer Datenbank aktualisieren: Excel von https://naehrwertdaten.ch/de/downloads/ laden und
 `python tools/convert_swiss.py Schweizer_Nahrwertdatenbank.xlsx Purrtion/Resources/swiss.json`.
 
-Die App lädt neue Datenbank-Versionen selbst nach (Profil → Datenquellen → „Datenbanken aktualisieren“, automatisch wöchentlich): `data/manifest.json` nennt Version und Revision jeder Datei, `python tools/update_manifest.py` aktualisiert es nach einer neuen Konvertierung. Die GitHub-Aktion `.github/workflows/update-databases.yml` übernimmt neue Versionen der Schweizer Datenbank monatlich automatisch.
+Die App lädt neue Datenbank-Versionen selbst nach (Einstellungen → Datenquellen → „Datenbanken aktualisieren“, automatisch wöchentlich): `data/manifest.json` nennt Version und Revision jeder Datei, `python tools/update_manifest.py` aktualisiert es nach einer neuen Konvertierung. Die GitHub-Aktion `.github/workflows/update-databases.yml` übernimmt neue Versionen der Schweizer Datenbank monatlich automatisch.
 
 Die Suche verzeiht Tippfehler, Mehrzahl und getrennte Wörter („Käsespätzle“ findet „Spätzle mit Käse“).
 
-## KI (Profil → KI-Modelle)
+## KI (Einstellungen → KI-Modelle)
 Foto-Erkennung und Tagesanalyse („Tag abschließen“) können unterschiedliche Anbieter und Modelle nutzen – z. B. Claude Opus für Fotos und das günstigere Sonnet oder Gemini für die Tagesanalyse. Standardmäßig folgt die Tagesanalyse der Foto-Erkennung.
 
 | Anbieter | Kosten |

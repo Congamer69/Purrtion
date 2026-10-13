@@ -143,7 +143,7 @@ struct DayOverviewSheet: View {
             }
             Text(goals.activityEnabled
                  ? "Selbst eingetragene Aktivität (z. B. Training ohne Uhr) wird wie Apple Health zu \(Int(target.activityPercent)) % aufs Ziel angerechnet."
-                 : "Selbst eingetragene Aktivität wird voll aufs Ziel angerechnet. Apple Health kannst du unter Profil → Ziele verbinden.")
+                 : "Selbst eingetragene Aktivität wird voll aufs Ziel angerechnet. Apple Health kannst du unter Einstellungen → Ziele verbinden.")
                 .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
         }
         .card()

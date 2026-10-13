@@ -345,7 +345,7 @@ private enum AppleDayAI {
     static func model() throws -> SystemLanguageModel {
         let model = SystemLanguageModel.default
         guard model.isAvailable else {
-            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Profil → KI-Modelle einen anderen Anbieter für die Tagesanalyse.")
+            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Einstellungen → KI-Modelle einen anderen Anbieter für die Tagesanalyse.")
         }
         return model
     }
@@ -372,7 +372,7 @@ private enum AppleDayAI {
             let guess = try await session.respond(to: day, generating: VerdictGuess.self).content
             return DayCloser.Verdict(rating: guess.rating, tone: guess.tone, points: guess.points)
         } catch {
-            throw MealVision.VisionError.unavailable("Apple Intelligence konnte den Tag nicht bewerten (\(error.localizedDescription)). Mit Claude, Gemini oder OpenAI (Profil → KI-Modelle → Tagesanalyse) klappt es zuverlässiger.")
+            throw MealVision.VisionError.unavailable("Apple Intelligence konnte den Tag nicht bewerten (\(error.localizedDescription)). Mit Claude, Gemini oder OpenAI (Einstellungen → KI-Modelle → Tagesanalyse) klappt es zuverlässiger.")
         }
     }
 }

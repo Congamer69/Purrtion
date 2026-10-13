@@ -242,7 +242,7 @@ enum CloudVision {
     static func request(provider: VisionProvider, model: String, text: String, b64: String?, schema: [String: Any]) async throws -> String {
         let key = provider.apiKey
         guard !key.isEmpty else {
-            throw MealVision.VisionError.unavailable("Bitte hinterlege unter Profil → KI-Modelle deinen \(provider.name)-Schlüssel.")
+            throw MealVision.VisionError.unavailable("Bitte hinterlege unter Einstellungen → KI-Modelle deinen \(provider.name)-Schlüssel.")
         }
         switch provider {
         case .claude: return try await claude(key: key, model: model, b64: b64, text: text, schema: schema)
@@ -487,7 +487,7 @@ private enum AppleVision {
     static func analyze(text: String) async throws -> MealVision.Result {
         let model = SystemLanguageModel.default
         guard model.isAvailable else {
-            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Profil → KI-Modelle einen anderen Anbieter.")
+            throw MealVision.VisionError.unavailable("Apple Intelligence ist gerade nicht verfügbar. Wähle unter Einstellungen → KI-Modelle einen anderen Anbieter.")
         }
         let session = LanguageModelSession(model: model, instructions: instructions + "\n" + MealVision.textPrompt)
         let guess: MealGuess

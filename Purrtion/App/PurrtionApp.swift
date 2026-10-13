@@ -47,7 +47,7 @@ struct RootView: View {
             TabView(selection: $tab) {
                 Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView() }
                 Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView() }
-                Tab("Profil", systemImage: "person.crop.circle", value: 2) { SettingsView() }
+                Tab("Einstellungen", systemImage: "gearshape.fill", value: 2) { SettingsView() }
             }
             .opacity(showSplash ? 0 : 1)
 

@@ -54,11 +54,25 @@ struct SettingsView: View {
                 .listRowBackground(Theme.card)
 
                 Section {
+                    NavigationLink { ProfileCalculator() } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.fill").font(.system(size: 30)).foregroundStyle(Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Profil bearbeiten").font(Theme.font(16, .semibold))
+                                Text("\(goals.sex.label) · \(goals.age) Jahre · \(Int(goals.heightCM)) cm · \(goals.weightKG.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } header: { Text("Dein Profil") } footer: {
+                    Text("Geschlecht, Alter, Größe, Gewicht und Aktivität – Grundlage für Bedarf, echten Verbrauch und Promille.")
+                }
+                .listRowBackground(Theme.card)
+
+                Section {
                     NavigationLink { GoalsEditor() } label: {
                         LabeledContent("Kalorien & Makros", value: "\(goals.kcal.kcalString) kcal")
-                    }
-                    NavigationLink { ProfileCalculator() } label: {
-                        Label("Bedarf berechnen", systemImage: "function")
                     }
                 } header: { Text("Ziele") }
                 .listRowBackground(Theme.card)
@@ -164,7 +178,7 @@ struct SettingsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background.ignoresSafeArea())
-            .navigationTitle("Profil")
+            .navigationTitle("Einstellungen")
             .keyboardDoneButton()
             .sheet(isPresented: $showDeleteAll) { DeleteAllSheet() }
             .sheet(isPresented: Binding(get: { !exportURLs.isEmpty }, set: { if !$0 { exportURLs = [] } })) {
@@ -694,22 +708,54 @@ struct MacroSplitBar: View {
 struct ProfileCalculator: View {
     @EnvironmentObject private var goals: Goals
     var onApply: (() -> Void)? = nil
+    // Edited as a draft – nothing changes until "Profil speichern" or "Als Ziel übernehmen".
+    @State private var sex: Goals.Sex = .female
+    @State private var age: Double = 28
+    @State private var height: Double = 170
+    @State private var weight: Double = 68
+    @State private var activity: Goals.Activity = .light
+    @State private var target: Goals.Target = .maintain
+    @State private var loaded = false
+    @State private var saved = false
+
+    private var bmr: Double { 10 * weight + 6.25 * height - 5 * age + (sex == .male ? 5 : -161) }
+    private var tdee: Double { bmr * activity.factor }
+    private var suggested: Double { (max(1200, tdee + target.delta) / 10).rounded() * 10 }
+    private var changed: Bool {
+        sex != goals.sex || Int(age) != goals.age || height != goals.heightCM || weight != goals.weightKG
+            || activity != goals.activity || target != goals.target
+    }
 
     var body: some View {
         Form {
             Section {
-                Picker("Geschlecht", selection: $goals.sex) {
-                    ForEach(Goals.Sex.allCases) { Text($0.label).tag($0) }
+                HStack(spacing: 14) {
+                    CatMascot(mood: .happy, pixel: 3)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Profil anlegen").font(Theme.font(18, .bold)).foregroundStyle(Theme.textPrimary)
+                        Text("Hier legst du deine Körperdaten an. Daraus berechnet Purrtion deinen Bedarf – das Kalorienziel änderst du nur, wenn du es übernimmst.")
+                            .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                    }
                 }
-                .pickerStyle(.segmented)
-                SliderField(title: "Alter", value: $goals.age.asDouble, range: 14...90, unit: "Jahre")
-                SliderField(title: "Größe", value: $goals.heightCM, range: 140...210, unit: "cm")
-                SliderField(title: "Gewicht", value: $goals.weightKG, range: 40...180, step: 0.5, unit: "kg", decimals: 1)
-            } header: { Text("Über dich") } footer: { Text("Zahl antippen zum direkten Eintippen.") }
+                .padding(.vertical, 4)
+            }
             .listRowBackground(Theme.card)
 
             Section {
-                Picker("Aktivität", selection: $goals.activity) {
+                Picker("Geschlecht", selection: $sex) {
+                    ForEach(Goals.Sex.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                SliderField(title: "Alter", value: $age, range: 14...90, unit: "Jahre")
+                SliderField(title: "Größe", value: $height, range: 140...210, unit: "cm")
+                SliderField(title: "Gewicht", value: $weight, range: 40...180, step: 0.5, unit: "kg", decimals: 1)
+            } header: { Text("Über dich") } footer: {
+                Text("Wird für Grundumsatz, echten Verbrauch und Promille-Schätzung genutzt. Zahl antippen zum direkten Eintippen.")
+            }
+            .listRowBackground(Theme.card)
+
+            Section {
+                Picker("Aktivität", selection: $activity) {
                     ForEach(Goals.Activity.allCases) { a in
                         VStack(alignment: .leading) {
                             Text(a.label)
@@ -724,7 +770,7 @@ struct ProfileCalculator: View {
             .listRowBackground(Theme.card)
 
             Section {
-                Picker("Ziel", selection: $goals.target) {
+                Picker("Ziel", selection: $target) {
                     ForEach(Goals.Target.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.menu)
@@ -732,26 +778,62 @@ struct ProfileCalculator: View {
             .listRowBackground(Theme.card)
 
             Section {
-                LabeledContent("Grundumsatz", value: "\(goals.bmr.kcalString) kcal")
-                LabeledContent("Gesamtbedarf", value: "\(goals.tdee.kcalString) kcal")
-                LabeledContent("Empfohlenes Ziel", value: "\(goals.suggestedKcal.kcalString) kcal")
+                LabeledContent("Grundumsatz", value: "\(bmr.kcalString) kcal")
+                LabeledContent("Gesamtbedarf", value: "\(tdee.kcalString) kcal")
+                LabeledContent("Empfohlenes Ziel", value: "\(suggested.kcalString) kcal")
                     .fontWeight(.bold)
+                LabeledContent("Dein aktuelles Ziel", value: "\(goals.kcal.kcalString) kcal")
                 Button {
+                    store()
                     goals.applySuggestion()
                     Haptics.success()
+                    saved = true
                     onApply?()
                 } label: {
                     Text("Als Ziel übernehmen").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PillButtonStyle())
-                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
-            } header: { Text("Ergebnis") }
+                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 4, trailing: 12))
+                if onApply == nil {
+                    Button {
+                        store()
+                        Haptics.success()
+                        withAnimation(.snappy) { saved = true }
+                    } label: {
+                        Label(saved && !changed ? "Profil gespeichert" : "Nur Profil speichern",
+                              systemImage: saved && !changed ? "checkmark" : "person.crop.circle.badge.checkmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PillButtonStyle(filled: false))
+                    .disabled(!changed)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12))
+                }
+            } header: { Text("Bedarf") } footer: {
+                if onApply == nil {
+                    Text("„Nur Profil speichern“ übernimmt deine Angaben, ohne das Kalorienziel zu ändern.")
+                }
+            }
             .listRowBackground(Theme.card)
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background.ignoresSafeArea())
-        .navigationTitle("Bedarf berechnen")
+        .navigationTitle("Dein Profil")
         .keyboardDoneButton()
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            sex = goals.sex; age = Double(goals.age); height = goals.heightCM; weight = goals.weightKG
+            activity = goals.activity; target = goals.target
+        }
+    }
+
+    private func store() {
+        goals.sex = sex
+        goals.age = Int(age.rounded())
+        goals.heightCM = height
+        goals.weightKG = weight
+        goals.activity = activity
+        goals.target = target
     }
 }
 

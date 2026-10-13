@@ -1,6 +1,6 @@
 import Foundation
 
-/// Which databases the food search uses (Profil → Datenquellen).
+/// Which databases the food search uses (Einstellungen → Datenquellen).
 enum SearchSource: String, CaseIterable, Identifiable {
     case bls, swiss, openFoodFacts, ai
 
