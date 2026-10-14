@@ -4,7 +4,8 @@ import Foundation
 ///
 /// Distribution volume from total body water (Watson formulas: sex, age, height, weight) instead of the flat
 /// Widmark factor – more accurate for very light or heavy people. Each drink is absorbed linearly over
-/// 45 minutes (≈10 % never reaches the blood), alcohol is broken down at a constant 0.15 ‰ per hour.
+/// 30 minutes (≈10 % never reaches the blood), alcohol is broken down at 0.1 ‰ per hour – the value common
+/// BAC calculators use (real elimination is 0.1–0.2 ‰/h, so this errs on the high, safer side).
 struct BloodAlcohol {
     struct Drink: Identifiable {
         let id: UUID
@@ -25,8 +26,8 @@ struct BloodAlcohol {
     /// Body water in litres used for the calculation.
     let bodyWater: Double
 
-    static let eliminationPerHour = 0.15
-    static let absorptionMinutes = 45.0
+    static let eliminationPerHour = 0.1
+    static let absorptionMinutes = 30.0
     static let absorbedShare = 0.9
 
     init(drinks: [Drink], sex: Goals.Sex, age: Int, heightCM: Double, weightKG: Double) {

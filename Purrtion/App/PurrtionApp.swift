@@ -41,12 +41,16 @@ struct RootView: View {
     @State private var showSplash = true
     @State private var tab = 0
     @ObservedObject private var router = NotificationRouter.shared
+    @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
 
     var body: some View {
         ZStack {
             TabView(selection: $tab) {
                 Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView() }
                 Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView() }
+                if friendsEnabled && FirebaseConfig.isAvailable {
+                    Tab("Freunde", systemImage: "person.2.fill", value: 3) { FriendsView() }
+                }
                 Tab("Einstellungen", systemImage: "gearshape.fill", value: 2) { SettingsView() }
             }
             .opacity(showSplash ? 0 : 1)
@@ -92,8 +96,18 @@ struct RootView: View {
             if day != nil { tab = 0 }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { WidgetBridge.update(ctx, goals: goals) }
+            if phase == .background {
+                WidgetBridge.update(ctx, goals: goals)
+                if friendsEnabled { FriendsStore.shared.uploadIfNeeded(ctx: ctx, goals: goals) }
+            }
         }
+        // Invite links: purrtion://friend/CODE (opened from the invite page).
+        .onOpenURL { url in
+            guard FriendsStore.shared.handle(url: url) else { return }
+            friendsEnabled = true
+            tab = 3
+        }
+        .onChange(of: friendsEnabled) { _, on in if !on, tab == 3 { tab = 2 } }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
             WidgetBridge.update(ctx, goals: goals)
         }

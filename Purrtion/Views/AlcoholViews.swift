@@ -83,7 +83,7 @@ struct AlcoholCard: View {
                     }
                     .transition(.opacity)
                 }
-                Text("Schätzung nach Körperwasser (Watson) aus Geschlecht, Alter, Größe und Gewicht, Abbau 0,15 ‰ pro Stunde. Tatsächliche Werte schwanken stark – nicht geeignet, um die Fahrtüchtigkeit zu beurteilen.")
+                Text("Schätzung nach Körperwasser (Watson) aus Geschlecht, Alter, Größe und Gewicht, Abbau 0,1 ‰ pro Stunde wie bei üblichen Promillerechnern. Tatsächliche Werte schwanken stark. Nicht geeignet, um die Fahrtüchtigkeit zu beurteilen.")
                     .font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
             }
             .card()

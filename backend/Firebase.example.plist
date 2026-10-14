@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>APIKey</key>
+	<string>&lt;Web-API-Key aus der Firebase-Konsole&gt;</string>
+	<key>InviteURL</key>
+	<string>https://&lt;projekt-id&gt;.web.app/f/</string>
+	<key>ProjectID</key>
+	<string>&lt;projekt-id&gt;</string>
+</dict>
+</plist>

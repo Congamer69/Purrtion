@@ -66,7 +66,7 @@ struct SettingsView: View {
                         .padding(.vertical, 2)
                     }
                 } header: { Text("Dein Profil") } footer: {
-                    Text("Geschlecht, Alter, Größe, Gewicht und Aktivität – Grundlage für Bedarf, echten Verbrauch und Promille.")
+                    Text("Geschlecht, Alter, Größe, Gewicht und Aktivität. Grundlage für Bedarf, echten Verbrauch und Promille.")
                 }
                 .listRowBackground(Theme.card)
 
@@ -76,6 +76,8 @@ struct SettingsView: View {
                     }
                 } header: { Text("Ziele") }
                 .listRowBackground(Theme.card)
+
+                FriendsSettingsSection()
 
                 Section {
                     Toggle(isOn: $goals.waterEnabled.animation()) { Label("Wasser tracken", systemImage: "drop.fill") }

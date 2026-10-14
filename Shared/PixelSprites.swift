@@ -500,8 +500,8 @@ extension Sprites {
     // Great day: heart eyes and a twinkle.
     private static let loveFace = [
         "owrwrwwwrwrwo...",
-        "owwrwwwwwrwwo...",
-        "owcwwwpwwwcwo...",
+        "owrrrwwwrrrwo...",
+        "owcrwwpwwrcwo...",
         "owwwwowowwwwo...",
     ]
     static let proud1 = PixelSprite(ears(["...", ".y.", "yWy", ".y.", "..."]) + loveFace + body)

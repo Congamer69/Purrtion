@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Purrtion friends. One document per user holds name, invite code, friend list and a small stats snapshot.
+// Friendship: A puts B's uid into A.friends (= request). B sees it via a query "friends array-contains me"
+// and accepts by putting A into B.friends. A user's document is only readable by the people in its friends list.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+
+    function validUser(d) {
+      return d.keys().hasOnly(['name', 'palette', 'code', 'friends', 'hidden', 'stats', 'updated', 'v'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 30
+        && d.code is string && d.code.size() == 8
+        && d.friends is list && d.friends.size() <= 100
+        && d.hidden is list && d.hidden.size() <= 200
+        && d.stats is map
+        && !(request.auth.uid in d.friends);
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || request.auth.uid in resource.data.friends);
+      // Only the query "friends array-contains <me>" passes this rule.
+      allow list: if signedIn() && request.auth.uid in resource.data.friends;
+      allow create, update: if signedIn() && request.auth.uid == uid && validUser(request.resource.data);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Short invite codes → uid (typed or opened via link).
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && code.size() == 8
+        && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow list, update: if false;
+    }
+  }
+}

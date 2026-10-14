@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.6 – 14. Oktober 2026
+
+### Neu
+- **Freunde:** neuer Reiter (in den Einstellungen ausblendbar) zum Vergleichen mit Freunden.
+  - Einladen per Link (öffnet Purrtion über eine kleine Webseite) oder 8-stelligem Code, Anfragen annehmen oder ablehnen.
+  - **Heute:** gegessene kcal und Tagesziel aller Freunde.
+  - **Rangliste** über zehn Kennzahlen: Serie, Tage im Ziel, Health Score, Protein, Wasser, Aktivität, Obst & Gemüse, Ballaststoffe, Zieltreue und Fleiß.
+  - **Diese Woche:** die letzten 7 Tage aller in Zielfarben nebeneinander.
+  - **Duell:** Punktestand und jede Kennzahl im direkten Vergleich.
+  - Jeder Freund mit seiner Katzenfarbe und Tagesstimmung.
+  - Einstellungen → Freunde: Name, Gewichtstrend teilen (standardmäßig aus), eigener Code, Freunde-Daten löschen.
+  - Geteilt werden nur Kennzahlen und Tageskalorien, keine Mahlzeiten und kein Gewicht. Backend kostenlos auf Firebase, mit sehr wenigen Anfragen.
+
+### Verbessert
+- **Promille:** rechnet jetzt wie übliche Promillerechner mit 0,1 ‰ Abbau pro Stunde und 30 Minuten Aufnahme je Getränk (vorher 0,15 ‰ und 45 Minuten).
+- Die stolze Katze hat jetzt richtige Herz-Augen.
+
 ## 1.5.1 – 13. Oktober 2026
 
 ### Verbessert

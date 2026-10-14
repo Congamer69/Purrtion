@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freundschaftsanfrage · Purrtion</title>
+<meta property="og:title" content="Lass uns auf Purrtion vergleichen 🐾">
+<meta property="og:description" content="Tippe auf den Link, um die Freundschaftsanfrage in Purrtion zu öffnen.">
+<style>
+:root{--bg:#FFF8F1;--card:#fff;--text:#2B2230;--muted:#7A7085;--accent:#FF8A4A;--soft:#FFE6D6}
+@media (prefers-color-scheme:dark){:root{--bg:#17151B;--card:#24212A;--text:#F4EFF6;--muted:#A49CAD;--soft:#3A2A22}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px -apple-system,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:16px}
+.card{background:var(--card);border-radius:28px;padding:28px 22px;width:100%;max-width:420px;text-align:center}
+.cat{font-size:56px}h1{margin:.3em 0 .2em;font-size:24px}p{color:var(--muted);margin:.4em 0}
+.btn{display:block;margin:22px 0 14px;padding:16px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;text-decoration:none}
+.code{display:inline-block;margin-top:6px;padding:8px 16px;border-radius:12px;background:var(--soft);color:var(--accent);font:700 22px ui-monospace,Menlo,monospace;letter-spacing:3px}
+small{color:var(--muted);display:block;margin-top:18px;font-size:13px}
+</style></head><body><div class="card">
+<div class="cat">🐱</div>
+<h1 id="title">Freundschaftsanfrage</h1>
+<p>Vergleicht euch in Purrtion: Serien, Zieltreue, Health Score und mehr.</p>
+<a class="btn" id="open" href="#">In Purrtion öffnen</a>
+<p>Oder in Purrtion unter <b>Freunde → Code eingeben</b>:</p>
+<div class="code" id="code">––––––––</div>
+<small>Noch kein Purrtion? Die App gibt es kostenlos auf <a href="https://github.com/Congamer69/Purrtion" style="color:var(--accent)">GitHub</a>.</small>
+</div>
+<script>
+var code=(location.pathname.split('/f/')[1]||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,8);
+var name=(new URLSearchParams(location.search).get('n')||'').slice(0,30);
+document.getElementById('code').textContent=code||'––––––––';
+if(name){document.getElementById('title').textContent=name+' möchte mit dir vergleichen';}
+var url='purrtion://friend/'+code+(name?'?n='+encodeURIComponent(name):'');
+document.getElementById('open').href=url;
+if(code){setTimeout(function(){location.href=url;},400);}
+</script></body></html>

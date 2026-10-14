@@ -5,3 +5,7 @@ xcuserdata/
 .DS_Store
 *.xcresult
 .build/
+
+# Firebase config of the friends backend (see backend/README.md)
+Purrtion/Resources/Firebase.plist
+backend/.firebase/

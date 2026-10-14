@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.5.1** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.6** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
@@ -20,6 +20,7 @@ Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 - **Was passt noch?** schlägt Favoriten und Rezepte vor, die zu den restlichen Kalorien und Makros passen
 - Promille-Schätzung für eingetragene Getränke (Körperwasser nach Watson, Verlauf und „nüchtern ab“)
 - Health Score (mit Abzug für Alkohol), Wasser, Gewicht und Ernährung in Apple Health, Widgets, Backup und CSV-Export
+- **Freunde:** per Link oder Code einladen, Rangliste über zehn Kennzahlen (Serie, Zieltreue, Health Score, Protein, Wasser, Aktivität, Obst & Gemüse …), Wochenvergleich und Duell-Ansicht – nur Kennzahlen werden geteilt, Backend gratis auf Firebase ([backend/README.md](backend/README.md))
 - Hell- und Dunkelmodus, Pixel-Katze mit vielen Stimmungen – gähnend, hungrig, beschwipst, stolz, vollgefressen …
 
 ## Screenshots
@@ -97,6 +98,22 @@ Schlüssel liegen in der Keychain und gelten pro Anbieter für beide Aufgaben; d
 - **Ziele:** eigenes Kalorienziel pro Wochentag; Zieländerungen gelten ab heute, vergangene Tage behalten ihr damaliges Ziel – `Models/Goals.swift`
 - **Widgets:** Homescreen (quadratisch, breit) und Sperrbildschirm – Ziel `PurrtionWidget`, Daten über App Group `group.com.const.purrtion`
 
+## Freunde (Reiter „Freunde“, in den Einstellungen ausblendbar)
+Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
+
+- **Einladen:** „Einladen“ teilt einen Link wie `https://purrtion-friends.web.app/f/ABCD2345?n=Name` per WhatsApp, iMessage & Co. Der Link öffnet eine kleine Seite und von dort Purrtion. Alternativ den 8-stelligen Code unter „Code“ eintippen.
+- **Anfragen:** Wer eingeladen wird, sieht die Anfrage mit Name und Katze und kann annehmen oder ablehnen. Erst wenn beide sich hinzugefügt haben, sieht man gegenseitig Werte.
+- **Heute:** gegessene kcal und Tagesziel (inklusive angerechneter Aktivität) aller Freunde, in Zielfarben.
+- **Rangliste** über zehn Kennzahlen: Serie, Tage im Ziel (7 Tage), Health Score, Protein, Wasser, Aktivität, Obst & Gemüse, Ballaststoffe, Zieltreue und Fleiß (30 Tage). Medaillen, gleiche Werte teilen sich den Platz.
+- **Diese Woche:** die letzten 7 Tage aller Freunde nebeneinander in Zielfarben.
+- **Duell:** Freund antippen zeigt einen Punktestand („5 : 4“) und jede Kennzahl im direkten Vergleich mit Krone für den Gewinner.
+- **Katzen:** Jeder Freund erscheint mit seiner Katzenfarbe und der Stimmung seines Tages.
+- **Einstellungen → Freunde:** Seite ein- oder ausblenden, Name für Freunde, Gewichtstrend teilen (aus), eigener Code, „Freunde-Daten löschen“ (löscht Profil, Code und Konto auf dem Server).
+
+**Datenschutz:** Geteilt werden nur Kennzahlen und die Tageskalorien mit Ziel. Keine Mahlzeiten, kein Gewicht (den Gewichtstrend in kg pro Woche nur, wenn man ihn teilt). Die Firestore-Regeln erlauben das Lesen nur Personen, die man selbst hinzugefügt hat.
+
+**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden höchstens alle 15 Minuten und nur bei Änderungen geschrieben, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository; ohne sie blendet die App die Freunde-Seite aus.
+
 ## Auf dem echten iPhone installieren
 In Xcode beim Ziel **Purrtion** und **PurrtionWidget** unter „Signing & Capabilities“ dein Team auswählen.
 App Groups und HealthKit funktionieren auch mit einem kostenlosen Apple-Account.
@@ -106,7 +123,8 @@ App Groups und HealthKit funktionieren auch mit einem kostenlosen Apple-Account.
 - `Purrtion/Pixel` – Animations-Views
 - `Purrtion/Models` – Nährstoffe, Lebensmittel, SwiftData-Modelle, Ziele
 - `Purrtion/Services` – BLS-Datenbank, Beliebtliste, Open Food Facts, Foto-Analyse (Apple/Gemini/Claude/OpenAI), Keychain
-- `Purrtion/Views` – Heute, Suche, Detail, Barcode, Foto, Schnell-Eintrag, Verlauf, Profil
+- `Purrtion/Views` – Heute, Suche, Detail, Barcode, Foto, Schnell-Eintrag, Verlauf, Freunde, Einstellungen
+- `backend/` – Firebase-Regeln, Einladungsseite (Hosting) und Anleitung für die Freunde-Seite
 - `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import)
 
 ## Lizenz & Hinweise
