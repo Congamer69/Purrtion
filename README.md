@@ -2,10 +2,10 @@
 
 # Purrtion 🐾
 
-Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max), komplett im Pixel-Katzen-Look.
+Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.6** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.7** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
@@ -50,10 +50,15 @@ Xcode 27 und iOS 27 (Simulator oder iPhone).
 > Das Projekt liegt in einem iCloud-synchronisierten Ordner. Build-Produkte im Projektordner
 > brechen dort die Code-Signatur ("resource fork … not allowed") – `run.sh` legt sie deshalb in `$TMPDIR` ab.
 
+### Android
+Die Android-App liegt in [`android/`](android/README.md) und wird mit `android/run.sh` gebaut und auf Emulator oder Handy gestartet.
+Sie nutzt dieselben Datenbanken, dieselbe Versionsnummer, dasselbe Sicherungsformat und dasselbe Freunde-Backend wie die iPhone-App.
+
 ## Datenquellen (alles kostenlos, in Einstellungen → Datenquellen einzeln abschaltbar)
 | Quelle | Wofür |
 |---|---|
 | **Schweizer Nährwertdatenbank** (BLV, V 7.1) | ~1.200 Lebensmittel, darunter ~150 fertige Gerichte (Burger, Kebab, Pizza, Gratins …), offline in `Purrtion/Resources/swiss.json` |
+| **Restaurantketten** (McDonald's, Burger King) | ~370 Produkte mit den offiziellen Nährwerten und Portionsgrößen der Ketten, offline in `Purrtion/Resources/restaurants.json`. „mcdonalds pommes“ oder „bk whopper“ zeigt die Kette zuerst, der Kettenname allein die ganze Karte |
 | KI-Schätzung | alles ohne Datenbankeintrag oder ganze Sätze („2 Eier und ein Toast“), nutzt den KI-Anbieter der Foto-Erkennung |
 | **Bundeslebensmittelschlüssel 4.0** (Max Rubner-Institut, CC BY 4.0) | ~7.100 Lebensmittel mit bis zu 138 Nährstoffen, offline in `Purrtion/Resources/bls.json` |
 | Purrtion-Beliebtliste (`PopularFoods.swift`) | ~100 Alltagslebensmittel mit Namen & echten Portionsgrößen, auf BLS-Einträge gemappt |
@@ -63,6 +68,8 @@ BLS aktualisieren: Excel von https://blsdb.de laden und
 `python tools/convert_bls.py BLS_4_0_Daten_2025_DE.xlsx Purrtion/Resources/bls.json` (braucht `openpyxl`).
 Schweizer Datenbank aktualisieren: Excel von https://naehrwertdaten.ch/de/downloads/ laden und
 `python tools/convert_swiss.py Schweizer_Nahrwertdatenbank.xlsx Purrtion/Resources/swiss.json`.
+
+Restaurantketten aktualisieren: `python3 tools/restaurants/build_restaurants.py` holt Burger King direkt von burgerking.de. McDonald's blockt Skripte, deshalb einmal `tools/restaurants/mcdonalds_scrape.js` in der Browser-Konsole auf mcdonalds.com ausführen und die Ausgabe nach `tools/restaurants/raw/mcdonalds.jsonl` kopieren. Danach `python tools/update_manifest.py`.
 
 Die App lädt neue Datenbank-Versionen selbst nach (Einstellungen → Datenquellen → „Datenbanken aktualisieren“, automatisch wöchentlich): `data/manifest.json` nennt Version und Revision jeder Datei, `python tools/update_manifest.py` aktualisiert es nach einer neuen Konvertierung. Die GitHub-Aktion `.github/workflows/update-databases.yml` übernimmt neue Versionen der Schweizer Datenbank monatlich automatisch.
 
@@ -112,7 +119,7 @@ Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
 
 **Datenschutz:** Geteilt werden nur Kennzahlen und die Tageskalorien mit Ziel. Keine Mahlzeiten, kein Gewicht (den Gewichtstrend in kg pro Woche nur, wenn man ihn teilt). Die Firestore-Regeln erlauben das Lesen nur Personen, die man selbst hinzugefügt hat.
 
-**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden höchstens alle 15 Minuten und nur bei Änderungen geschrieben, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository; ohne sie blendet die App die Freunde-Seite aus.
+**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden etwa 20 Sekunden nach einem neuen Eintrag geschrieben, höchstens alle 2 Minuten und nur bei Änderungen, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository; ohne sie blendet die App die Freunde-Seite aus.
 
 ## Auf dem echten iPhone installieren
 In Xcode beim Ziel **Purrtion** und **PurrtionWidget** unter „Signing & Capabilities“ dein Team auswählen.
@@ -124,8 +131,9 @@ App Groups und HealthKit funktionieren auch mit einem kostenlosen Apple-Account.
 - `Purrtion/Models` – Nährstoffe, Lebensmittel, SwiftData-Modelle, Ziele
 - `Purrtion/Services` – BLS-Datenbank, Beliebtliste, Open Food Facts, Foto-Analyse (Apple/Gemini/Claude/OpenAI), Keychain
 - `Purrtion/Views` – Heute, Suche, Detail, Barcode, Foto, Schnell-Eintrag, Verlauf, Freunde, Einstellungen
+- `android/` – die Android-App (Kotlin, Jetpack Compose), siehe [android/README.md](android/README.md)
 - `backend/` – Firebase-Regeln, Einladungsseite (Hosting) und Anleitung für die Freunde-Seite
-- `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import)
+- `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import), `export_sprites_kotlin.py` (Sprites für Android)
 
 ## Lizenz & Hinweise
 Der Code steht unter der [MIT-Lizenz](LICENSE): frei nutzbar, veränderbar und weitergebbar, ohne Gewähr und ohne Haftung. Die Datenquellen haben eigene Lizenzen, siehe [NOTICE](NOTICE).

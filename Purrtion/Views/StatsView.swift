@@ -676,13 +676,14 @@ struct WeightSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @EnvironmentObject private var goals: Goals
+    @Query(sort: \WeightLog.date, order: .reverse) private var weights: [WeightLog]
     @State private var kg: Double = 70
     @State private var date = Date()
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                SliderField(title: "Gewicht", value: $kg, range: 35...200, step: 0.1, unit: "kg", decimals: 1)
+                SliderField(title: "Gewicht", value: $kg, range: 35...200, step: 0.1, unit: "kg", decimals: 1, stepper: true)
                     .card()
                 DatePicker("Datum", selection: $date, in: ...Date(), displayedComponents: .date)
                     .card()
@@ -706,7 +707,8 @@ struct WeightSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
         }
         .presentationDetents([.medium])
-        .onAppear { kg = goals.weightKG }
+        // Start from the last weigh-in (also ones from Apple Health), so − / + only needs a tap or two.
+        .onAppear { kg = weights.first?.kg ?? goals.weightKG }
     }
 }
 

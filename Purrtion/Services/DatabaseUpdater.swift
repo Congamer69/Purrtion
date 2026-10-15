@@ -8,12 +8,26 @@ final class DatabaseUpdater: ObservableObject {
     static let shared = DatabaseUpdater()
 
     enum Database: String, CaseIterable, Identifiable {
-        case bls, swiss
+        case bls, swiss, restaurants
         var id: String { rawValue }
-        var title: String { self == .bls ? "Bundeslebensmittelschlüssel" : "Schweizer Nährwertdatenbank" }
+        var title: String {
+            switch self {
+            case .bls: "Bundeslebensmittelschlüssel"
+            case .swiss: "Schweizer Nährwertdatenbank"
+            case .restaurants: "Restaurantketten"
+            }
+        }
         /// Version and revision of the file shipped inside the app.
-        var bundledVersion: String { self == .bls ? "4.0" : "7.1" }
+        var bundledVersion: String {
+            switch self {
+            case .bls: "4.0"
+            case .swiss: "7.1"
+            case .restaurants: "2026.10"
+            }
+        }
         var bundledRevision: Int { 1 }
+        /// A downloaded file must have at least this many foods to be accepted.
+        var minimumFoods: Int { self == .restaurants ? 100 : 500 }
     }
 
     struct Manifest: Decodable {
@@ -105,7 +119,7 @@ final class DatabaseUpdater: ObservableObject {
         // Only accept a plausible, complete database file.
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               json["keys"] is [String], let foods = json["foods"] as? [[Any]],
-              foods.count >= max(500, entry.foods * 9 / 10) else { throw URLError(.cannotDecodeContentData) }
+              foods.count >= max(db.minimumFoods, entry.foods * 9 / 10) else { throw URLError(.cannotDecodeContentData) }
         try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
         try data.write(to: Self.downloadedURL(db), options: .atomic)
         UserDefaults.standard.set(entry.version, forKey: "source.version.\(db.rawValue)")
@@ -113,6 +127,7 @@ final class DatabaseUpdater: ObservableObject {
         switch db {
         case .bls: BLSDatabase.shared.reload()
         case .swiss: SwissDatabase.shared.reload()
+        case .restaurants: RestaurantDatabase.shared.reload()
         }
     }
 }

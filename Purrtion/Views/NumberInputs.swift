@@ -9,6 +9,8 @@ struct SliderField: View {
     var unit: String = ""
     var decimals: Int = 0
     var tint: Color = Theme.accent
+    /// − and + next to the slider for small changes (hold to repeat), e.g. for the body weight.
+    var stepper = false
 
     @State private var text = ""
     @FocusState private var focused: Bool
@@ -31,16 +33,34 @@ struct SliderField: View {
                     Text(unit).font(Theme.font(15, .medium)).foregroundStyle(Theme.textSecondary)
                 }
             }
-            Slider(value: Binding(get: { min(max(value, range.lowerBound), range.upperBound) },
-                                  set: { value = ($0 / step).rounded() * step }),
-                   in: range)
-                .tint(tint)
+            HStack(spacing: 12) {
+                if stepper { stepButton("minus", -step) }
+                Slider(value: Binding(get: { min(max(value, range.lowerBound), range.upperBound) },
+                                      set: { value = ($0 / step).rounded() * step }),
+                       in: range)
+                    .tint(tint)
+                if stepper { stepButton("plus", step) }
+            }
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture { focused = true }
         .onAppear { text = format(value) }
         .onChange(of: value) { _, v in if !focused { text = format(v) } }
+    }
+
+    private func stepButton(_ icon: String, _ delta: Double) -> some View {
+        Button {
+            Haptics.tap()
+            focused = false
+            value = min(max(((value + delta) / step).rounded() * step, range.lowerBound), range.upperBound)
+        } label: {
+            Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(tint)
+                .frame(width: 38, height: 38).background(tint.opacity(0.15), in: Circle())
+        }
+        .buttonStyle(SquishButtonStyle())
+        .buttonRepeatBehavior(.enabled)
+        .accessibilityLabel(delta < 0 ? "Weniger" : "Mehr")
     }
 
     private func format(_ v: Double) -> String {

@@ -20,6 +20,7 @@ struct PurrtionApp: App {
     init() {
         BLSDatabase.shared.preload()
         SwissDatabase.shared.preload()
+        RestaurantDatabase.shared.preload()
         AutoClose.register()
     }
 
@@ -96,10 +97,16 @@ struct RootView: View {
             if day != nil { tab = 0 }
         }
         .onChange(of: scenePhase) { _, phase in
+            // Back in the app: send pending friend changes and pick up answered requests.
+            if phase == .active, friendsEnabled { Task { await FriendsStore.shared.refresh(ctx: ctx, goals: goals) } }
             if phase == .background {
                 WidgetBridge.update(ctx, goals: goals)
                 if friendsEnabled { FriendsStore.shared.uploadIfNeeded(ctx: ctx, goals: goals) }
             }
+        }
+        // New, changed or deleted entries reach friends a little later (debounced, only when the values changed).
+        .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { _ in
+            if friendsEnabled { FriendsStore.shared.uploadSoon(ctx: ctx, goals: goals) }
         }
         // Invite links: purrtion://friend/CODE (opened from the invite page).
         .onOpenURL { url in

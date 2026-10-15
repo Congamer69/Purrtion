@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 /// Log just calories (and optionally macros, alcohol and any micronutrient) in two taps.
+/// "Pro 100 g" takes the values straight from a nutrition table plus the amount eaten.
 struct QuickAddView: View {
     let day: Date
     @Environment(\.dismiss) private var dismiss
@@ -17,23 +18,33 @@ struct QuickAddView: View {
     @State private var alcoholGrams = ""
     @State private var time = Date()
     @State private var extras: [NutrientKey: String] = [:]
+    /// Values per 100 g / ml from the package table, then the amount eaten. Remembered for next time.
+    @AppStorage("quickAdd.per100") private var per100 = false
+    @State private var amount = ""
     @FocusState private var focus: Field?
 
-    enum Field: Hashable { case kcal, name, p, c, f, ml, vol, alc, extra(NutrientKey) }
+    enum Field: Hashable { case kcal, name, amount, p, c, f, ml, vol, alc, extra(NutrientKey) }
+
+    /// Entered values × this = what was eaten.
+    private var factor: Double { per100 ? num(amount) / 100 : 1 }
 
     private func num(_ s: String) -> Double { Double(s.replacingOccurrences(of: ",", with: ".")) ?? 0 }
 
-    /// Grams of alcohol: typed directly or from amount × % vol (density 0.789 g/ml).
+    /// Grams of alcohol (per 100 in the table mode): typed directly or from amount × % vol (density 0.789 g/ml).
     private var alcohol: Double {
         let g = num(alcoholGrams)
         if g > 0 { return g }
-        return num(alcoholML) * num(alcoholVol) / 100 * 0.789
+        return (per100 ? 100 : num(alcoholML)) * num(alcoholVol) / 100 * 0.789
     }
 
-    private var kcalValue: Double {
+    /// kcal as entered (total, or per 100 in the table mode); computed from the macros when left empty.
+    private var enteredKcal: Double {
         let k = num(kcal)
         return k > 0 ? k : num(protein) * 4 + num(carbs) * 4 + num(fat) * 9 + alcohol * 7
     }
+
+    /// What was eaten.
+    private var kcalValue: Double { enteredKcal * factor }
 
     private var extraCount: Int { extras.values.filter { num($0) > 0 }.count + (alcohol > 0 ? 1 : 0) }
 
@@ -41,6 +52,15 @@ struct QuickAddView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    Picker("Eingabe", selection: Binding(get: { per100 }, set: { v in
+                        Haptics.tap()
+                        withAnimation(.snappy) { per100 = v }
+                    })) {
+                        Text("Gesamt").tag(false)
+                        Text("Pro 100 g").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+
                     HStack(alignment: .bottom) {
                         CatMascot(mood: alcohol > 0 ? .tipsy : .eating, pixel: 4)
                         Spacer()
@@ -51,24 +71,26 @@ struct QuickAddView: View {
                                 .multilineTextAlignment(.trailing)
                                 .font(Theme.font(52, .heavy))
                                 .foregroundStyle(Theme.textPrimary)
-                            Text("kcal").font(Theme.font(16, .semibold)).foregroundStyle(Theme.textSecondary)
+                            Text(per100 ? "kcal pro 100 g" : "kcal").font(Theme.font(16, .semibold)).foregroundStyle(Theme.textSecondary)
                         }
                     }
                     .card(padding: 20)
 
+                    if per100 { amountCard.transition(.opacity.combined(with: .move(edge: .top))) }
+
                     VStack(spacing: 0) {
                         field("Name (optional)", text: $name, field: .name, keyboard: .default)
                         Divider().overlay(Theme.line)
-                        field("Protein (g)", text: $protein, field: .p, color: Theme.protein)
+                        field(per100 ? "Protein pro 100 g" : "Protein (g)", text: $protein, field: .p, color: Theme.protein)
                         Divider().overlay(Theme.line)
-                        field("Kohlenhydrate (g)", text: $carbs, field: .c, color: Theme.carbs)
+                        field(per100 ? "Kohlenhydrate pro 100 g" : "Kohlenhydrate (g)", text: $carbs, field: .c, color: Theme.carbs)
                         Divider().overlay(Theme.line)
-                        field("Fett (g)", text: $fat, field: .f, color: Theme.fat)
+                        field(per100 ? "Fett pro 100 g" : "Fett (g)", text: $fat, field: .f, color: Theme.fat)
                     }
                     .card(padding: 6)
 
-                    if num(kcal) == 0, kcalValue > 0 {
-                        Text("≈ \(kcalValue.kcalString) kcal aus \(alcohol > 0 ? "Makros und Alkohol" : "den Makros") berechnet")
+                    if num(kcal) == 0, enteredKcal > 0 {
+                        Text("≈ \(enteredKcal.kcalString) kcal\(per100 ? " pro 100 g" : "") aus \(alcohol > 0 ? "Makros und Alkohol" : "den Makros") berechnet")
                             .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
                     }
 
@@ -119,7 +141,7 @@ struct QuickAddView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
             .safeAreaInset(edge: .bottom) {
-                Button(action: save) { Label("Eintragen", systemImage: "bolt.fill") }
+                Button(action: save) { Label(kcalValue > 0 ? "Eintragen · \(kcalValue.kcalString) kcal" : "Eintragen", systemImage: "bolt.fill") }
                     .buttonStyle(PillButtonStyle())
                     .disabled(kcalValue <= 0)
                     .padding(16)
@@ -141,12 +163,15 @@ struct QuickAddView: View {
             }
             .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 2)
             HStack(spacing: 0) {
-                field("Menge (ml)", text: $alcoholML, field: .ml)
-                Divider().frame(height: 30).overlay(Theme.line)
+                // In the table mode the amount above is the drink, so only the strength is needed here.
+                if !per100 {
+                    field("Menge (ml)", text: $alcoholML, field: .ml)
+                    Divider().frame(height: 30).overlay(Theme.line)
+                }
                 field("Vol-%", text: $alcoholVol, field: .vol)
             }
             Divider().overlay(Theme.line)
-            field("oder Alkohol direkt (g)", text: $alcoholGrams, field: .alc)
+            field(per100 ? "oder Alkohol pro 100 ml (g)" : "oder Alkohol direkt (g)", text: $alcoholGrams, field: .alc)
             Divider().overlay(Theme.line)
             HStack {
                 Text("Getrunken um").font(Theme.font(17)).foregroundStyle(Theme.textPrimary)
@@ -159,6 +184,7 @@ struct QuickAddView: View {
                     Button {
                         Haptics.tap()
                         alcoholML = p.1.clean; alcoholVol = p.2.clean; alcoholGrams = ""
+                        if per100 { amount = p.1.clean }
                         if name.isEmpty { name = p.0 }
                     } label: {
                         Text(p.0).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accent)
@@ -173,6 +199,48 @@ struct QuickAddView: View {
                 .padding(.horizontal, 14).padding(.bottom, 8)
         }
         .card(padding: 6)
+    }
+
+    /// Table mode: how much was eaten, and what that adds up to.
+    private var amountCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Gegessen").font(Theme.font(17)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                TextField("0", text: $amount)
+                    .keyboardType(.decimalPad)
+                    .focused($focus, equals: .amount)
+                    .multilineTextAlignment(.trailing)
+                    .font(Theme.font(28, .heavy))
+                    .foregroundStyle(Theme.accent)
+                    .fixedSize()
+                Text("g / ml").font(Theme.font(15, .medium)).foregroundStyle(Theme.textSecondary)
+            }
+            HStack(spacing: 8) {
+                ForEach([30.0, 50, 100, 150, 250, 500], id: \.self) { g in
+                    Button {
+                        Haptics.tap()
+                        amount = g.clean
+                    } label: {
+                        Text(g.clean).font(Theme.font(13, .semibold))
+                            .foregroundStyle(num(amount) == g ? .white : Theme.accent)
+                            .frame(maxWidth: .infinity).frame(height: 32)
+                            .background(num(amount) == g ? Theme.accent : Theme.accentSoft, in: Capsule())
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                }
+            }
+            if enteredKcal > 0, num(amount) > 0 {
+                let macros = [("P", num(protein)), ("K", num(carbs)), ("F", num(fat))].filter { $0.1 > 0 }
+                    .map { " · \($0.0) \(($0.1 * factor).rounded().clean) g" }.joined()
+                Text("= \(kcalValue.kcalString) kcal\(macros)")
+                    .font(Theme.font(14, .semibold)).foregroundStyle(Theme.textSecondary)
+            } else {
+                Text("Werte aus der Nährwerttabelle eintragen, dann die gegessene Menge.")
+                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+            }
+        }
+        .card(padding: 16)
     }
 
     static let presets: [(String, Double, Double)] = [("Bier 0,5", 500, 5), ("Wein", 200, 12), ("Sekt", 100, 11), ("Shot", 20, 40)]
@@ -206,14 +274,15 @@ struct QuickAddView: View {
     }
 
     private func save() {
-        // Store as a "custom" food with 1 portion = 100 units so the entry stays editable.
-        var n = Nutrients(kcal: kcalValue, protein: num(protein), carbs: num(carbs), fat: num(fat))
+        // Stored as a "custom" food: total mode as 1 portion = 100 units, table mode with the real per-100 values
+        // and the eaten amount as the portion, so the entry stays editable either way.
+        var n = Nutrients(kcal: enteredKcal, protein: num(protein), carbs: num(carbs), fat: num(fat))
         for (key, text) in extras where num(text) > 0 { n[key] = num(text) }
         if alcohol > 0 { n[.alcohol] = (alcohol * 10).rounded() / 10 }
         n.normalize()
         let title = name.trimmingCharacters(in: .whitespaces).isEmpty ? (alcohol > 0 ? "Getränk" : "Schnell-Eintrag") : name
         let food = FoodItem(id: "custom-\(UUID().uuidString)", name: title, source: .custom, per100: n,
-                            servings: [ServingOption(name: "Portion", grams: 100)])
+                            servings: [ServingOption(name: "Portion", grams: per100 ? num(amount) : 100)])
         let entry = FoodEntry(food: food, quantity: 1, serving: food.servings[0], day: day)
         if alcohol > 0 { entry.createdAt = Self.combine(day: day, time: time) }
         ctx.insert(entry)

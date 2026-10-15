@@ -1,19 +1,20 @@
 import Foundation
 import SwiftUI
 
-/// Searches the bundled BLS and Swiss database instantly and Open Food Facts (products) over the network.
+/// Searches the bundled BLS, Swiss and restaurant chain databases instantly and Open Food Facts (products) over the network.
 @MainActor
 final class FoodSearch: ObservableObject {
     @Published var query = ""
     @Published private(set) var foods: [FoodItem] = []
     @Published private(set) var swiss: [FoodItem] = []
+    @Published private(set) var restaurants: [FoodItem] = []
     @Published private(set) var products: [FoodItem] = []
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
 
     private var task: Task<Void, Never>?
 
-    var isEmpty: Bool { foods.isEmpty && swiss.isEmpty && products.isEmpty }
+    var isEmpty: Bool { foods.isEmpty && swiss.isEmpty && restaurants.isEmpty && products.isEmpty }
 
     /// Products are searched with the meaningful words only ("2 Eier und ein Toast" → "Eier Toast").
     static func productQuery(_ q: String) -> String {
@@ -29,22 +30,25 @@ final class FoodSearch: ObservableObject {
         task?.cancel()
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else {
-            foods = []; swiss = []; products = []; isLoading = false; error = nil
+            foods = []; swiss = []; restaurants = []; products = []; isLoading = false; error = nil
             return
         }
         isLoading = q.count >= 2
         task = Task {
             let useBLS = SearchSource.bls.isEnabled, useSwiss = SearchSource.swiss.isEnabled
-            let (local, ch) = await Task.detached(priority: .userInitiated) {
+            let useChains = SearchSource.restaurants.isEnabled
+            let (local, ch, chains) = await Task.detached(priority: .userInitiated) {
                 #if DEBUG
                 let t0 = Date()
                 defer { print("search '\(q)' took \(Int(Date().timeIntervalSince(t0) * 1000)) ms") }
                 #endif
-                return (useBLS ? BLSDatabase.shared.search(q) : [], useSwiss ? SwissDatabase.shared.search(q) : [])
+                return (useBLS ? BLSDatabase.shared.search(q) : [], useSwiss ? SwissDatabase.shared.search(q) : [],
+                        useChains ? RestaurantDatabase.shared.search(q) : [])
             }.value
             guard !Task.isCancelled else { return }
             foods = local
             swiss = ch
+            restaurants = chains
             guard q.count >= 2, SearchSource.openFoodFacts.isEnabled else { products = []; isLoading = false; return }
             try? await Task.sleep(for: .milliseconds(350))   // debounce network
             guard !Task.isCancelled else { return }

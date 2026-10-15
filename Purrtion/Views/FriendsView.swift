@@ -10,6 +10,7 @@ struct FriendsView: View {
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
     @AppStorage("friends.metric") private var metric: FriendMetric = .streak
     @State private var showCode = false
+    @State private var showManage = false
     @State private var detail: FriendsStore.Person?
 
     var body: some View {
@@ -41,6 +42,10 @@ struct FriendsView: View {
             .navigationTitle("Freunde")
             .toolbar {
                 if store.isSetUp {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showManage = true } label: { Image(systemName: "person.2.badge.gearshape") }
+                            .accessibilityLabel("Freunde verwalten")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button { showCode = true } label: { Image(systemName: "person.badge.plus") }
                             .accessibilityLabel("Code eingeben")
@@ -50,6 +55,15 @@ struct FriendsView: View {
             // Own task, so the request survives the end of the pull gesture.
             .refreshable { await Task { await store.refresh(ctx: ctx, goals: goals, force: true) }.value }
             .task { await store.refresh(ctx: ctx, goals: goals) }
+            // While a request is open, look again every 30 seconds so an accepted request shows up by itself.
+            .task(id: store.outgoing.count + store.incoming.count) {
+                while !Task.isCancelled, !store.outgoing.isEmpty || !store.incoming.isEmpty {
+                    try? await Task.sleep(for: .seconds(30))
+                    guard !Task.isCancelled else { return }
+                    await store.refresh(ctx: ctx, goals: goals)
+                }
+            }
+            .sheet(isPresented: $showManage) { FriendsManageView() }
             .sheet(isPresented: $showCode) { CodeEntrySheet() }
             .sheet(item: $detail) { FriendDetailSheet(person: $0) }
             .sheet(item: $store.incomingCode) { CodeEntrySheet(prefill: $0) }
@@ -136,6 +150,8 @@ struct FriendsView: View {
     private var outgoingCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Gesendet").font(Theme.font(15, .bold)).foregroundStyle(Theme.textSecondary)
+            Text("Sobald die Anfrage angenommen ist, erscheint ihr hier automatisch in der Rangliste.")
+                .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
             ForEach(store.outgoing, id: \.id) { o in
                 HStack {
                     Image(systemName: "hourglass").foregroundStyle(Theme.textSecondary)
@@ -310,6 +326,11 @@ struct FriendsView: View {
 
     private var footer: some View {
         VStack(spacing: 4) {
+            Button { showManage = true } label: {
+                Label("Freunde verwalten", systemImage: "person.2.badge.gearshape").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PillButtonStyle(filled: false))
+            .padding(.bottom, 8)
             if store.busy { ProgressView().controlSize(.small) }
             if let r = store.lastRefresh {
                 Text("Aktualisiert \(r.formatted(.relative(presentation: .named))) · zum Aktualisieren ziehen")
@@ -573,6 +594,7 @@ struct FriendsSettingsSection: View {
     @AppStorage(FriendsStore.shareWeightKey) private var shareWeight = false
     @State private var draft = ""
     @State private var confirmDelete = false
+    @State private var showManage = false
 
     var body: some View {
         if store.isAvailable {
@@ -589,6 +611,14 @@ struct FriendsSettingsSection: View {
                     Toggle("Gewichtstrend teilen", isOn: $shareWeight)
                         .onChange(of: shareWeight) { _, _ in push() }
                     if store.isSetUp {
+                        Button { showManage = true } label: {
+                            HStack {
+                                Text("Freunde verwalten").foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Text("\(store.friends.count)").foregroundStyle(Theme.textSecondary)
+                                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                            }
+                        }
                         LabeledContent("Dein Code", value: store.me?.code ?? "–")
                         Button("Freunde-Daten löschen", role: .destructive) { confirmDelete = true }
                     }
@@ -599,6 +629,7 @@ struct FriendsSettingsSection: View {
                      : "Ausgeblendet. Die Seite verschwindet aus der Leiste unten. Deine Freunde bleiben erhalten.")
             }
             .listRowBackground(Theme.card)
+            .sheet(isPresented: $showManage) { FriendsManageView() }
             .onAppear { draft = name }
             .onChange(of: draft) { _, _ in
                 // Save shortly after typing stops.
@@ -626,5 +657,112 @@ struct FriendsSettingsSection: View {
     private func push() {
         guard store.isSetUp else { return }
         Task { try? await store.upload(ctx: ctx, goals: goals, force: true) }
+    }
+}
+
+/// Everyone in one place: friends (remove), sent requests (withdraw), received requests (accept / decline)
+/// and people I declined or removed who still want to connect.
+struct FriendsManageView: View {
+    @EnvironmentObject private var goals: Goals
+    @Environment(\.modelContext) private var ctx
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var store = FriendsStore.shared
+    @State private var confirmRemove: FriendsStore.Person?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if store.friends.isEmpty {
+                        Text("Noch keine Freunde.").foregroundStyle(Theme.textSecondary)
+                    }
+                    ForEach(store.friends) { p in
+                        HStack(spacing: 12) {
+                            PersonCat(person: p, pixel: 2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(p.name).font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
+                                if let u = p.updated {
+                                    Text("aktiv \(u.formatted(.relative(presentation: .named)))").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                                }
+                            }
+                            Spacer()
+                            Button("Entfernen", role: .destructive) { confirmRemove = p }
+                                .font(Theme.font(14, .semibold)).buttonStyle(.borderless)
+                        }
+                    }
+                } header: { Text("Freunde · \(store.friends.count)") } footer: {
+                    Text("Entfernte Freunde sehen deine Werte nicht mehr. Ihr könnt euch jederzeit neu einladen.")
+                }
+                .listRowBackground(Theme.card)
+
+                if !store.incoming.isEmpty {
+                    Section("Erhaltene Anfragen") {
+                        ForEach(store.incoming) { p in
+                            HStack(spacing: 12) {
+                                PersonCat(person: p, pixel: 2)
+                                Text(p.name).font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Button("Ablehnen") { Task { await store.decline(p.id, ctx: ctx, goals: goals) } }
+                                    .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).buttonStyle(.borderless)
+                                Button("Annehmen") {
+                                    Haptics.success()
+                                    Task { await store.accept(p.id, ctx: ctx, goals: goals) }
+                                }
+                                .font(Theme.font(14, .bold)).buttonStyle(.borderless)
+                            }
+                        }
+                    }
+                    .listRowBackground(Theme.card)
+                }
+
+                if !store.outgoing.isEmpty {
+                    Section {
+                        ForEach(store.outgoing, id: \.id) { o in
+                            HStack {
+                                Image(systemName: "hourglass").foregroundStyle(Theme.textSecondary)
+                                Text(o.label).font(Theme.font(16)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                                Spacer()
+                                Button("Zurückziehen") { Task { await store.remove(o.id, ctx: ctx, goals: goals) } }
+                                    .font(Theme.font(14, .semibold)).buttonStyle(.borderless)
+                            }
+                        }
+                    } header: { Text("Gesendete Anfragen") } footer: {
+                        Text("Wartet, bis die andere Person annimmt. Danach steht sie oben bei den Freunden.")
+                    }
+                    .listRowBackground(Theme.card)
+                }
+
+                if !store.declined.isEmpty {
+                    Section {
+                        ForEach(store.declined) { p in
+                            HStack(spacing: 12) {
+                                PersonCat(person: p, pixel: 2)
+                                Text(p.name).font(Theme.font(16)).foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Button("Annehmen") { Task { await store.accept(p.id, ctx: ctx, goals: goals) } }
+                                    .font(Theme.font(14, .semibold)).buttonStyle(.borderless)
+                            }
+                        }
+                    } header: { Text("Abgelehnt oder entfernt") } footer: {
+                        Text("Diese Personen möchten weiterhin mit dir vergleichen. Du siehst sie nur hier.")
+                    }
+                    .listRowBackground(Theme.card)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("Freunde verwalten")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .refreshable { await Task { await store.refresh(ctx: ctx, goals: goals, force: true) }.value }
+            .task { await store.refresh(ctx: ctx, goals: goals) }
+            .confirmationDialog("\(confirmRemove?.name ?? "") entfernen?", isPresented: Binding(get: { confirmRemove != nil }, set: { if !$0 { confirmRemove = nil } }),
+                                titleVisibility: .visible, presenting: confirmRemove) { p in
+                Button("Entfernen", role: .destructive) { Task { await store.remove(p.id, ctx: ctx, goals: goals) } }
+            } message: { _ in Text("Ihr seht eure Werte dann nicht mehr. Ihr könnt euch jederzeit neu einladen.") }
+            .alert("Fehler", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(store.error ?? "") }
+        }
     }
 }

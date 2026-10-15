@@ -18,6 +18,8 @@ final class FriendsStore: ObservableObject {
     static let enabledKey = "friends.enabled"
     static let nameKey = "friends.name"
     static let shareWeightKey = "friends.shareWeight"
+    /// Own values are written at most this often (only when they changed).
+    static let statsInterval: TimeInterval = 2 * 60
 
     struct Person: Identifiable, Codable, Equatable {
         let id: String
@@ -50,6 +52,14 @@ final class FriendsStore: ObservableObject {
     private var lastUpload: Date? { get { defaults.object(forKey: "friends.lastUpload") as? Date } set { defaults.set(newValue, forKey: "friends.lastUpload") } }
     /// Stable across launches (Swift's Hasher is not), so an unchanged day never causes a write.
     private var lastUploadHash: String { get { defaults.string(forKey: "friends.lastHash") ?? "" } set { defaults.set(newValue, forKey: "friends.lastHash") } }
+    /// A friend change (request, accept, remove) that has not reached the server yet. Retried on every refresh and
+    /// app start until it arrives – otherwise the other side keeps seeing "Anfrage gesendet".
+    private var needsUpload: Bool { get { defaults.bool(forKey: "friends.needsUpload") } set { defaults.set(newValue, forKey: "friends.needsUpload") } }
+
+    /// Open requests are checked more often, so an accepted request shows up quickly.
+    private var refreshInterval: TimeInterval { outgoing.isEmpty && incoming.isEmpty && !needsUpload ? 3 * 60 : 30 }
+    /// People who still want to connect although I declined or removed them.
+    var declined: [Person] { people.filter { me?.friends.contains($0.id) != true && me?.hidden.contains($0.id) == true } }
 
     init() {
         if let data = defaults.data(forKey: "friends.me") { me = try? JSONDecoder().decode(Me.self, from: data) }
@@ -132,6 +142,7 @@ final class FriendsStore: ObservableObject {
     /// Writes my document if something changed (stats at most every 15 minutes unless forced).
     func upload(ctx: ModelContext, goals: Goals, force: Bool = false) async throws {
         guard isAvailable, let me, let uid, !name.isEmpty else { return }
+        let sentName = name
         let stats = FriendStats.compute(ctx: ctx, goals: goals, shareWeight: defaults.bool(forKey: Self.shareWeightKey))
         let palette = defaults.string(forKey: "catPalette") ?? "ginger"
         let enc = JSONEncoder()
@@ -139,20 +150,48 @@ final class FriendsStore: ObservableObject {
         let payload = [name, palette, me.code, me.friends.joined(separator: ","), me.hidden.joined(separator: ","),
                        String(data: (try? enc.encode(stats)) ?? Data(), encoding: .utf8) ?? ""].joined(separator: "|")
         let hash = SHA256.hash(data: Data(payload.utf8)).map { String(format: "%02x", $0) }.joined()
-        guard hash != lastUploadHash else { return }
-        if !force, let last = lastUpload, Date.now.timeIntervalSince(last) < 15 * 60 { return }
+        let force = force || needsUpload
+        guard hash != lastUploadHash || needsUpload else { return }
+        if !force, let last = lastUpload, Date.now.timeIntervalSince(last) < Self.statsInterval { return }
         try await FirebaseREST.set("users/\(uid)", [
             "name": name, "palette": palette, "code": me.code, "friends": me.friends, "hidden": me.hidden,
             "stats": stats.dictionary, "updated": Date.now, "v": 1,
         ])
         lastUpload = .now
+        // Another change (e.g. "Annehmen") may have come in while this was on its way. Then the server could now hold
+        // the older list – send the current one again instead of marking it as done.
+        guard let now = self.me, now.friends == me.friends, now.hidden == me.hidden, now.code == me.code, name == sentName else {
+            needsUpload = true
+            try await upload(ctx: ctx, goals: goals, force: true)
+            return
+        }
         lastUploadHash = hash
+        needsUpload = false
     }
 
     /// Background-friendly: upload changed stats, ignoring errors.
+    /// Leaving the app: send the current values if anything changed (no waiting for the interval).
     func uploadIfNeeded(ctx: ModelContext, goals: Goals) {
         guard isSetUp else { return }
-        Task { try? await upload(ctx: ctx, goals: goals) }
+        Task { try? await upload(ctx: ctx, goals: goals, force: true) }
+    }
+
+    private var soon: Task<Void, Never>?
+
+    /// Something was logged, changed or deleted: send the new values a little later, so several quick changes go out
+    /// as one write and friends see them within a few minutes. Unchanged values never cause a write.
+    func uploadSoon(ctx: ModelContext, goals: Goals) {
+        guard isSetUp else { return }
+        soon?.cancel()
+        soon = Task {
+            try? await Task.sleep(for: .seconds(20))
+            if let last = lastUpload {
+                let wait = Self.statsInterval - Date.now.timeIntervalSince(last)
+                if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            }
+            guard !Task.isCancelled else { return }
+            try? await upload(ctx: ctx, goals: goals)
+        }
     }
 
     /// Everyone who added me – friends and open requests – in one query.
@@ -175,12 +214,14 @@ final class FriendsStore: ObservableObject {
 
     func refresh(ctx: ModelContext, goals: Goals, force: Bool = false) async {
         guard isSetUp else { return }
-        if !force, let last = lastRefresh, Date.now.timeIntervalSince(last) < 3 * 60 {
-            try? await upload(ctx: ctx, goals: goals)
+        if !force, let last = lastRefresh, Date.now.timeIntervalSince(last) < refreshInterval {
+            // A pending friend change still goes out right away – with a visible error if it fails.
+            if needsUpload { await run { try await upload(ctx: ctx, goals: goals) } } else { try? await upload(ctx: ctx, goals: goals) }
             return
         }
         await run {
-            try await upload(ctx: ctx, goals: goals)
+            // Pulling down also sends my own latest values right away.
+            try await upload(ctx: ctx, goals: goals, force: force)
             try await fetch()
         }
     }
@@ -191,6 +232,7 @@ final class FriendsStore: ObservableObject {
         guard var m = me else { return }
         change(&m)
         me = m
+        needsUpload = true
         saveLocal()
         await run { try await upload(ctx: ctx, goals: goals, force: true) }
     }
@@ -212,6 +254,7 @@ final class FriendsStore: ObservableObject {
             m.hidden.removeAll { $0 == other }
             m.pendingLabels[other] = label ?? "Code \(code)"
             me = m
+            needsUpload = true
             saveLocal()
             try await upload(ctx: ctx, goals: goals, force: true)
             try await fetch()
@@ -255,6 +298,7 @@ final class FriendsStore: ObservableObject {
         lastRefresh = nil
         lastUploadHash = ""
         lastUpload = nil
+        needsUpload = false
         for k in ["friends.me", "friends.cache", "friends.lastRefresh"] { defaults.removeObject(forKey: k) }
     }
 

@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 enum FoodSource: String, Codable {
-    case bls, openFoodFacts, ai, custom, swiss
+    case bls, openFoodFacts, ai, custom, swiss, restaurant
     // legacy sources from earlier versions, kept so old entries still decode
     case basic, usda
 
@@ -10,6 +10,7 @@ enum FoodSource: String, Codable {
         switch self {
         case .bls: "Bundeslebensmittelschlüssel 4.0"
         case .swiss: "Schweizer Nährwertdatenbank"
+        case .restaurant: "Restaurantkette (offizielle Angaben)"
         case .basic: "Basis"
         case .openFoodFacts: "Open Food Facts"
         case .usda: "USDA"
@@ -208,7 +209,11 @@ final class FoodEntry {
 
     var amountText: String {
         if isComposite { return "\(ingredients.count) Zutaten · \(grams.clean) g" }
-        if food?.source == .custom { return quantity == 1 ? "1 Portion" : "\(quantity.clean) Portionen" }
+        if food?.source == .custom {
+            let portions = quantity == 1 ? "1 Portion" : "\(quantity.clean) Portionen"
+            // Quick entries from a nutrition table: the portion is the amount eaten.
+            return servingName == "Portion" && servingGrams != 100 ? "\(portions) · \(grams.clean) \(food?.unit ?? "g")" : portions
+        }
         if servingGrams == 1 { return "\(quantity.clean) \(servingName)" }
         let unit = food?.unit ?? "g"
         let single = servingName.hasPrefix("1 ") ? String(servingName.dropFirst(2)) : servingName

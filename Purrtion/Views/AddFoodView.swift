@@ -264,12 +264,16 @@ struct AddFoodView: View {
         if !matchingCustom.isEmpty {
             Section { ForEach(matchingCustom) { foodRow($0.food) } } header: { SectionTitle("Meine", icon: "fork.knife") }
         }
+        // A chain in the query ("mcdonalds pommes") puts its products first.
+        let chainsFirst = RestaurantDatabase.mentionsChain(trimmedQuery)
+        if chainsFirst { restaurantSection }
         if !search.foods.isEmpty {
             Section { ForEach(search.foods) { foodRow($0) } } header: { SectionTitle("Lebensmittel · BLS", icon: "leaf.fill") }
         }
         if !search.swiss.isEmpty {
             Section { ForEach(search.swiss) { foodRow($0) } } header: { SectionTitle("Lebensmittel & Gerichte · Schweiz", icon: "mountain.2.fill") }
         }
+        if !chainsFirst { restaurantSection }
         if !search.products.isEmpty {
             Section { ForEach(search.products) { foodRow($0) } } header: { SectionTitle("Produkte · Open Food Facts", icon: "cart.fill") }
         }
@@ -290,6 +294,13 @@ struct AddFoodView: View {
                     .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 30).plainRow()
+        }
+    }
+
+    @ViewBuilder
+    private var restaurantSection: some View {
+        if !search.restaurants.isEmpty {
+            Section { ForEach(search.restaurants) { foodRow($0) } } header: { SectionTitle("Restaurantketten", icon: "takeoutbag.and.cup.and.straw.fill") }
         }
     }
 
@@ -431,6 +442,14 @@ struct FoodThumb: View {
         switch food.source {
         case .ai: return Sprites.star
         case .custom: return Sprites.paw
+        case .restaurant:
+            if food.unit == "ml" { return Sprites.drop }
+            let name = food.name.lowercased(), category = (food.origin ?? "").lowercased()
+            if name.contains("pommes") || name.contains("fries") || name.contains("potato") || name.contains("wedges") { return Sprites.fries }
+            if category.contains("dessert") || name.contains("sundae") || name.contains("mcflurry") || name.contains("shake") { return Sprites.candy }
+            if name.contains("salat") || name.contains("salad") { return Sprites.carrot }
+            if name.contains("nugget") || name.contains("wings") || name.contains("chicken box") { return Sprites.drumstick }
+            return Sprites.burger
         case .swiss:
             let category = SwissDatabase.shared.category(code: String(food.id.dropFirst(3))) ?? ""
             if food.unit == "ml" { return Sprites.drop }

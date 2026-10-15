@@ -10,3 +10,7 @@ Third-party data bundled with or used by this app keeps its own license:
 - Schweizer Nährwertdatenbank V 7.1 (Purrtion/Resources/swiss.json)
   © Bundesamt für Lebensmittelsicherheit und Veterinärwesen BLV, naehrwertdaten.ch
   Free to use, also in diary apps, with source attribution.
+- Restaurant chain nutrition values (Purrtion/Resources/restaurants.json)
+  Taken from the nutrition information McDonald's Deutschland (mcdonalds.com/de) and Burger King Deutschland
+  (burgerking.de) publish for their products. Product names and trademarks belong to their owners.
+  Purrtion is not affiliated with these companies. Values can change; the restaurant's own information applies.

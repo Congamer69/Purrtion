@@ -15,7 +15,7 @@ Geteilt werden nur Kennzahlen (Serie, Zieltreue, Health Score, Protein-/Wasser-A
 keine Mahlzeiten und kein Gewicht – den Gewichtstrend nur, wenn man ihn in den Einstellungen teilt.
 
 ## Anfragen sparen
-- Eigene Daten: **ein** Dokument, geschrieben nur bei Änderungen (SHA-256 des Inhalts), Kennzahlen höchstens alle 15 Minuten.
+- Eigene Daten: **ein** Dokument, geschrieben nur bei Änderungen (SHA-256 des Inhalts), Kennzahlen etwa 20 Sekunden nach einem Eintrag, höchstens alle 2 Minuten, beim Verlassen der App und beim Herunterziehen der Freunde-Seite.
 - Freunde & Anfragen: **eine** Abfrage für alle, höchstens alle 3 Minuten (Ziehen zum Aktualisieren erzwingt sie).
 - Einladungscode nachschlagen: ein Lesezugriff. Die Einladungsseite liest gar nichts aus der Datenbank.
 - Ergebnisse werden lokal zwischengespeichert – die Seite öffnet sofort und offline.

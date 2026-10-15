@@ -335,6 +335,26 @@ enum Sprites {
         "nnnnnnnn",
     ])
 
+    static let burger = PixelSprite([
+        "..aaaa..",
+        ".aaWaaa.",
+        "aaaaaWaa",
+        "gggggggg",
+        "yyyyyyyy",
+        "MMMMMMMM",
+        ".AAAAAA.",
+    ])
+
+    static let fries = PixelSprite([
+        "..y.y..",
+        ".yyyyy.",
+        ".yyyyy.",
+        "rrrrrrr",
+        ".rryrr.",
+        ".rrrrr.",
+        "..RRR..",
+    ])
+
     static let carrot = PixelSprite([
         "......Gg",
         ".....gG.",

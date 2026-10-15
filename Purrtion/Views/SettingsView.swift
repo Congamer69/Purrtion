@@ -155,7 +155,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: { Text("Datenquellen") } footer: {
-                    Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)")
+                    Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)\n\n\(RestaurantDatabase.attribution)")
                 }
                 .listRowBackground(Theme.card)
 
@@ -206,7 +206,7 @@ private struct DatabaseUpdateRow: View {
                     .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Datenbanken aktualisieren").font(Theme.font(15, .semibold))
-                    Text("BLS \(updater.version(.bls)) · Schweiz \(updater.version(.swiss))\(updater.lastCheck.map { " · geprüft \($0.formatted(.relative(presentation: .named)))" } ?? "")")
+                    Text("BLS \(updater.version(.bls)) · Schweiz \(updater.version(.swiss)) · Ketten \(updater.version(.restaurants))\(updater.lastCheck.map { " · geprüft \($0.formatted(.relative(presentation: .named)))" } ?? "")")
                         .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                     if let status = updater.status {
                         Text(status).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accent)
@@ -750,7 +750,7 @@ struct ProfileCalculator: View {
                 .pickerStyle(.segmented)
                 SliderField(title: "Alter", value: $age, range: 14...90, unit: "Jahre")
                 SliderField(title: "Größe", value: $height, range: 140...210, unit: "cm")
-                SliderField(title: "Gewicht", value: $weight, range: 40...180, step: 0.5, unit: "kg", decimals: 1)
+                SliderField(title: "Gewicht", value: $weight, range: 40...180, step: 0.5, unit: "kg", decimals: 1, stepper: true)
             } header: { Text("Über dich") } footer: {
                 Text("Wird für Grundumsatz, echten Verbrauch und Promille-Schätzung genutzt. Zahl antippen zum direkten Eintippen.")
             }

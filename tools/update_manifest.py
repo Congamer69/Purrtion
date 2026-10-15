@@ -1,7 +1,7 @@
 """Writes data/manifest.json for the in-app database updater.
 
 Each database gets its version, a revision that increases whenever the file content changes,
-the raw GitHub URL and the number of foods. Run after converting a new BLS or Swiss file:
+the raw GitHub URL and the number of foods. Run after converting a new BLS or Swiss file or rebuilding the restaurants:
 
     python tools/update_manifest.py
 """
@@ -12,7 +12,8 @@ import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = "https://raw.githubusercontent.com/Congamer69/Purrtion/main/"
-FILES = {"bls": "Purrtion/Resources/bls.json", "swiss": "Purrtion/Resources/swiss.json"}
+FILES = {"bls": "Purrtion/Resources/bls.json", "swiss": "Purrtion/Resources/swiss.json",
+         "restaurants": "Purrtion/Resources/restaurants.json"}
 MANIFEST = os.path.join(ROOT, "data", "manifest.json")
 
 
@@ -40,7 +41,7 @@ def main():
         if prev and prev.get("sha256") != sha:
             revision += 1
         out[name] = {
-            "version": version_of(name, data.get("source", "")),
+            "version": data.get("version") or version_of(name, data.get("source", "")),
             "revision": revision,
             "url": RAW + rel,
             "foods": len(data["foods"]),

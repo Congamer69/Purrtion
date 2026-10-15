@@ -13,6 +13,13 @@
       "url": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/Purrtion/Resources/swiss.json",
       "foods": 1216,
       "sha256": "c070bfa05a5eb9d2d7baec0119eca41b09ff5a660a7dbc49ddc19b6bbcec3512"
+    },
+    "restaurants": {
+      "version": "2026.10",
+      "revision": 1,
+      "url": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/Purrtion/Resources/restaurants.json",
+      "foods": 366,
+      "sha256": "ee1bef473fb63e70a07dfe171253d764b7145b2e983622ddb542265575f2c93a"
     }
   }
 }

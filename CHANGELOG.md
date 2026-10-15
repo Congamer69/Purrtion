@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.7 – 15. Oktober 2026
+
+### Neu
+- **Android-App** (`android/`): Purrtion komplett neu in Kotlin und Jetpack Compose, ab Android 9.
+  - Alle Funktionen der iPhone-App: Heute mit Katze, Suche (BLS, Schweizer Datenbank, Open Food Facts, KI), Barcode, Foto-Erkennung, Schnell-Eintrag, Rezepte und eigene Lebensmittel, Health Score, Tagesfazit, Promille, echter Verbrauch, Verlauf, Freunde, Teilen-Bilder und Widget.
+  - Health Connect statt Apple Health (Gewicht, Aktivität, Ernährung), ML Kit für die Offline-Bilderkennung.
+  - Sicherungen sind zwischen iPhone und Android austauschbar, Freunde auf beiden Plattformen sehen sich gegenseitig.
+- **Restaurantketten** (iPhone und Android): McDonald's und Burger King mit rund 370 Produkten direkt in der Suche.
+  - Offizielle Nährwerte der Ketten (Deutschland) mit echter Portionsgröße, also z. B. Whopper 282 g mit 613 kcal.
+  - Kettenname in der Suche („mcdonalds pommes“, „bk whopper“, „mäcces“) zeigt die Kette zuerst, der Name allein die ganze Karte.
+  - Funktioniert offline und wird wie BLS und die Schweizer Datenbank über GitHub aktualisiert. In Einstellungen → Datenquellen abschaltbar.
+  - Neue Pixel-Symbole für Burger und Pommes.
+- **Schnell eintragen „Pro 100 g“:** Umschalter oben im Schnell-Eintrag. Werte direkt aus der Nährwerttabelle der Packung eintippen, dann die gegessene Menge (mit Schnellwahl 30 bis 500 g). Purrtion rechnet die kcal und Makros aus und merkt sich den Modus.
+
+- **Freunde verwalten:** neue Übersicht (Symbol oben links auf der Freunde-Seite, Knopf unten auf der Seite und in Einstellungen → Freunde). Freunde entfernen, gesendete Anfragen zurückziehen, Anfragen annehmen oder ablehnen. Wer abgelehnt oder entfernt wurde und weiter vergleichen möchte, steht unter „Abgelehnt oder entfernt“ und lässt sich wieder annehmen.
+
+### Behoben
+- **Angenommene Anfrage blieb bei „Anfrage gesendet“:** Wurde eine Anfrage angenommen, während die Freunde-Seite gerade im Hintergrund aktualisierte, konnte die ältere Freundesliste die Annahme auf dem Server überschreiben. Die eigene App zeigte trotzdem den Vergleich, die andere Seite nur „Anfrage gesendet“. Purrtion prüft jetzt nach jedem Hochladen, ob sich inzwischen etwas geändert hat, und schickt dann sofort den aktuellen Stand. Nicht angekommene Änderungen werden bei jedem App-Start erneut gesendet statt erst nach 15 Minuten.
+- **Neue Einträge kamen bei Freunden nicht an:** Eigene Werte wurden höchstens alle 15 Minuten gesendet, und wer innerhalb dieser Zeit etwas eintrug, wurde danach nicht erneut versucht. Jetzt gehen neue, geänderte und gelöschte Einträge nach etwa 20 Sekunden raus (höchstens alle 2 Minuten, nur bei Änderungen), außerdem beim Verlassen der App und beim Herunterziehen der Freunde-Seite.
+- **Antworten auf Anfragen erscheinen von selbst:** Solange Anfragen offen sind, schaut die Freunde-Seite alle 30 Sekunden und beim Öffnen der App nach. Ziehen zum Aktualisieren ist nicht mehr nötig.
+
+### Verbessert
+- **Gewicht eintragen:** − und + neben dem Regler ändern in 0,1-kg-Schritten (gedrückt halten wiederholt). Der Wert startet beim zuletzt eingetragenen Gewicht statt beim Profilgewicht. Auch im Profil gibt es − und + (0,5 kg).
+
 ## 1.6 – 14. Oktober 2026
 
 ### Neu
