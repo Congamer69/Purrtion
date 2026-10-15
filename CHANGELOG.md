@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.1 – 15. Oktober 2026
+
+### Neu
+- **Partynacht über Mitternacht:** Getränke mit Alkohol, die zwischen 0 und 5 Uhr eingetragen werden, zählen automatisch zum Abend davor. So bleibt eine Nacht ein Abend: eine Promille-Kurve, eine Tagesbilanz, eine Tagesübersicht. Die echte Uhrzeit bleibt erhalten, die Kurve stimmt also weiter.
+  - Beim Eintragen über die Suche erscheint „🌙 zählt zur Nacht von gestern“.
+  - Im Schnell-Eintrag gibt es dafür einen Schalter („Zur Nacht von gestern zählen“), falls es doch zum neuen Tag gehören soll.
+  - Essen ohne Alkohol (der Döner um 2 Uhr) bleibt beim neuen Tag.
+  - Die automatische Tagesanalyse wartet nach einem Abend mit Getränken bis 5 Uhr, damit die ganze Nacht drin ist.
+  - Katze und Freunde-Seite berücksichtigen auch die Getränke der Nacht davor beim aktuellen Promillewert.
+
 ## 1.7 – 15. Oktober 2026
 
 ### Neu

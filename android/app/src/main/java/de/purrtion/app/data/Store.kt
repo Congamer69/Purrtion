@@ -1,5 +1,7 @@
 package de.purrtion.app.data
 
+import de.purrtion.app.model.NutrientKey
+import de.purrtion.app.domain.BloodAlcohol
 import de.purrtion.app.domain.FriendsStore
 import de.purrtion.app.App
 import de.purrtion.app.domain.NutritionSync
@@ -32,10 +34,16 @@ object Store {
         ))
     }
 
-    suspend fun log(food: FoodItem, quantity: Double, serving: ServingOption, day: LocalDate, createdAt: Long = System.currentTimeMillis()) {
-        db.entries().upsert(FoodEntry.of(food, quantity, serving, day, createdAt))
+    /** Logs a food. Drinks after midnight go to the night before (see [BloodAlcohol.nightDay]); returns the day used. */
+    suspend fun log(food: FoodItem, quantity: Double, serving: ServingOption, day: LocalDate, createdAt: Long = System.currentTimeMillis(),
+                    toNight: Boolean = true): LocalDate {
+        val entry = FoodEntry.of(food, quantity, serving, day, createdAt)
+        val night = if (toNight) BloodAlcohol.nightDay(day, entry.nutrients[NutrientKey.alcohol] ?: 0.0, createdAt) else day
+        BloodAlcohol.lastMovedToNight = night != day
+        db.entries().upsert(entry.copy(day = night.toEpochDay()))   // createdAt stays: the real time of the drink
         remember(food, quantity, serving)
-        changed(day)
+        changed(night)
+        return night
     }
 
     suspend fun insert(entry: FoodEntry) {

@@ -4,7 +4,7 @@ import SwiftData
 import BackgroundTasks
 import UserNotifications
 
-/// Nightly "Tag abschließen" for the previous day: scheduled for ~0:30 as a background task
+/// Nightly "Tag abschließen" for the previous day: scheduled for ~0:30 (after a night out 5:00) as a background task
 /// (iOS decides the exact time, usually while charging) and caught up when the app is opened.
 @MainActor
 enum AutoClose {
@@ -25,12 +25,13 @@ enum AutoClose {
         }
     }
 
-    static func schedule() {
+    /// Next run at 0:30, or `at` (e.g. 5:00 after a night out).
+    static func schedule(at: Date? = nil) {
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskID)
         guard isEnabled else { return }
         let cal = Calendar.current
         let now = Date()
-        var start = cal.date(bySettingHour: 0, minute: 30, second: 0, of: now)!
+        var start = at ?? cal.date(bySettingHour: 0, minute: 30, second: 0, of: now)!
         if start <= now { start = cal.date(byAdding: .day, value: 1, to: start)! }
         let request = BGProcessingTaskRequest(identifier: taskID)
         request.earliestBeginDate = start
@@ -79,6 +80,12 @@ enum AutoClose {
         let reviews = (try? ctx.fetch(FetchDescriptor<DayReview>(predicate: #Predicate { $0.day == d }))) ?? []
         guard !entries.isEmpty, reviews.isEmpty else {
             defaults.set(yesterday, forKey: lastDayKey)
+            return true
+        }
+        // A night out may still be going on: drinks after midnight count to yesterday until 5:00, so wait for them.
+        let nightEnd = cal.date(bySettingHour: BloodAlcohol.nightEndHour, minute: 0, second: 0, of: now)!
+        if now < nightEnd, !BloodAlcohol.drinks(from: entries).isEmpty {
+            schedule(at: nightEnd)
             return true
         }
 

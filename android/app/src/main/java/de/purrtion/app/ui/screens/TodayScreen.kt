@@ -274,6 +274,8 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
     val goals = App.goals
     val entries by remember(day) { App.db.entries().observeDay(day.toEpochDay()) }.collectAsState(emptyList())
     val water by remember(day) { App.db.water().observeDay(day.toEpochDay()) }.collectAsState(emptyList())
+    // The day before: last night's drinks may still be in the blood (cat mood).
+    val previous by remember(day) { App.db.entries().observeDay(day.minusDays(1).toEpochDay()) }.collectAsState(emptyList())
     val review by remember(day) { App.db.reviews().observeDay(day.toEpochDay()) }.collectAsState(null)
     val scope = rememberCoroutineScope()
     val h = rememberHaptics()
@@ -296,7 +298,7 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
     }
 
     val mood = if (justAte) CatMood.eating else {
-        val promille = if (day == LocalDate.now()) BloodAlcohol.make(entries, goals, null).value(System.currentTimeMillis()) else 0.0
+        val promille = if (day == LocalDate.now()) BloodAlcohol.make(entries + previous, goals, null).value(System.currentTimeMillis()) else 0.0
         catMood(entries, target, water.sumOf { it.ml }, goals, day, promille)
     }
     val outdated = review?.let { it.signature != DayReview.signature(entries) } ?: false

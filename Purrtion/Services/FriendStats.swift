@@ -157,7 +157,7 @@ struct FriendStats: Codable, Equatable {
         }
         s.week = (0..<7).reversed().map { status(day($0)) }
         s.mood = CatMood.of(entries: todays, target: t, waterML: waterByDay[today] ?? 0, goals: goals, day: today,
-                            promille: BloodAlcohol.make(entries: todays, goals: goals, weight: nil).value(at: now)).key
+                            promille: BloodAlcohol.make(entries: todays + (byDay[day(1)] ?? []), goals: goals, weight: nil).value(at: now)).key
         return s
     }
 }

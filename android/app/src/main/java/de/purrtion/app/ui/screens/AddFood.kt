@@ -1,5 +1,6 @@
 package de.purrtion.app.ui.screens
 
+import de.purrtion.app.domain.BloodAlcohol
 import de.purrtion.app.domain.RestaurantDatabase
 import androidx.compose.material.icons.rounded.Fastfood
 import androidx.compose.foundation.background
@@ -122,9 +123,13 @@ fun AddFoodSheet(day: LocalDate) {
     val aiEnabled = SearchSource.ai.isEnabled
 
     LaunchedEffect(Unit) { delay(350); runCatching { focus.requestFocus() } }
-    LaunchedEffect(toast) { if (toast != null) { delay(1600); toast = null } }
+    LaunchedEffect(toast) { if (toast != null) { delay(if (toast!!.contains("🌙")) 2600 else 1600); toast = null } }
 
-    fun flash(name: String) { h.success(); toast = "$name eingetragen" }
+    fun flash(name: String) {
+        h.success()
+        toast = "$name eingetragen" + if (BloodAlcohol.lastMovedToNight) "\n🌙 zählt zur Nacht von gestern" else ""
+        BloodAlcohol.lastMovedToNight = false
+    }
     fun openFood(food: FoodItem) = Nav.push { FoodDetailScreen(food, DetailMode.Add(day)) { name -> Nav.pop(); flash(name) } }
 
     val q = search.query.trim()

@@ -283,9 +283,16 @@ extension ModelContext {
         saved.lastServingName = serving.name
     }
 
-    func log(_ food: FoodItem, quantity: Double, serving: ServingOption, day: Date) {
-        insert(FoodEntry(food: food, quantity: quantity, serving: serving, day: day))
+    /// Logs a food. Drinks after midnight go to the night before (see `BloodAlcohol.nightDay`); returns the day used.
+    @discardableResult
+    func log(_ food: FoodItem, quantity: Double, serving: ServingOption, day: Date) -> Date {
+        let entry = FoodEntry(food: food, quantity: quantity, serving: serving, day: day)
+        let night = BloodAlcohol.nightDay(for: day, alcohol: entry.nutrients[.alcohol] ?? 0)
+        BloodAlcohol.lastMovedToNight = night != day
+        entry.day = night   // createdAt stays now: the real time of the drink
+        insert(entry)
         remember(food, quantity: quantity, serving: serving)
         try? save()
+        return night
     }
 }

@@ -97,6 +97,22 @@ struct BloodAlcohol {
         return cal.date(byAdding: .hour, value: 20, to: e.day)!
     }
 
+    // MARK: Night out
+
+    /// Drinks logged between midnight and this hour still belong to the night that began the evening before.
+    static let nightEndHour = 5
+
+    /// The day a drink logged at `time` belongs to: "today" after midnight means the evening before, so a night out stays
+    /// one evening – one curve, one kcal total, one day overview – instead of being split at 0:00.
+    static func nightDay(for day: Date, alcohol: Double, time: Date = .now) -> Date {
+        let cal = Calendar.current
+        guard alcohol >= 1, cal.isDate(day, inSameDayAs: time), cal.component(.hour, from: time) < nightEndHour else { return day }
+        return cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: day))!
+    }
+
+    /// Whether the last `log` call moved its entry to the night before (for the "eingetragen" note).
+    nonisolated(unsafe) static var lastMovedToNight = false
+
     static func make(entries: [FoodEntry], goals: Goals, weight: Double?) -> BloodAlcohol {
         BloodAlcohol(drinks: drinks(from: entries), sex: goals.sex, age: goals.age, heightCM: goals.heightCM,
                      weightKG: weight ?? goals.weightKG)

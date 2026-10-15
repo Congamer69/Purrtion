@@ -441,6 +441,8 @@ struct DayContent: View {
     var onSaveRecipe: (Bool) -> Void
     @EnvironmentObject private var goals: Goals
     @Environment(\.modelContext) private var ctx
+    /// The day before: last night's drinks may still be in the blood (cat mood).
+    @Query private var previous: [FoodEntry]
     @Query private var entries: [FoodEntry]
     @Query private var water: [WaterLog]
     @State private var justAte = false
@@ -458,6 +460,8 @@ struct DayContent: View {
         self.onSaveRecipe = onSaveRecipe
         let d = day
         _entries = Query(filter: #Predicate<FoodEntry> { $0.day == d }, sort: \FoodEntry.createdAt, order: .reverse)
+        let prev = Calendar.current.date(byAdding: .day, value: -1, to: d)!
+        _previous = Query(filter: #Predicate<FoodEntry> { $0.day == prev })
         _water = Query(filter: #Predicate<WaterLog> { $0.day == d })
         _reviews = Query(filter: #Predicate<DayReview> { $0.day == d })
     }
@@ -503,7 +507,7 @@ struct DayContent: View {
     private var mood: CatMood {
         if justAte { return .eating }
         let promille = Calendar.current.isDateInToday(day)
-            ? BloodAlcohol.make(entries: entries, goals: goals, weight: nil).value(at: .now) : 0
+            ? BloodAlcohol.make(entries: entries + previous, goals: goals, weight: nil).value(at: .now) : 0
         return CatMood.of(entries: entries, target: target, waterML: water.reduce(0) { $0 + $1.ml }, goals: goals,
                           day: day, promille: promille)
     }

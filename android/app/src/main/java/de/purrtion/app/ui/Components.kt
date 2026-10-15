@@ -283,10 +283,10 @@ fun Bar(fraction: Double, color: Color, modifier: Modifier = Modifier, height: D
 @Composable
 fun Toast(text: String?, modifier: Modifier = Modifier) {
     androidx.compose.animation.AnimatedVisibility(text != null, modifier) {
-        Row(Modifier.clip(CircleShape).background(C.textPrimary).padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.clip(RoundedCornerShape(24.dp)).background(C.textPrimary).padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             PixelSpriteView(Sprites.heart, 3.dp)
             Spacer(Modifier.width(10.dp))
-            Text(text ?: "", style = font(15, FontWeight.SemiBold), color = C.background, maxLines = 1)
+            Text(text ?: "", style = font(15, FontWeight.SemiBold), color = C.background, maxLines = 2)
         }
     }
 }

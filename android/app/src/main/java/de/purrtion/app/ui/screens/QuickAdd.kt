@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
 import de.purrtion.app.ui.Segmented
+import de.purrtion.app.domain.BloodAlcohol
+import de.purrtion.app.model.weekdayName
 import de.purrtion.app.data.Store
 import de.purrtion.app.data.newId
 import de.purrtion.app.model.FoodItem
@@ -104,6 +106,8 @@ fun QuickAddSheet(day: LocalDate) {
     // Values per 100 g / ml from the package table, then the amount eaten. Remembered for next time.
     val per100 = App.prefs.bool("quickAdd.per100")
     var amount by remember { mutableStateOf("") }
+    // A drink after midnight counts to the night before (switchable).
+    var toNight by remember { mutableStateOf(true) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(350); runCatching { focus.requestFocus() } }
 
@@ -114,6 +118,9 @@ fun QuickAddSheet(day: LocalDate) {
     // Entered values × factor = what was eaten.
     val factor = if (per100) num(amount) / 100 else 1.0
     val kcalValue = enteredKcal * factor
+    // The evening a drink after midnight belongs to, null when the rule does not apply.
+    val drinkTime = combine(day, time)
+    val nightDay = BloodAlcohol.nightDay(day, alcohol * factor, drinkTime).takeIf { it != day && drinkTime <= System.currentTimeMillis() }
     val extraCount = extras.values.count { num(it) > 0 } + if (alcohol > 0) 1 else 0
 
     fun save() {
@@ -128,7 +135,7 @@ fun QuickAddSheet(day: LocalDate) {
             servings = listOf(ServingOption("Portion", if (per100) num(amount) else 100.0)))
         val created = if (alcohol > 0) combine(day, time) else System.currentTimeMillis()
         scope.launch {
-            Store.log(food, 1.0, food.servings[0], day, created)
+            Store.log(food, 1.0, food.servings[0], day, created, toNight = toNight)
             h.success()
             Nav.pop()
         }
@@ -221,6 +228,17 @@ fun QuickAddSheet(day: LocalDate) {
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(C.cardAlt).clickable {
                                 TimePickerDialog(context, { _, hh, mm -> time = LocalTime.of(hh, mm) }, time.hour, time.minute, true).show()
                             }.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                    nightDay?.let { night ->
+                        Divider()
+                        Row(Modifier.fillMaxWidth().clickable { toNight = !toNight }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("🌙 Zur Nacht von gestern zählen", style = font(16), color = C.textPrimary)
+                                Text("Landet bei ${night.weekdayName()} in einer Promille-Kurve mit den Getränken davor.", style = font(12), color = C.textSecondary)
+                            }
+                            androidx.compose.material3.Switch(toNight, { toNight = it },
+                                colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Palette.accent, checkedThumbColor = Color.White))
+                        }
                     }
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for ((label, m, v) in listOf(Triple("Bier 0,5", 500.0, 5.0), Triple("Wein", 200.0, 12.0), Triple("Sekt", 100.0, 11.0), Triple("Shot", 20.0, 40.0))) {

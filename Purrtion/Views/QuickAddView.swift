@@ -21,6 +21,8 @@ struct QuickAddView: View {
     /// Values per 100 g / ml from the package table, then the amount eaten. Remembered for next time.
     @AppStorage("quickAdd.per100") private var per100 = false
     @State private var amount = ""
+    /// A drink after midnight counts to the night before (switchable).
+    @State private var toNight = true
     @FocusState private var focus: Field?
 
     enum Field: Hashable { case kcal, name, amount, p, c, f, ml, vol, alc, extra(NutrientKey) }
@@ -45,6 +47,15 @@ struct QuickAddView: View {
 
     /// What was eaten.
     private var kcalValue: Double { enteredKcal * factor }
+
+    /// The evening a drink after midnight belongs to, nil when the rule does not apply.
+    private var nightDay: Date? {
+        let night = BloodAlcohol.nightDay(for: day, alcohol: alcohol * factor, time: time)
+        return night != day && time <= .now ? night : nil
+    }
+
+    /// Day the entry is saved on.
+    private var logDay: Date { toNight ? nightDay ?? day : day }
 
     private var extraCount: Int { extras.values.filter { num($0) > 0 }.count + (alcohol > 0 ? 1 : 0) }
 
@@ -179,6 +190,18 @@ struct QuickAddView: View {
                 DatePicker("", selection: $time, displayedComponents: .hourAndMinute).labelsHidden()
             }
             .padding(.horizontal, 14).frame(height: 52)
+            if let night = nightDay {
+                Divider().overlay(Theme.line)
+                Toggle(isOn: $toNight) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("🌙 Zur Nacht von gestern zählen").font(Theme.font(16)).foregroundStyle(Theme.textPrimary)
+                        Text("Landet bei \(night.formatted(.dateTime.weekday(.wide))) in einer Promille-Kurve mit den Getränken davor.")
+                            .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                    }
+                }
+                .tint(Theme.accent)
+                .padding(.horizontal, 14).padding(.vertical, 8)
+            }
             HStack(spacing: 8) {
                 ForEach(Self.presets, id: \.0) { p in
                     Button {
@@ -283,8 +306,8 @@ struct QuickAddView: View {
         let title = name.trimmingCharacters(in: .whitespaces).isEmpty ? (alcohol > 0 ? "Getränk" : "Schnell-Eintrag") : name
         let food = FoodItem(id: "custom-\(UUID().uuidString)", name: title, source: .custom, per100: n,
                             servings: [ServingOption(name: "Portion", grams: per100 ? num(amount) : 100)])
-        let entry = FoodEntry(food: food, quantity: 1, serving: food.servings[0], day: day)
-        if alcohol > 0 { entry.createdAt = Self.combine(day: day, time: time) }
+        let entry = FoodEntry(food: food, quantity: 1, serving: food.servings[0], day: logDay)
+        if alcohol > 0 { entry.createdAt = Self.combine(day: logDay, time: time) }
         ctx.insert(entry)
         ctx.remember(food, quantity: 1, serving: food.servings[0])
         try? ctx.save()

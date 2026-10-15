@@ -82,6 +82,22 @@ class BloodAlcohol(drinks: List<Drink>, sex: Goals.Sex, age: Int, heightCM: Doub
         const val ABSORBED_SHARE = 0.9
         private const val STEP_MS = 5 * 60_000L
 
+        /** Drinks logged between midnight and this hour still belong to the night that began the evening before. */
+        const val NIGHT_END_HOUR = 5
+
+        /**
+         * The day a drink logged at [time] belongs to: "today" after midnight means the evening before, so a night out
+         * stays one evening (one curve, one kcal total, one day overview) instead of being split at 0:00.
+         */
+        fun nightDay(day: LocalDate, alcohol: Double, time: Long = System.currentTimeMillis()): LocalDate {
+            val t = java.time.Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toLocalDateTime()
+            if (alcohol < 1 || t.toLocalDate() != day || t.hour >= NIGHT_END_HOUR) return day
+            return day.minusDays(1)
+        }
+
+        /** Whether the last [de.purrtion.app.data.Store.log] call moved its entry to the night before (for the toast). */
+        @Volatile var lastMovedToNight = false
+
         /** When the drink was had: the logging time, unless it was logged later for a past day (then 20:00 that day). */
         fun drinkTime(e: FoodEntry): Long {
             val zone = ZoneId.systemDefault()

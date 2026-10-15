@@ -16,6 +16,8 @@ struct AddFoodView: View {
     @State private var path: [FoodItem] = []
     @State private var showBarcode = false
     @State private var addedName: String?
+    /// The last logged drink went to the night before (logged after midnight).
+    @State private var addedToNight = false
     @State private var aiQuery: AIQuery?
     @State private var showSuggestions = false
     @AppStorage(SearchSource.ai.storageKey) private var aiEnabled = true
@@ -355,7 +357,12 @@ struct AddFoodView: View {
         if let addedName {
             HStack(spacing: 10) {
                 PixelSpriteView(sprite: Sprites.heart, pixel: 3)
-                Text("\(addedName) eingetragen").font(Theme.font(15, .semibold)).lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(addedName) eingetragen").font(Theme.font(15, .semibold)).lineLimit(1)
+                    if addedToNight {
+                        Text("🌙 zählt zur Nacht von gestern").font(Theme.font(12, .medium)).opacity(0.75)
+                    }
+                }
             }
             .foregroundStyle(Theme.background)
             .padding(.horizontal, 18).padding(.vertical, 12)
@@ -367,8 +374,10 @@ struct AddFoodView: View {
 
     private func flashAdded(_ name: String) {
         Haptics.success()
+        addedToNight = BloodAlcohol.lastMovedToNight
+        BloodAlcohol.lastMovedToNight = false
         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { addedName = name }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (addedToNight ? 2.6 : 1.6)) {
             withAnimation(.easeOut) { if addedName == name { addedName = nil } }
         }
     }

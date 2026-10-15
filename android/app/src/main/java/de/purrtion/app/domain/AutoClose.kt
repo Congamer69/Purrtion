@@ -1,5 +1,6 @@
 package de.purrtion.app.domain
 
+import de.purrtion.app.model.NutrientKey
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -80,11 +81,15 @@ object AutoClose {
 
     val isEnabled: Boolean get() = App.prefs.bool(ENABLED_KEY)
 
+    /** After a night out the next run waits for its end (set by [runIfNeeded], used by [schedule]). */
+    private var deferredUntil: LocalDateTime? = null
+
+    /** Next run at 0:30, or later the same night when a night out is still going on. */
     fun schedule(context: Context = App.context) {
         val wm = WorkManager.getInstance(context)
         if (!isEnabled) { wm.cancelUniqueWork(WORK); return }
         val now = LocalDateTime.now()
-        var start = LocalDate.now().atTime(LocalTime.of(0, 30))
+        var start = deferredUntil?.takeIf { it.isAfter(now) } ?: LocalDate.now().atTime(LocalTime.of(0, 30))
         if (!start.isAfter(now)) start = start.plusDays(1)
         val request = OneTimeWorkRequestBuilder<CloseDayWorker>()
             .setInitialDelay(Duration.between(now, start).toMillis(), TimeUnit.MILLISECONDS)
@@ -93,7 +98,7 @@ object AutoClose {
         wm.enqueueUniqueWork(WORK, ExistingWorkPolicy.REPLACE, request)
     }
 
-    /** Analyses yesterday when enabled, after 0:30, not done yet and there is something to analyse. */
+    /** Analyses yesterday when enabled, after 0:30 (after a night out 5:00), not done yet and there is something to analyse. */
     suspend fun runIfNeeded(context: Context = App.context): Boolean {
         if (!isEnabled) return true
         val now = LocalDateTime.now()
@@ -108,6 +113,13 @@ object AutoClose {
         val review = App.db.reviews().day(yesterday.toEpochDay())
         if (entries.isEmpty() || review != null) {
             prefs.set(LAST_DAY_KEY, yesterday.toEpochDay().toDouble())
+            return true
+        }
+        // A night out may still be going on: drinks after midnight count to yesterday until 5:00, so wait for them.
+        val nightEnd = LocalDate.now().atTime(BloodAlcohol.NIGHT_END_HOUR, 0)
+        if (now.isBefore(nightEnd) && entries.any { (it.nutrients[NutrientKey.alcohol] ?: 0.0) >= 1 }) {
+            deferredUntil = nightEnd
+            schedule(context)
             return true
         }
         prefs.set(LAST_ATTEMPT_KEY, System.currentTimeMillis().toDouble())

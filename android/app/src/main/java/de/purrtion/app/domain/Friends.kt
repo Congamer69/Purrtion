@@ -138,7 +138,7 @@ data class FriendStats(
                 todayScore = if (todays.isEmpty()) -1.0 else HealthScore.of(todays, t.kcal, t.protein).score.toDouble(),
                 week = (6 downTo 0).map { status(day(it)) },
                 mood = catMood(todays, t, water[today.toEpochDay()] ?: 0, goals, today,
-                    BloodAlcohol.make(todays, goals, null).value(System.currentTimeMillis())).key,
+                    BloodAlcohol.make(todays + (byDay[today.minusDays(1).toEpochDay()] ?: emptyList()), goals, null).value(System.currentTimeMillis())).key,
             )
             return s
         }
