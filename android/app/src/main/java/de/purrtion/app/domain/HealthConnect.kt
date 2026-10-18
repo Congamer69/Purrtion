@@ -209,12 +209,15 @@ object NutritionSync {
             keep += id
             val n = e.nutrients
             val time = if (e.createdAt in dayStart until dayEnd) e.createdAt else dayStart + 12 * 3_600_000L
-            // The version is a content hash: unchanged entries are skipped by Health Connect itself.
-            val version = hash("${e.name}|$time|${n.kcal}|${n.protein}|${n.carbs}|${n.fat}|${n.extra.toSortedMap()}")
-            if (existing.any { it.metadata.clientRecordId == id && it.metadata.clientRecordVersion == version }) continue
-            records += HealthConnect.nutritionRecord(n, e.name, Instant.ofEpochMilli(time), id, version)
+            // Unchanged entries are skipped. Changed ones get a newer version: Health Connect only replaces a record
+            // when the version is higher (a content hash as version could be lower and was then silently ignored).
+            val content = hash("${e.name}|$time|${n.kcal}|${n.protein}|${n.carbs}|${n.fat}|${n.extra.toSortedMap()}")
+            val same = existing.filter { it.metadata.clientRecordId == id }
+            if (same.size == 1 && App.prefs.double("hc.n.$id", 0.0).toLong() == content) continue
+            records += HealthConnect.nutritionRecord(n, e.name, Instant.ofEpochMilli(time), id, System.currentTimeMillis())
+            App.prefs.set("hc.n.$id", content.toDouble())
         }
-        val waterRecord = if (water > 0) HealthConnect.waterRecord(day, water, "purrtion-water-$day", water.toLong()) else null
+        val waterRecord = if (water > 0) HealthConnect.waterRecord(day, water, "purrtion-water-$day", System.currentTimeMillis()) else null
         val orphans = existing.mapNotNull { r -> r.metadata.clientRecordId?.takeIf { it !in keep } }
         HealthConnect.writeNutrition(records, waterRecord, orphans)
     }

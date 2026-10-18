@@ -20,6 +20,8 @@ struct SettingsView: View {
     @AppStorage(NutritionSync.enabledKey) private var nutritionSync = false
     @AppStorage(AutoClose.enabledKey) private var autoClose = false
     @State private var notificationsDenied = false
+    @State private var rewritingHealth = false
+    @State private var healthRewritten = false
     @State private var showDeleteAll = false
     @State private var exportURLs: [URL] = []
     @State private var exportError: String?
@@ -137,8 +139,27 @@ struct SettingsView: View {
                                 await NutritionSync.syncRecent(days: 30, container: PurrtionApp.container)
                             }
                         }
+                    if nutritionSync {
+                        Button {
+                            rewritingHealth = true
+                            Task {
+                                await NutritionSync.repair(container: PurrtionApp.container)
+                                rewritingHealth = false
+                                healthRewritten = true
+                                Haptics.success()
+                            }
+                        } label: {
+                            HStack {
+                                Label(healthRewritten ? "Neu geschrieben" : "Ernährungsdaten in Health neu schreiben",
+                                      systemImage: healthRewritten ? "checkmark" : "arrow.triangle.2.circlepath")
+                                Spacer()
+                                if rewritingHealth { ProgressView() }
+                            }
+                        }
+                        .disabled(rewritingHealth)
+                    }
                 } footer: {
-                    Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort. „Ernährung“ schreibt jeden Eintrag mit kcal, Makros und Mikronährstoffen sowie dein Wasser ins Ernährungsprotokoll von Health – Änderungen und Löschungen werden übernommen.")
+                    Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort. „Ernährung“ schreibt jeden Eintrag mit kcal, Makros und Mikronährstoffen sowie dein Wasser ins Ernährungsprotokoll von Health. Änderungen und Löschungen werden übernommen. „Neu schreiben“ löscht alles, was Purrtion in Health eingetragen hat, und schreibt jeden Tag einmal sauber neu. Daten anderer Apps bleiben unberührt.")
                 }
                 .listRowBackground(Theme.card)
 

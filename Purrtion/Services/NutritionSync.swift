@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import CryptoKit
 import SwiftData
 
 /// Writes every logged entry as a food record (energy, macros, micronutrients) and the daily water to Apple Health.
@@ -7,7 +8,7 @@ import SwiftData
 enum NutritionSync {
     static let enabledKey = "health.nutritionSync"
     private static let store = HKHealthStore()
-    private static let hashKey = "health.nutritionHashes"
+    private static let hashKey = "health.nutritionHashes.v2"
 
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) && HKHealthStore.isHealthDataAvailable() }
 
@@ -49,13 +50,27 @@ enum NutritionSync {
         try await store.requestAuthorization(toShare: shareTypes, read: [])
     }
 
-    private static var hashes: [String: Int] {
-        get { UserDefaults.standard.dictionary(forKey: hashKey) as? [String: Int] ?? [:] }
+    private static var hashes: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: hashKey) as? [String: String] ?? [:] }
         set { UserDefaults.standard.set(newValue, forKey: hashKey) }
     }
 
     private static var pending: Set<Date> = []
     private static var task: Task<Void, Never>?
+    /// All writes run one after another. Two syncs of the same day at once would both see "nothing there yet" and
+    /// both write – that is how entries ended up in Apple Health several times.
+    private static var queue: Task<Void, Never>?
+
+    @MainActor
+    private static func serialized(_ work: @escaping @MainActor () async -> Void) async {
+        let previous = queue
+        let next = Task { @MainActor in
+            await previous?.value
+            await work()
+        }
+        queue = next
+        await next.value
+    }
 
     /// Debounced sync of one day (called whenever the entries of a day change).
     @MainActor
@@ -72,13 +87,46 @@ enum NutritionSync {
         }
     }
 
-    /// Syncs the last `days` days (on launch and when switched on).
+    /// Syncs the last `days` days (on launch and when switched on). Repairs older duplicates once.
     @MainActor
     static func syncRecent(days: Int, container: ModelContainer) async {
         guard isEnabled else { return }
+        if !UserDefaults.standard.bool(forKey: repairKey) {
+            await repair(container: container)
+            return
+        }
         let today = Calendar.current.startOfDay(for: .now)
         for i in 0..<days {
             await sync(day: Calendar.current.date(byAdding: .day, value: -i, to: today)!, ctx: container.mainContext)
+        }
+    }
+
+    // MARK: Repair (1.7.2)
+
+    private static let repairKey = "health.nutritionRepaired.v2"
+    @MainActor static private(set) var repairStatus: String?
+
+    /// Versions before 1.7.2 wrote entries again on every app start, so Apple Health holds the same food many times.
+    /// Removes everything Purrtion ever wrote there (only its own data, nothing from other apps) and writes every
+    /// logged day once again, cleanly.
+    @MainActor
+    static func repair(container: ModelContainer) async {
+        guard isEnabled else { return }
+        await serialized {
+            repairStatus = "Bereinige Apple Health …"
+            let ours = HKQuery.predicateForObjects(from: HKSource.default())
+            for type in shareTypes { _ = try? await store.deleteObjects(of: type, predicate: ours) }
+            _ = try? await store.deleteObjects(of: HKCorrelationType(.food), predicate: ours)
+            hashes = [:]
+            let ctx = container.mainContext
+            let days = Set(((try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []).map(\.day))
+                .union(((try? ctx.fetch(FetchDescriptor<WaterLog>())) ?? []).map(\.day))
+            for (i, d) in days.sorted().enumerated() {
+                repairStatus = "Schreibe Tag \(i + 1) von \(days.count) neu …"
+                await write(day: d, ctx: ctx, existingFood: [], existingWater: [])
+            }
+            UserDefaults.standard.set(true, forKey: repairKey)
+            repairStatus = nil
         }
     }
 
@@ -90,83 +138,93 @@ enum NutritionSync {
     @MainActor
     static func sync(day: Date, ctx: ModelContext) async {
         guard isEnabled else { return }
+        await serialized {
+            let cal = Calendar.current
+            let d = cal.startOfDay(for: day)
+            let next = cal.date(byAdding: .day, value: 1, to: d)!
+            // What Purrtion wrote for that day so far.
+            let both = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                HKQuery.predicateForSamples(withStart: d, end: next), HKQuery.predicateForObjects(from: HKSource.default())])
+            let existingFood = (try? await HKSampleQueryDescriptor(
+                predicates: [.correlation(type: HKCorrelationType(.food), predicate: both)], sortDescriptors: []).result(for: store)) ?? []
+            let existingWater = (try? await HKSampleQueryDescriptor(
+                predicates: [.quantitySample(type: HKQuantityType(.dietaryWater), predicate: both)], sortDescriptors: []).result(for: store)) ?? []
+            await write(day: d, ctx: ctx, existingFood: existingFood, existingWater: existingWater)
+        }
+    }
+
+    /// Writes one day: new and changed entries, removes deleted ones and any duplicates.
+    @MainActor
+    private static func write(day d: Date, ctx: ModelContext, existingFood: [HKCorrelation], existingWater: [HKQuantitySample]) async {
         let cal = Calendar.current
-        let d = cal.startOfDay(for: day)
         let next = cal.date(byAdding: .day, value: 1, to: d)!
         let entries = (try? ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day == d }))) ?? []
         let water = ((try? ctx.fetch(FetchDescriptor<WaterLog>(predicate: #Predicate { $0.day == d }))) ?? []).reduce(0) { $0 + $1.ml }
-
-        // What Purrtion wrote for that day so far.
-        let foodPredicate = HKQuery.predicateForSamples(withStart: d, end: next)
-        let ours = HKQuery.predicateForObjects(from: HKSource.default())
-        let both = NSCompoundPredicate(andPredicateWithSubpredicates: [foodPredicate, ours])
-        let existingFood = (try? await HKSampleQueryDescriptor(
-            predicates: [.correlation(type: HKCorrelationType(.food), predicate: both)], sortDescriptors: []).result(for: store)) ?? []
-        let existingWater = (try? await HKSampleQueryDescriptor(
-            predicates: [.quantitySample(type: HKQuantityType(.dietaryWater), predicate: both)], sortDescriptors: []).result(for: store)) ?? []
+        func id(_ o: HKObject) -> String? { o.metadata?[HKMetadataKeySyncIdentifier] as? String }
 
         var stored = hashes
         var toSave: [HKObject] = []
+        var toDelete: [HKObject] = []
         var keep = Set<String>()
+        // Versions only ever grow, so Apple Health always takes the newest write.
+        let version = Int(Date().timeIntervalSince1970 * 1000)
         for e in entries {
             let syncID = "purrtion-\(e.id.uuidString)"
             keep.insert(syncID)
             let n = e.nutrients
             let time = e.createdAt >= d && e.createdAt < next ? e.createdAt : cal.date(byAdding: .hour, value: 12, to: d)!
             let hash = contentHash(n, name: e.name, time: time)
-            let existing = existingFood.first { $0.metadata?[HKMetadataKeySyncIdentifier] as? String == syncID }
-            if existing != nil, stored[syncID] == hash { continue }
-            let version = ((existing?.metadata?[HKMetadataKeySyncVersion] as? NSNumber)?.intValue ?? 0) + 1
+            let existing = existingFood.filter { id($0) == syncID }
+            if existing.count == 1, stored[syncID] == hash { continue }
+            // Replace explicitly (also every duplicate), so the old nutrient samples inside the record go away too.
+            for c in existing { toDelete += Array(c.objects) + [c] }
             if let c = correlation(n, name: e.name, time: time, syncID: syncID, version: version) {
-                // Replace explicitly, so the old nutrient samples inside the record go away too.
-                if let existing { try? await store.delete(Array(existing.objects) + [existing]) }
                 toSave.append(c)
                 stored[syncID] = hash
             }
         }
         let waterID = "purrtion-water-\(dayKey(d))"
+        let waterHash = "w\(water)"
+        let existingW = existingWater.filter { id($0) == waterID }
         if water > 0 {
             keep.insert(waterID)
-            let existing = existingWater.first { $0.metadata?[HKMetadataKeySyncIdentifier] as? String == waterID }
-            if existing == nil || stored[waterID] != water {
-                let version = ((existing?.metadata?[HKMetadataKeySyncVersion] as? NSNumber)?.intValue ?? 0) + 1
+            if existingW.count != 1 || stored[waterID] != waterHash {
+                toDelete += existingW
                 let t = cal.date(byAdding: .hour, value: 12, to: d)!
                 toSave.append(HKQuantitySample(type: HKQuantityType(.dietaryWater),
                                                quantity: HKQuantity(unit: .literUnit(with: .milli), doubleValue: Double(water)),
                                                start: t, end: t,
                                                metadata: [HKMetadataKeySyncIdentifier: waterID, HKMetadataKeySyncVersion: version]))
-                stored[waterID] = water
+                stored[waterID] = waterHash
             }
         }
-        if !toSave.isEmpty { try? await store.save(toSave) }
+        // Records of deleted entries (a food correlation is deleted together with its samples).
+        for o in existingFood where !keep.contains(id(o) ?? "") { toDelete += Array(o.objects) + [o]; stored[id(o) ?? ""] = nil }
+        for o in existingWater where !keep.contains(id(o) ?? "") { toDelete.append(o); stored[id(o) ?? ""] = nil }
 
-        // Remove records of deleted entries (a food correlation is deleted together with its samples).
-        let orphans: [HKObject] = (existingFood as [HKSample] + existingWater as [HKSample]).filter {
-            guard let id = $0.metadata?[HKMetadataKeySyncIdentifier] as? String else { return false }
-            return !keep.contains(id)
-        }
-        for o in orphans {
-            if let c = o as? HKCorrelation { try? await store.delete(Array(c.objects) + [c]) } else { try? await store.delete(o) }
-            if let id = o.metadata?[HKMetadataKeySyncIdentifier] as? String { stored[id] = nil }
-        }
+        if !toDelete.isEmpty { try? await store.delete(toDelete) }
+        if !toSave.isEmpty { try? await store.save(toSave) }
         hashes = stored
     }
 
-    private static func contentHash(_ n: Nutrients, name: String, time: Date) -> Int {
-        var h = Hasher()
-        h.combine(name)
-        h.combine(Int(time.timeIntervalSince1970))
-        h.combine(Int(n.kcal * 10)); h.combine(Int(n.protein * 10)); h.combine(Int(n.carbs * 10)); h.combine(Int(n.fat * 10))
-        for k in n.extra.keys.sorted() { h.combine(k); h.combine(Int((n.extra[k] ?? 0) * 100)) }
-        return h.finalize()
+    /// Stable across app starts (Swift's Hasher is seeded randomly per launch, which made every entry look changed).
+    private static func contentHash(_ n: Nutrients, name: String, time: Date) -> String {
+        var parts = [name, "\(Int(time.timeIntervalSince1970))", "\(Int(n.kcal * 10))", "\(Int(n.protein * 10))",
+                     "\(Int(n.carbs * 10))", "\(Int(n.fat * 10))"]
+        for k in n.extra.keys.sorted() { parts.append("\(k)=\(Int((n.extra[k] ?? 0) * 100))") }
+        return SHA256.hash(data: Data(parts.joined(separator: "|").utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func correlation(_ n: Nutrients, name: String, time: Date, syncID: String, version: Int) -> HKCorrelation? {
         var samples = Set<HKSample>()
         func add(_ id: HKQuantityTypeIdentifier, _ unit: HKUnit, _ value: Double) {
             guard value > 0, value.isFinite else { return }
+            // Each nutrient value has its own sync identifier too: even if a write is repeated, Apple Health replaces
+            // it instead of adding it a second time.
             samples.insert(HKQuantitySample(type: HKQuantityType(id), quantity: HKQuantity(unit: unit, doubleValue: value),
-                                            start: time, end: time, metadata: [HKMetadataKeyFoodType: name]))
+                                            start: time, end: time,
+                                            metadata: [HKMetadataKeyFoodType: name, HKMetadataKeySyncIdentifier: "\(syncID)-\(id.rawValue)",
+                                                       HKMetadataKeySyncVersion: version]))
         }
         for (id, unit, get) in macroTypes { add(id, unit, get(n) ?? 0) }
         for (key, id) in microTypes { add(id, unit(key), n[key] ?? 0) }

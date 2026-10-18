@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.2 – 18. Oktober 2026
+
+### Behoben
+- **Apple Health: Einträge mehrfach gezählt.** Bis 1.7.1 schrieb Purrtion die Einträge der letzten Tage bei jedem App-Start erneut in Apple Health, die Nährwerte der alten Fassung blieben dabei stehen. Dadurch waren kcal, Makros und Mikronährstoffe dort ein Vielfaches zu hoch. Jetzt:
+  - Beim ersten Start von 1.7.2 löscht Purrtion alles, was es selbst in Apple Health eingetragen hat, und schreibt jeden erfassten Tag einmal sauber neu. Daten anderer Apps bleiben unberührt.
+  - Unveränderte Einträge werden nicht mehr erneut geschrieben, jeder Nährwert hat eine eigene Kennung, und es läuft immer nur ein Abgleich gleichzeitig.
+  - In Einstellungen gibt es zusätzlich „Ernährungsdaten in Health neu schreiben“, um das jederzeit selbst auszulösen.
+- **Android, Health Connect:** geänderte Einträge wurden teils nicht aktualisiert. Jetzt bekommt jede Änderung eine höhere Version.
+- GitHub-Releases wieder aktuell (der neueste Release zeigte noch 1.6). Die Android-APK hängt jetzt am Release.
+
 ## 1.7.1 – 15. Oktober 2026
 
 ### Neu
