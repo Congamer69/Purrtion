@@ -9,6 +9,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -29,6 +31,8 @@ import java.time.Instant
 object FirebaseConfig {
     private const val KEY = "friends.server"
     private const val PREFIX = "purrtion-server:"
+    /** Stored after "Freunde-Server trennen", so a built-in config does not reconnect by itself. */
+    private const val OFF = "off"
 
     @kotlinx.serialization.Serializable
     data class Server(val k: String, val p: String, val i: String = "") {
@@ -38,14 +42,15 @@ object FirebaseConfig {
     private val bundled: Server? = Server(BuildConfig.FIREBASE_API_KEY, BuildConfig.FIREBASE_PROJECT_ID, BuildConfig.FIREBASE_INVITE_URL)
         .takeIf { it.isValid }
 
-    private val stored: Server? get() = App.prefs.optString(KEY)?.let(::decode)
+    private val raw: String? get() = App.prefs.optString(KEY)
+    private val stored: Server? get() = raw?.let(::decode)
 
     /** Keeps a built-in config for later versions without one. Called on every start (cheap). */
     fun persistBundled() {
-        if (stored == null && bundled != null) App.prefs.set(KEY, encode(bundled))
+        if (raw == null && bundled != null) App.prefs.set(KEY, encode(bundled))
     }
 
-    val server: Server? get() = stored ?: bundled
+    val server: Server? get() = if (raw == OFF) null else stored ?: bundled
     val apiKey: String get() = server?.k ?: ""
     val projectId: String get() = server?.p ?: ""
     val inviteUrl: String get() = server?.i ?: ""
@@ -72,6 +77,31 @@ object FirebaseConfig {
         App.prefs.set(KEY, encode(s))
         return true
     }
+
+    /**
+     * Asks the server whether a pasted code works, before saving it. Null when it does, otherwise what is wrong.
+     * Creates nothing on the server: Firebase Auth names the domains of the key's project (so key and project must
+     * belong together), and Firestore answers whether the project has a database.
+     */
+    suspend fun verify(raw: String): String? {
+        val s = decode(raw) ?: return "Das ist kein gültiger Server-Code. Er beginnt mit „purrtion-server:“."
+        fun json(text: String) = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(text) as? JsonObject }.getOrNull()
+        return try {
+            val (status, authText) = Http.request("https://identitytoolkit.googleapis.com/v1/projects?key=${s.k}", "GET")
+            if (status != 200) return "Der Server-Code stimmt nicht. Der Schlüssel wird vom Server abgelehnt."
+            val domains = (json(authText)?.get("authorizedDomains") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
+            if (domains.none { it.startsWith(s.p + ".") }) return "Der Server-Code stimmt nicht. Schlüssel und Projekt passen nicht zusammen."
+            val (_, storeText) = Http.request("https://firestore.googleapis.com/v1/projects/${s.p}/databases/(default)/documents/codes/AAAAAAAA?key=${s.k}", "GET")
+            val message = ((json(storeText)?.get("error") as? JsonObject)?.get("message"))?.jsonPrimitive?.contentOrNull ?: ""
+            if ("resource project" in message || "does not exist" in message) "Der Server-Code stimmt nicht. Zu diesem Projekt gibt es keinen Freunde-Server."
+            else null
+        } catch (e: java.io.IOException) {
+            "Keine Verbindung. Prüf dein Internet und versuch es nochmal."
+        }
+    }
+
+    /** Forgets the server (also a built-in one) until a new code is pasted. */
+    fun disconnect() = App.prefs.set(KEY, OFF)
 }
 
 class FirebaseException(message: String) : Exception(message) {

@@ -30,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Group
@@ -97,6 +98,7 @@ import de.purrtion.app.ui.pixel.CatPalette
 import de.purrtion.app.ui.theme.C
 import de.purrtion.app.ui.theme.Palette
 import de.purrtion.app.ui.theme.font
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -512,6 +514,7 @@ fun FriendsSettingsSection() {
     val enabled = prefs.bool(FriendsStore.ENABLED_KEY, true)
     var draft by remember { mutableStateOf(store.name) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDisconnect by remember { mutableStateOf(false) }
     fun push() { if (store.isSetUp) scope.launch { runCatching { store.upload(forced = true) } } }
     fun saveName() {
         val clean = draft.trim().take(30)
@@ -547,11 +550,17 @@ fun FriendsSettingsSection() {
                 }
             }
         }
+        Divider()
+        FormRow("Freunde-Server trennen", titleColor = Palette.danger, onClick = { confirmDisconnect = true })
     }
     if (confirmDelete) AlertDialog({ confirmDelete = false }, title = { Text("Freunde-Daten löschen?") },
         text = { Text("Dein Profil und dein Code werden vom Server gelöscht, deine Freunde sehen dich nicht mehr. Deine Einträge in Purrtion bleiben.") },
         confirmButton = { TextButton({ confirmDelete = false; scope.launch { store.deleteAll() } }) { Text("Löschen", color = Palette.danger) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text("Abbrechen") } })
+    if (confirmDisconnect) AlertDialog({ confirmDisconnect = false }, title = { Text("Vom Freunde-Server trennen?") },
+        text = { Text("Dein Profil und dein Code werden von diesem Server gelöscht, deine Freunde dort sehen dich nicht mehr. Deine Einträge in Purrtion bleiben. Danach kannst du einen anderen Server-Code einfügen.") },
+        confirmButton = { TextButton({ confirmDisconnect = false; scope.launch { store.deleteAll(); FirebaseConfig.disconnect() } }) { Text("Trennen", color = Palette.danger) } },
+        dismissButton = { TextButton({ confirmDisconnect = false }) { Text("Abbrechen") } })
 }
 
 /**
@@ -703,6 +712,9 @@ private fun ServerConnectSection() {
     val h = rememberHaptics()
     var text by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    var connected by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     // Was connected before (friends set up) but this version has no server built in: one paste restores everything.
     val wasConnected = App.prefs.optString("friends.me") != null
     FormSection("Freunde", error ?: if (wasConnected)
@@ -716,14 +728,34 @@ private fun ServerConnectSection() {
         TextInput(text, { text = it; error = null }, "purrtion-server:…", Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.cardAlt)
             .padding(horizontal = 12.dp, vertical = 12.dp), style = font(14), singleLine = false,
             keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
-        Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PillButton("Einfügen", Modifier.weight(1f), filled = false) {
-                val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip
-                text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
+        when {
+            // The code is checked with the server first, so a wrong code never looks connected.
+            checking || connected -> Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (connected) Icon(Icons.Rounded.CheckCircle, null, Modifier.size(22.dp), tint = Palette.fiber)
+                else CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accent, strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(if (connected) "Verbunden" else "Verbinde mit dem Server …", style = font(16, if (connected) FontWeight.Bold else FontWeight.Normal),
+                    color = if (connected) Palette.fiber else C.textSecondary)
             }
-            PillButton("Verbinden", Modifier.weight(1f), enabled = text.isNotBlank()) {
-                if (FirebaseConfig.connect(text)) { h.success(); text = "" }
-                else { h.warning(); error = "Das ist kein gültiger Server-Code. Er beginnt mit „purrtion-server:“." }
+            else -> Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PillButton("Einfügen", Modifier.weight(1f), filled = false) {
+                    val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip
+                    text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
+                }
+                PillButton("Verbinden", Modifier.weight(1f), enabled = text.isNotBlank()) {
+                    val code = text
+                    error = null; checking = true
+                    scope.launch {
+                        val wait = async { delay(700) }
+                        val problem = FirebaseConfig.verify(code)
+                        wait.await()
+                        checking = false
+                        if (problem != null) { h.warning(); error = problem; return@launch }
+                        h.success(); connected = true
+                        delay(1200)
+                        FirebaseConfig.connect(code)
+                    }
+                }
             }
         }
     }

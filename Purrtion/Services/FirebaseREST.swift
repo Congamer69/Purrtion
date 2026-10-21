@@ -8,6 +8,8 @@ import Foundation
 enum FirebaseConfig {
     static let storageKey = "friends.server"
     private static let prefix = "purrtion-server:"
+    /// Stored after "Freunde-Server trennen", so a built-in config does not reconnect by itself.
+    private static let off = "off"
 
     struct Server: Codable, Equatable {
         var k: String
@@ -24,18 +26,21 @@ enum FirebaseConfig {
         return s.isValid ? s : nil
     }()
 
-    private static var stored: Server? { UserDefaults.standard.string(forKey: storageKey).flatMap(decode) }
+    private static var raw: String? { UserDefaults.standard.string(forKey: storageKey) }
+    private static var stored: Server? { raw.flatMap(decode) }
 
     /// Keeps a built-in config for later builds without one. Called on every start (cheap).
     static func persistBundled() {
-        if stored == nil, let bundled { UserDefaults.standard.set(encode(bundled), forKey: storageKey) }
+        if raw == nil, let bundled { UserDefaults.standard.set(encode(bundled), forKey: storageKey) }
     }
 
-    static var server: Server? { stored ?? bundled }
+    static var server: Server? { raw == off ? nil : stored ?? bundled }
     static var apiKey: String? { server?.k }
     static var projectID: String? { server?.p }
     static var inviteURL: String { server?.i ?? "" }
     static var isAvailable: Bool { server?.isValid == true }
+    /// Same, for views that observe the stored value (`@AppStorage(storageKey)`) so they re-render when it changes.
+    static func isAvailable(_ observed: String) -> Bool { isAvailable }
     /// The code to share with friends, nil when not connected.
     static var code: String? { server.map(encode) }
 
@@ -61,6 +66,37 @@ enum FirebaseConfig {
         guard let s = decode(raw) else { return false }
         UserDefaults.standard.set(encode(s), forKey: storageKey)
         return true
+    }
+
+    /// Asks the server whether a pasted code works, before saving it. Nil when it does, otherwise what is wrong.
+    /// Creates nothing on the server: Firebase Auth names the domains of the key's project (so key and project must
+    /// belong together), and Firestore answers whether the project has a database.
+    static func verify(_ raw: String) async -> String? {
+        guard let s = decode(raw) else { return "Das ist kein gültiger Server-Code. Er beginnt mit „purrtion-server:“." }
+        func json(_ url: String) async throws -> (Int, [String: Any]) {
+            let (data, response) = try await URLSession.shared.data(from: URL(string: url)!)
+            return ((response as? HTTPURLResponse)?.statusCode ?? 0, (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:])
+        }
+        do {
+            let (status, auth) = try await json("https://identitytoolkit.googleapis.com/v1/projects?key=\(s.k)")
+            guard status == 200 else { return "Der Server-Code stimmt nicht. Der Schlüssel wird vom Server abgelehnt." }
+            guard (auth["authorizedDomains"] as? [String] ?? []).contains(where: { $0.hasPrefix(s.p + ".") }) else {
+                return "Der Server-Code stimmt nicht. Schlüssel und Projekt passen nicht zusammen."
+            }
+            let (_, store) = try await json("https://firestore.googleapis.com/v1/projects/\(s.p)/databases/(default)/documents/codes/AAAAAAAA?key=\(s.k)")
+            let message = (store["error"] as? [String: Any])?["message"] as? String ?? ""
+            if message.contains("resource project") || message.contains("does not exist") {
+                return "Der Server-Code stimmt nicht. Zu diesem Projekt gibt es keinen Freunde-Server."
+            }
+            return nil
+        } catch {
+            return "Keine Verbindung. Prüf dein Internet und versuch es nochmal."
+        }
+    }
+
+    /// Forgets the server (also a built-in one) until a new code is pasted.
+    static func disconnect() {
+        UserDefaults.standard.set(off, forKey: storageKey)
     }
 }
 

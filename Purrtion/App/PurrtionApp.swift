@@ -45,7 +45,7 @@ struct RootView: View {
     @State private var tab = 0
     @ObservedObject private var router = NotificationRouter.shared
     @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
-    /// Re-renders the tabs when a server code is pasted.
+    /// Re-renders the tabs when a server code is pasted or the server is disconnected.
     @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
 
     var body: some View {
@@ -53,7 +53,7 @@ struct RootView: View {
             TabView(selection: $tab) {
                 Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView() }
                 Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView() }
-                if friendsEnabled && (FirebaseConfig.isAvailable || !serverCode.isEmpty) {
+                if friendsEnabled && FirebaseConfig.isAvailable(serverCode) {
                     Tab("Freunde", systemImage: "person.2.fill", value: 3) { FriendsView() }
                 }
                 Tab("Einstellungen", systemImage: "gearshape.fill", value: 2) { SettingsView() }

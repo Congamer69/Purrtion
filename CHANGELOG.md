@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.1 – 22. Oktober 2026
+
+### Neu
+- **Server-Code wird beim Verbinden geprüft:** Nach „Verbinden“ fragt die App kurz beim Server nach (Ladeanzeige „Verbinde mit dem Server …“). Erst wenn alles stimmt, erscheint „Verbunden“. Bei einem falschen Code steht da, was nicht passt: falscher Schlüssel, Schlüssel und Projekt passen nicht zusammen, kein Freunde-Server im Projekt oder keine Verbindung. Gespeichert wird nur ein Code, der funktioniert.
+- **Freunde-Server trennen:** Einstellungen → Freunde → „Freunde-Server trennen“. Dein Profil und dein Code werden vom bisherigen Server gelöscht, deine Einträge bleiben. Danach kannst du den Code eines anderen Servers einfügen. Auch Versionen mit eingebautem Server bleiben getrennt.
+
+### Behoben
+- **iPhone, „Server-Code teilen“:** öffnet jetzt zuverlässig das Teilen-Menü.
+
 ## 1.8 – 22. Oktober 2026
 
 ### Neu
