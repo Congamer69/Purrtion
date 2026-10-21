@@ -1,5 +1,7 @@
 package de.purrtion.app.ui.screens
 
+import de.purrtion.app.ui.RoundIconButton
+import androidx.compose.material.icons.rounded.History
 import de.purrtion.app.domain.BloodAlcohol
 import de.purrtion.app.domain.RestaurantDatabase
 import androidx.compose.material.icons.rounded.Fastfood
@@ -313,12 +315,24 @@ fun IngredientPickerSheet(onPick: (FoodItem, Double, ServingOption) -> Unit) {
     val search = remember { FoodSearch(scope) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(350); runCatching { focus.requestFocus() } }
-    Screen("Zutat", scroll = false, contentPadding = PaddingValues(0.dp)) {
+    // What was logged recently, for the empty search field.
+    val recent by remember { App.db.saved().observeAll() }.collectAsState(emptyList())
+    fun pick(f: FoodItem) = Nav.push { FoodDetailScreen(f, DetailMode.Pick { food, q, s -> onPick(food, q, s); Nav.dismissSheet() }) }
+    Screen("Zutat", scroll = false, contentPadding = PaddingValues(0.dp), trailing = {
+        RoundIconButton(Icons.Rounded.QrCodeScanner, Modifier.padding(end = 8.dp)) {
+            Nav.sheet { BarcodeSheet(LocalDate.now(), onPick = { f, q, s -> onPick(f, q, s); Nav.dismissSheet() }) }
+        }
+    }) {
         SearchBar(search, "Zutat suchen", focus)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp)) {
-            results(search, emptyList()) { f ->
-                Nav.push { FoodDetailScreen(f, DetailMode.Pick { food, q, s -> onPick(food, q, s); Nav.dismissSheet() }) }
+            if (search.query.isBlank()) {
+                val items = recent.take(40).mapNotNull { it.food }
+                if (items.isNotEmpty()) {
+                    item { SectionTitle("Zuletzt verwendet", Icons.Rounded.History) }
+                    items(items, key = { "recent" + it.id }) { f -> FoodRow(f, Modifier.clickable { pick(f) }) }
+                }
             }
+            results(search, emptyList()) { f -> pick(f) }
         }
     }
 }

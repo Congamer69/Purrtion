@@ -31,4 +31,11 @@ Der Code lässt sich in der App auch von Hand eingeben.
 2. In der Konsole **Firestore** anlegen (z. B. `eur3`) und unter Authentication **Anonym** aktivieren.
 3. `cd backend && firebase deploy --only firestore:rules,hosting --project <id>`
 4. `Firebase.example.plist` nach `Purrtion/Resources/Firebase.plist` kopieren und API-Key (`firebase apps:sdkconfig WEB …`),
-   Projekt-ID und Einladungs-URL eintragen. Die Datei ist in `.gitignore` – ohne sie blendet die App die Freunde-Seite aus.
+   Projekt-ID und Einladungs-URL eintragen. Die Datei ist in `.gitignore`.
+
+## Server-Code
+Die App braucht keine eingebaute Konfiguration. Ein Server-Code `purrtion-server:<base64url von {"k":API-Key,"p":Projekt-ID,"i":Einladungs-URL}>`
+wird in Einstellungen → Freunde eingefügt und unter `friends.server` gespeichert (auch in der Sicherung enthalten).
+- `python3 tools/server_code.py` gibt den Code aus `Firebase.plist` aus. Verbundene Apps können ihn unter „Server-Code teilen“ weitergeben.
+- Builds mit eingebauter `Firebase.plist` (iOS, Android `--private`) speichern ihre Werte beim ersten Start ebenfalls dort, damit sie ein Update auf eine Version ohne eingebaute Werte überstehen.
+- Der API-Key ist ein öffentlicher Web-Key, geschützt wird über die Firestore-Regeln. Trotzdem gehört er nicht ins Repository.

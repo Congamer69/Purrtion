@@ -42,6 +42,7 @@ object MealSuggestions {
 
     fun rank(candidates: List<Candidate>, gap: Gap, limit: Int = 30): List<Suggestion> {
         val budget = max(gap.kcal, 0.0)
+        if (budget < 20) return emptyList()
         val ideal = if (budget < 150) min(budget, 120.0) else budget / gap.mealsLeft
         val gapVec = doubleArrayOf(gap.protein * 4, gap.carbs * 4, gap.fat * 9)
         val best = HashMap<String, Suggestion>()
@@ -50,7 +51,8 @@ object MealSuggestions {
                 val q = c.quantity * f
                 val n = c.food.nutrients(q * c.serving.grams)
                 if (n.kcal < 20) continue
-                if (n.kcal > max(budget * 1.03, 160.0)) continue
+                // Only what really fits: a few kcal of tolerance, never over the goal.
+                if (n.kcal > budget * 1.03 + 10) continue
                 val vec = doubleArrayOf(n.protein * 4, n.carbs * 4, n.fat * 9)
                 val macroFit = cosine(vec, gapVec)
                 val proteinCover = if (gap.protein > 5) min(n.protein / gap.protein, 1.0) else 0.5

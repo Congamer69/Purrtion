@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.8 – 22. Oktober 2026
+
+### Neu
+- **Server-Code für die Freunde-Seite:** Die Freunde-Seite lässt sich jetzt mit einem Code einschalten. Einstellungen → Freunde → „Freunde-Server verbinden“, Code einfügen, „Verbinden“. Verbundene Apps können ihn unter „Server-Code teilen“ weitergeben. Gilt für iPhone und Android.
+  - Auf dem iPhone ändert sich nichts: Der eingebaute Server wird beim ersten Start von 1.8 gespeichert. Konto, Code und Freunde bleiben.
+  - Wer von einer Android-APK 1.7 bis 1.7.3 auf die öffentliche 1.8 wechselt, fügt den Code einmal ein. Die Freunde bleiben erhalten.
+- **Android: App-Update in der App.** Einstellungen → App-Update → „Nach Updates suchen“ holt die neueste Version von GitHub. Vorher legt die App eine komplette Sicherung an und prüft, ob das Update wirklich zu deiner App gehört. Alle Einträge, Rezepte, Gewichte und Einstellungen bleiben erhalten. Einmal am Tag schaut die App selbst nach.
+- **Öffentliche APK:** Die APK am GitHub-Release enthält keine Server-Daten mehr.
+
+## 1.7.3 – 20. Oktober 2026
+
+### Neu
+- **Freunde, „Heute“ antippen:** zeigt die Aufschlüsselung des Tages mit Kalorien, Protein, Kohlenhydraten und Fett, jeweils gegen das eigene Ziel, plus die Verteilung der Kalorien. Von dort geht es weiter zum Vergleich. Die Makros sind sichtbar, sobald beide die neue Version haben.
+- **Rezept erstellen:** Zutaten lassen sich per Barcode scannen (Symbol oben rechts), und bei leerem Suchfeld steht der Verlauf „Zuletzt verwendet“. Die Suche findet jetzt auch die Schweizer Datenbank und die Restaurantketten.
+
+### Behoben
+- **„Auswählen“ auf der Heute-Seite:** nach dem ersten Eintrag reagierten weitere Taps nicht zuverlässig. Jetzt ist im Auswahlmodus die ganze Zeile inklusive Kreis eine Tippfläche, ohne Menü oder Animation, die Taps abfängt.
+- **„Was passt noch?“ über dem Ziel:** schlug trotzdem kleine Snacks vor und schrieb „Passt ins Budget“. Jetzt erscheinen nur noch Vorschläge, die wirklich in die restlichen Kalorien passen. Ist das Ziel erreicht, zeigt die Katze keine mehr.
+
 ## 1.7.2 – 18. Oktober 2026
 
 ### Behoben

@@ -9,8 +9,15 @@ plugins {
 // Shared with the iOS app: food databases and the Firebase config of the friends page.
 val iosResources = rootProject.file("../Purrtion/Resources")
 
-/** Reads a string value from the (gitignored) iOS Firebase.plist – empty when it is missing. */
+/**
+ * Public builds (`-Ppurrtion.public=true`, used by build-apk.sh for GitHub releases) carry no server data:
+ * the friends server is connected in the app with a server code instead.
+ */
+val publicBuild = (findProperty("purrtion.public") as String?) == "true"
+
+/** Reads a string value from the (gitignored) iOS Firebase.plist – empty when it is missing or for public builds. */
 fun firebaseValue(key: String): String {
+    if (publicBuild) return ""
     val plist = File(iosResources, "Firebase.plist")
     if (!plist.exists()) return ""
     val text = plist.readText()

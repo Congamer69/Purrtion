@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 1.7.2** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 1.8** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
@@ -119,7 +119,7 @@ Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
 
 **Datenschutz:** Geteilt werden nur Kennzahlen und die Tageskalorien mit Ziel. Keine Mahlzeiten, kein Gewicht (den Gewichtstrend in kg pro Woche nur, wenn man ihn teilt). Die Firestore-Regeln erlauben das Lesen nur Personen, die man selbst hinzugefügt hat.
 
-**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden etwa 20 Sekunden nach einem neuen Eintrag geschrieben, höchstens alle 2 Minuten und nur bei Änderungen, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository; ohne sie blendet die App die Freunde-Seite aus.
+**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden etwa 20 Sekunden nach einem neuen Eintrag geschrieben, höchstens alle 2 Minuten und nur bei Änderungen, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die App verbindet sich über einen Server-Code (Einstellungen → Freunde → Server-Code einfügen); ohne ihn ist die Freunde-Seite ausgeblendet. Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository.
 
 ## Auf dem echten iPhone installieren
 In Xcode beim Ziel **Purrtion** und **PurrtionWidget** unter „Signing & Capabilities“ dein Team auswählen.
@@ -133,7 +133,7 @@ App Groups und HealthKit funktionieren auch mit einem kostenlosen Apple-Account.
 - `Purrtion/Views` – Heute, Suche, Detail, Barcode, Foto, Schnell-Eintrag, Verlauf, Freunde, Einstellungen
 - `android/` – die Android-App (Kotlin, Jetpack Compose), siehe [android/README.md](android/README.md)
 - `backend/` – Firebase-Regeln, Einladungsseite (Hosting) und Anleitung für die Freunde-Seite
-- `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import), `export_sprites_kotlin.py` (Sprites für Android)
+- `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import), `export_sprites_kotlin.py` (Sprites für Android), `server_code.py` (Server-Code für die Freunde-Seite)
 
 ## Lizenz & Hinweise
 Der Code steht unter der [MIT-Lizenz](LICENSE): frei nutzbar, veränderbar und weitergebbar, ohne Gewähr und ohne Haftung. Die Datenquellen haben eigene Lizenzen, siehe [NOTICE](NOTICE).

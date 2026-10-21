@@ -2,17 +2,66 @@ import Foundation
 
 /// Tiny Firebase client over REST (no SDK): anonymous Auth + the few Firestore calls the friends page needs.
 /// Configuration comes from `Firebase.plist` (not in git) – without it the friends page stays hidden.
+/// Server of the friends page. Comes from a pasted server code (Einstellungen → Freunde) or from a Firebase.plist built
+/// into the app. A built-in config is copied to the settings on first start, so it also survives builds without one.
+/// Same code format as on Android ("purrtion-server:" + base64url JSON {k, p, i}).
 enum FirebaseConfig {
-    private static let dict: [String: Any]? = {
+    static let storageKey = "friends.server"
+    private static let prefix = "purrtion-server:"
+
+    struct Server: Codable, Equatable {
+        var k: String
+        var p: String
+        var i: String = ""
+        var isValid: Bool { k.count > 20 && !k.hasPrefix("<") && !p.isEmpty }
+    }
+
+    private static let bundled: Server? = {
         guard let url = Bundle.main.url(forResource: "Firebase", withExtension: "plist"),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+              let data = try? Data(contentsOf: url),
+              let d = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { return nil }
+        let s = Server(k: d["APIKey"] as? String ?? "", p: d["ProjectID"] as? String ?? "", i: d["InviteURL"] as? String ?? "")
+        return s.isValid ? s : nil
     }()
 
-    static var apiKey: String? { dict?["APIKey"] as? String }
-    static var projectID: String? { dict?["ProjectID"] as? String }
-    static var inviteURL: String { dict?["InviteURL"] as? String ?? "" }
-    static var isAvailable: Bool { apiKey?.hasPrefix("<") == false && projectID?.isEmpty == false }
+    private static var stored: Server? { UserDefaults.standard.string(forKey: storageKey).flatMap(decode) }
+
+    /// Keeps a built-in config for later builds without one. Called on every start (cheap).
+    static func persistBundled() {
+        if stored == nil, let bundled { UserDefaults.standard.set(encode(bundled), forKey: storageKey) }
+    }
+
+    static var server: Server? { stored ?? bundled }
+    static var apiKey: String? { server?.k }
+    static var projectID: String? { server?.p }
+    static var inviteURL: String { server?.i ?? "" }
+    static var isAvailable: Bool { server?.isValid == true }
+    /// The code to share with friends, nil when not connected.
+    static var code: String? { server.map(encode) }
+
+    static func encode(_ s: Server) -> String {
+        let data = (try? JSONEncoder().encode(s)) ?? Data()
+        return prefix + data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    /// Reads a pasted code; whitespace, line breaks and quotes from chats are ignored.
+    static func decode(_ raw: String) -> Server? {
+        let t = raw.filter { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: "\"'„“”"))
+        guard t.hasPrefix(prefix) else { return nil }
+        var b = String(t.dropFirst(prefix.count)).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        while b.count % 4 != 0 { b += "=" }
+        guard let data = Data(base64Encoded: b), let s = try? JSONDecoder().decode(Server.self, from: data), s.isValid else { return nil }
+        return s
+    }
+
+    /// Saves a pasted code; false when it is not a valid server code.
+    @discardableResult
+    static func connect(_ raw: String) -> Bool {
+        guard let s = decode(raw) else { return false }
+        UserDefaults.standard.set(encode(s), forKey: storageKey)
+        return true
+    }
 }
 
 enum FirebaseError: LocalizedError {

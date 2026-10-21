@@ -1,5 +1,7 @@
 package de.purrtion.app.ui.screens
 
+import de.purrtion.app.domain.AppUpdater
+import androidx.compose.material.icons.rounded.SystemUpdate
 import de.purrtion.app.domain.RestaurantDatabase
 import androidx.compose.material.icons.rounded.Fastfood
 import android.Manifest
@@ -244,6 +246,8 @@ fun SettingsScreen() {
             FormRow("KI-Modelle", icon = Icons.Rounded.AutoAwesome, value = if (photo == day) photo.shortName else "${photo.shortName} · ${day.shortName}",
                 chevron = true, onClick = { Nav.push { VisionSettingsScreen() } })
         }
+
+        AppUpdateSection()
 
         FormSection("Daten", exportError) {
             FormRow("Alle Daten als CSV exportieren", icon = Icons.Rounded.TableChart, onClick = {
@@ -795,5 +799,47 @@ private fun Feature(icon: ImageVector, text: String) {
         }
         Spacer(Modifier.width(14.dp))
         Text(text, style = font(16, FontWeight.Medium), color = C.textPrimary)
+    }
+}
+
+// MARK: App update
+
+/** Search for and install a newer version from GitHub, inside the app. All data stays (see [AppUpdater]). */
+@Composable
+private fun AppUpdateSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val u = AppUpdater
+    val release = u.available
+    FormSection("App-Update", "Lädt neue Versionen direkt von GitHub. Vor der Installation sichert Purrtion alle Daten. Einträge, Rezepte, Gewicht, Einstellungen und die Verbindung zum Freunde-Server bleiben beim Update erhalten.") {
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconTile(Icons.Rounded.SystemUpdate)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(if (release != null) "Version ${release.version} verfügbar" else "Purrtion ${u.currentVersion}",
+                    style = font(15, FontWeight.SemiBold), color = if (release != null) Palette.accent else C.textPrimary)
+                u.status?.let { Text(it, style = font(12), color = C.textSecondary) }
+            }
+            if (u.isChecking) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accent, strokeWidth = 2.dp)
+        }
+        u.progress?.let { p ->
+            de.purrtion.app.ui.Bar(p.toDouble(), Palette.accent, Modifier.padding(bottom = 10.dp), height = 6.dp, track = C.cardAlt)
+        }
+        if (release != null) {
+            if (release.notes.isNotBlank()) Text(release.notes.lines().filter { it.isNotBlank() }.take(6).joinToString("\n")
+                .replace("**", "").replace("### ", ""), style = font(12), color = C.textSecondary, maxLines = 5,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 8.dp))
+            PillButton(if (u.progress != null) "Wird aktualisiert …" else "Jetzt aktualisieren", Modifier.padding(bottom = 10.dp),
+                icon = Icons.Rounded.SystemUpdate, enabled = u.progress == null) {
+                if (!u.canInstall(context)) {
+                    u.status = "Erlaube Purrtion einmal, Apps zu installieren. Danach geht es automatisch weiter."
+                    u.waitForPermission(context, release)
+                } else scope.launch { u.install(context, release) }
+            }
+        } else {
+            PillButton("Nach Updates suchen", Modifier.padding(bottom = 10.dp), filled = false, enabled = !u.isChecking) {
+                scope.launch { u.check() }
+            }
+        }
     }
 }

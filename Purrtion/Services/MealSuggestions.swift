@@ -6,7 +6,7 @@ import Foundation
 /// - how well its macro mix matches what is still missing (cosine of the energy vectors protein / carbs / fat),
 /// - how much of the missing protein it covers,
 /// - how close it gets to the calories that fit right now (rest of the budget split over the meals still to come),
-/// and amounts that would go over the budget are dropped. The usual portion gets a small bonus.
+/// and amounts that would go over the budget are dropped (nothing at all once the goal is reached). The usual portion gets a small bonus.
 enum MealSuggestions {
     struct Candidate {
         let food: FoodItem
@@ -59,6 +59,7 @@ enum MealSuggestions {
 
     static func rank(_ candidates: [Candidate], gap: Gap, limit: Int = 30) -> [Suggestion] {
         let budget = max(gap.kcal, 0)
+        guard budget >= 20 else { return [] }
         // With almost nothing left, only light snacks make sense.
         let ideal = budget < 150 ? min(budget, 120) : budget / Double(gap.mealsLeft)
         let gapVec = [gap.protein * 4, gap.carbs * 4, gap.fat * 9]
@@ -69,7 +70,8 @@ enum MealSuggestions {
                 let q = c.quantity * f
                 let n = c.food.nutrients(grams: q * c.serving.grams)
                 guard n.kcal >= 20 else { continue }
-                if n.kcal > max(budget * 1.03, 160) { continue }
+                // Only what really fits: a few kcal of tolerance, never over the goal.
+                if n.kcal > budget * 1.03 + 10 { continue }
                 let vec = [n.protein * 4, n.carbs * 4, n.fat * 9]
                 let macroFit = cosine(vec, gapVec)
                 let proteinCover = gap.protein > 5 ? min(n.protein / gap.protein, 1) : 0.5

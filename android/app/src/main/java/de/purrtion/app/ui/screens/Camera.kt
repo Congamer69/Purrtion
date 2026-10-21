@@ -141,7 +141,9 @@ private fun rememberCameraPermission(): Pair<Boolean, () -> Unit> {
 
 /** Scan → look up in Open Food Facts → choose amount → log. */
 @Composable
-fun BarcodeSheet(day: LocalDate, back: Boolean = false) {
+fun BarcodeSheet(day: LocalDate, back: Boolean = false,
+                 /** Set when scanning for a recipe or meal: the product is picked with its amount instead of being logged. */
+                 onPick: ((FoodItem, Double, ServingOption) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val h = rememberHaptics()
     val (granted, request) = rememberCameraPermission()
@@ -163,7 +165,10 @@ fun BarcodeSheet(day: LocalDate, back: Boolean = false) {
                 val food = OpenFoodFacts.product(code)
                 if (food != null) {
                     h.success(); state = null; showingDetail = true
-                    Nav.push { FoodDetailScreen(food, DetailMode.Add(day)) { Nav.dismissSheet() } }
+                    Nav.push {
+                        if (onPick != null) FoodDetailScreen(food, DetailMode.Pick { f, q, s -> Nav.dismissSheet(); onPick(f, q, s) })
+                        else FoodDetailScreen(food, DetailMode.Add(day)) { Nav.dismissSheet() }
+                    }
                 } else { h.warning(); state = "notfound:$code" }
             } catch (e: Exception) {
                 state = "failed"

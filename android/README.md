@@ -18,9 +18,13 @@ Alternativ den Ordner `android/` in Android Studio öffnen und ▶︎ drücken.
 
 Release-APK (mit R8 verkleinert, ca. 27 MB):
 ```bash
-./gradlew :app:assembleRelease
+./build-apk.sh
 ```
-Die Datei liegt danach unter `$TMPDIR/purrtion-android-build/app/outputs/apk/release/`. Sie ist mit dem Debug-Schlüssel signiert, das reicht zum Installieren auf dem eigenen Handy.
+Die Datei landet in `android/dist/Purrtion-<Version>.apk`. Sie enthält keine Daten des Freunde-Servers und kann deshalb öffentlich an den GitHub-Release. `./build-apk.sh --private` baut eine Version mit eingebautem Server aus `Firebase.plist`.
+
+Signiert wird mit dem Debug-Schlüssel des Macs (`~/.android/debug.keystore`). **Alle APKs müssen mit demselben Schlüssel signiert sein**, sonst lässt Android sie nicht als Update über die alte Version installieren, und die Daten wären weg. Den Schlüssel also sichern.
+
+**App-Update in der App:** Einstellungen → App-Update fragt den neuesten GitHub-Release ab und nimmt die erste `.apk` daran. Vor dem Installieren legt die App eine komplette Sicherung an (`files/update-backups`, die letzten drei, plus Sicherungsordner falls eingerichtet) und prüft die Datei: gleiche App, höhere `versionCode`, gleiche Signatur. Dann übernimmt der Android-Installer, die App-Daten bleiben dabei erhalten.
 Gebaut wird nur für `arm64-v8a`, das deckt praktisch alle Handys ab Android 9 ab.
 
 > Das Projekt liegt in einem iCloud-synchronisierten Ordner. Alle Build-Ausgaben landen deshalb in `$TMPDIR/purrtion-android-build`.
@@ -30,7 +34,7 @@ Nur im Debug-Build: `adb shell am start -n de.purrtion.app/.MainActivity --ez se
 ## Was von der iPhone-App übernommen wird
 - **Datenbanken:** `bls.json` und `swiss.json` werden beim Bauen aus `../Purrtion/Resources` kopiert. Updates kommen wie auf iOS über das Manifest auf GitHub.
 - **Version:** `versionName` und `versionCode` stammen aus `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` des Xcode-Projekts.
-- **Freunde:** Die Firebase-Konfiguration wird aus `../Purrtion/Resources/Firebase.plist` gelesen (nicht im Repository). Fehlt sie, blendet die App die Freunde-Seite aus. iPhone- und Android-Nutzer können sich gegenseitig hinzufügen.
+- **Freunde:** Der Server wird in der App verbunden (Einstellungen → Freunde → Server-Code einfügen), siehe [backend/README.md](../backend/README.md#server-code). Nur `--private`-Builds lesen ihn aus `../Purrtion/Resources/Firebase.plist`. iPhone- und Android-Nutzer können sich gegenseitig hinzufügen.
 - **Sicherung:** Die Datei `Purrtion-Backup.json` ist zwischen iPhone und Android austauschbar (Einträge, Rezepte, eigene Lebensmittel, Gewicht, Einstellungen).
 
 ## Android-Entsprechungen

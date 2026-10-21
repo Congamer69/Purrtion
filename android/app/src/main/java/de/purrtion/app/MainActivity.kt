@@ -74,8 +74,14 @@ class MainActivity : ComponentActivity() {
             AutoClose.schedule(this@MainActivity)
             NutritionSync.syncRecent(3)
             DatabaseUpdater.autoUpdateIfNeeded()
+            de.purrtion.app.domain.AppUpdater.checkDaily()
             AutoClose.runIfNeeded(this@MainActivity)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        de.purrtion.app.domain.AppUpdater.resumeIfAllowed(this)
     }
 
     override fun onStop() {

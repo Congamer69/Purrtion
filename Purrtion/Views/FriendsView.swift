@@ -12,13 +12,15 @@ struct FriendsView: View {
     @State private var showCode = false
     @State private var showManage = false
     @State private var detail: FriendsStore.Person?
+    /// Today's breakdown of a person (tapped in the "Heute" card).
+    @State private var todayOf: FriendsStore.Person?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
                     if !store.isAvailable {
-                        info("Nicht eingerichtet", "Für die Freunde-Seite fehlt in diesem Build die Firebase-Konfiguration (siehe backend/README.md).")
+                        info("Nicht eingerichtet", "Verbinde zuerst den Freunde-Server: Einstellungen → Freunde → Server-Code einfügen.")
                     } else if !store.isSetUp {
                         FriendsSetupCard()
                     } else {
@@ -66,6 +68,9 @@ struct FriendsView: View {
             .sheet(isPresented: $showManage) { FriendsManageView() }
             .sheet(isPresented: $showCode) { CodeEntrySheet() }
             .sheet(item: $detail) { FriendDetailSheet(person: $0) }
+            .sheet(item: $todayOf) { p in
+                FriendTodaySheet(person: p, isMe: p.id == (store.uid ?? "me")) { detail = p }
+            }
             .sheet(item: $store.incomingCode) { CodeEntrySheet(prefill: $0) }
             .alert("Fehler", isPresented: Binding(get: { store.error != nil && !showCode && store.incomingCode == nil },
                                                   set: { if !$0 { store.error = nil } })) {
@@ -240,6 +245,7 @@ struct FriendsView: View {
             ForEach(rows, id: \.0.id) { p, isMe in
                 let s = p.stats
                 let known = s.isToday && s.todayGoal > 0
+                Button { Haptics.tap(); todayOf = p } label: {
                 HStack(spacing: 10) {
                     PersonCat(person: p, pixel: 2)
                     VStack(alignment: .leading, spacing: 4) {
@@ -266,9 +272,13 @@ struct FriendsView: View {
                         }
                         .frame(height: 6)
                     }
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textSecondary)
                 }
+                .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            Text("Ziel inklusive angerechneter Aktivität.").font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
+            Text("Ziel inklusive angerechneter Aktivität. Antippen zeigt die Makros.").font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
         }
         .card()
     }
@@ -375,7 +385,7 @@ struct FriendsSetupCard: View {
         VStack(spacing: 14) {
             CatMascot(mood: .proud, pixel: 5)
             Text("Mit Freunden vergleichen").font(Theme.font(20, .bold)).foregroundStyle(Theme.textPrimary)
-            Text("Wer hält die längste Serie, trinkt am meisten Wasser, isst am meisten Gemüse? Geteilt werden nur Kennzahlen wie Serie, Zieltreue, Health Score und deine Tageskalorien mit Ziel. Keine einzelnen Mahlzeiten und kein Gewicht.")
+            Text("Wer hält die längste Serie, trinkt am meisten Wasser, isst am meisten Gemüse? Geteilt werden nur Kennzahlen wie Serie, Zieltreue, Health Score und deine Tageskalorien und Makros mit Ziel. Keine einzelnen Mahlzeiten und kein Gewicht.")
                 .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
             TextField("Dein Name", text: $draft)
                 .font(Theme.font(17)).textInputAutocapitalization(.words)
@@ -595,9 +605,45 @@ struct FriendsSettingsSection: View {
     @State private var draft = ""
     @State private var confirmDelete = false
     @State private var showManage = false
+    @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
+    @State private var pasted = ""
+    @State private var serverError: String?
 
     var body: some View {
-        if store.isAvailable {
+        if !FirebaseConfig.isAvailable {
+            // No server known yet: paste the server code (sent by whoever runs the server).
+            Section {
+                TextField("purrtion-server:…", text: $pasted, axis: .vertical)
+                    .font(Theme.font(14)).lineLimit(1...4)
+                    .autocorrectionDisabled().textInputAutocapitalization(.never)
+                    .onChange(of: pasted) { _, _ in serverError = nil }
+                HStack {
+                    Button("Einfügen") { pasted = UIPasteboard.general.string ?? "" }
+                        .buttonStyle(.borderless)
+                    Spacer()
+                    Button("Verbinden") {
+                        if FirebaseConfig.connect(pasted) {
+                            Haptics.success()
+                            serverCode = UserDefaults.standard.string(forKey: FirebaseConfig.storageKey) ?? ""
+                            pasted = ""
+                        } else {
+                            Haptics.warning()
+                            serverError = "Das ist kein gültiger Server-Code. Er beginnt mit „purrtion-server:“."
+                        }
+                    }
+                    .fontWeight(.bold).buttonStyle(.borderless)
+                    .disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            } header: { Text("Freunde-Server verbinden") } footer: {
+                if let serverError { Text(serverError).foregroundStyle(Theme.danger) }
+                else {
+                    Text(UserDefaults.standard.data(forKey: "friends.me") != nil
+                         ? "Füge den Server-Code einmal ein. Deine Freunde, dein Code und alle Einträge bleiben erhalten."
+                         : "Für die Freunde-Seite brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Freunde → Server-Code teilen).")
+                }
+            }
+            .listRowBackground(Theme.card)
+        } else {
             Section {
                 Toggle(isOn: $enabled.animation()) { Label("Freunde-Seite anzeigen", systemImage: "person.2.fill") }
                 if enabled {
@@ -620,12 +666,17 @@ struct FriendsSettingsSection: View {
                             }
                         }
                         LabeledContent("Dein Code", value: store.me?.code ?? "–")
+                        if let code = FirebaseConfig.code {
+                            ShareLink(item: "Mit diesem Code verbindest du Purrtion mit unserem Freunde-Server (Einstellungen → Freunde):\n\n\(code)") {
+                                Label("Server-Code teilen", systemImage: "square.and.arrow.up")
+                            }
+                        }
                         Button("Freunde-Daten löschen", role: .destructive) { confirmDelete = true }
                     }
                 }
             } header: { Text("Freunde") } footer: {
                 Text(enabled
-                     ? "Freunde sehen nur Kennzahlen (Serie, Zieltreue, Score, Protein, Wasser, Aktivität, Obst & Gemüse) und deine Tageskalorien mit Ziel. Keine Mahlzeiten, kein Gewicht. Den Gewichtstrend (kg pro Woche) nur, wenn du ihn teilst."
+                     ? "Freunde sehen nur Kennzahlen (Serie, Zieltreue, Score, Protein, Wasser, Aktivität, Obst & Gemüse) und deine Tageskalorien und Makros mit Ziel. Keine Mahlzeiten, kein Gewicht. Den Gewichtstrend (kg pro Woche) nur, wenn du ihn teilst."
                      : "Ausgeblendet. Die Seite verschwindet aus der Leiste unten. Deine Freunde bleiben erhalten.")
             }
             .listRowBackground(Theme.card)
@@ -763,6 +814,124 @@ struct FriendsManageView: View {
             .alert("Fehler", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: { Text(store.error ?? "") }
+        }
+    }
+}
+
+/// One person's day so far: kcal and protein / carbs / fat, each against their own goal.
+struct FriendTodaySheet: View {
+    let person: FriendsStore.Person
+    let isMe: Bool
+    /// Opens the full comparison (friends only).
+    let onCompare: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let s = person.stats
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 14) {
+                    HStack(spacing: 14) {
+                        PersonCat(person: person, pixel: 3.6)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(isMe ? "\(person.name) (du)" : person.name).font(Theme.font(22, .bold)).foregroundStyle(Theme.textPrimary)
+                            if !s.isToday {
+                                Text("Heute noch nichts eingetragen").font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                            } else {
+                                Text("\(Int(s.todayEntries)) \(s.todayEntries == 1 ? "Eintrag" : "Einträge")\(s.todayScore >= 0 ? " · Health Score \(Int(s.todayScore))" : "")")
+                                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                            }
+                            if !isMe, let u = person.updated {
+                                Text("Stand \(u.formatted(.relative(presentation: .named)))").font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .card()
+
+                    if s.isToday, s.todayGoal > 0 {
+                        VStack(alignment: .leading, spacing: 14) {
+                            line("Kalorien", s.todayKcal, s.todayGoal, "kcal",
+                                 GoalStatus(kcal: s.todayKcal, goal: s.todayGoal).color)
+                            if s.hasMacros {
+                                line("Protein", s.todayProtein, s.goalProtein, "g", Theme.protein)
+                                line("Kohlenhydrate", s.todayCarbs, s.goalCarbs, "g", Theme.carbs)
+                                line("Fett", s.todayFat, s.goalFat, "g", Theme.fat)
+                            } else {
+                                Text("Die Makros erscheinen, sobald \(person.name) Purrtion aktualisiert hat.")
+                                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                        .card()
+                        if s.hasMacros, s.todayKcal > 0 { split(s) }
+                    }
+
+                    if !isMe {
+                        Button {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { onCompare() }
+                        } label: {
+                            Label("Vergleich ansehen", systemImage: "chart.bar.xaxis").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PillButtonStyle(filled: false))
+                    }
+                }
+                .padding(16)
+            }
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("Heute")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func line(_ title: String, _ value: Double, _ goal: Double, _ unit: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(Theme.font(15, .semibold)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Text(unit == "kcal" ? value.kcalString : value.clean).font(Theme.font(16, .bold)).foregroundStyle(color)
+                Text("/ \(unit == "kcal" ? goal.kcalString : goal.clean) \(unit)").font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.cardAlt)
+                    Capsule().fill(color).frame(width: max(4, g.size.width * min(1, value / max(goal, 1))))
+                }
+            }
+            .frame(height: 8)
+        }
+    }
+
+    /// Where the calories came from (energy share of each macro).
+    private func split(_ s: FriendStats) -> some View {
+        let p = s.todayProtein * 4, c = s.todayCarbs * 4, f = s.todayFat * 9
+        let total = max(p + c + f, 1)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Verteilung").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
+            GeometryReader { g in
+                HStack(spacing: 2) {
+                    Rectangle().fill(Theme.protein).frame(width: g.size.width * p / total)
+                    Rectangle().fill(Theme.carbs).frame(width: g.size.width * c / total)
+                    Rectangle().fill(Theme.fat)
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 12)
+            HStack(spacing: 14) {
+                legend("Protein", p / total, Theme.protein)
+                legend("Kohlenh.", c / total, Theme.carbs)
+                legend("Fett", f / total, Theme.fat)
+            }
+        }
+        .card()
+    }
+
+    private func legend(_ name: String, _ share: Double, _ color: Color) -> some View {
+        HStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 8, height: 8)
+            Text("\(name) \(Int((share * 100).rounded())) %").font(Theme.font(12, .medium)).foregroundStyle(Theme.textSecondary)
         }
     }
 }

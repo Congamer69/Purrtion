@@ -99,7 +99,7 @@ fun SuggestionsList(day: LocalDate, back: Boolean = false, onLogged: ((String) -
             Empty("Noch keine Favoriten oder Rezepte", "Markiere Lebensmittel mit dem Stern als Favorit oder lege Rezepte an. Dann schlägt die Katze hier vor, was noch passt.")
         } else if (list.isEmpty()) {
             Empty(if (gap.kcal <= 0) "Tagesziel erreicht" else "Nichts passt mehr ganz",
-                if (gap.kcal <= 0) "Für heute ist das Budget aufgebraucht. Auch leichte Snacks unter 160 kcal sind nicht dabei." else "Alle Favoriten und Rezepte wären selbst in kleiner Menge zu viel.")
+                if (gap.kcal <= 0) "Für heute ist das Kalorienziel erreicht. Alles Weitere wäre drüber, deshalb schlägt die Katze nichts mehr vor." else "Alle Favoriten und Rezepte wären selbst in kleiner Menge zu viel.")
         } else {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(C.card)) {
                 list.forEachIndexed { i, s ->

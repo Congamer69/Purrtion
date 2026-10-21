@@ -28,6 +28,15 @@ struct FriendStats: Codable, Equatable {
     /// kcal eaten today and today's goal (incl. activity bonus), -1 = unknown (older app version).
     var todayKcal: Double = -1
     var todayGoal: Double = -1
+    /// Today's protein / carbs / fat in g and the matching goals, -1 = unknown (older app version).
+    var todayProtein: Double = -1
+    var todayCarbs: Double = -1
+    var todayFat: Double = -1
+    var goalProtein: Double = -1
+    var goalCarbs: Double = -1
+    var goalFat: Double = -1
+
+    var hasMacros: Bool { todayProtein >= 0 && goalProtein > 0 }
     /// Last 7 days incl. today: 0 nothing, 1 in goal, 2 up to +5 %, 3 over.
     var week: [Double] = []
     var mood: String = "idle"
@@ -48,6 +57,8 @@ struct FriendStats: Codable, Equatable {
             "water7": water7, "active7": active7, "fiber7": fiber7, "fruitveg7": fruitveg7, "logged30": logged30,
             "todayPct": todayPct, "todayScore": todayScore, "todayEntries": todayEntries,
             "todayKcal": todayKcal, "todayGoal": todayGoal,
+            "todayProtein": todayProtein, "todayCarbs": todayCarbs, "todayFat": todayFat,
+            "goalProtein": goalProtein, "goalCarbs": goalCarbs, "goalFat": goalFat,
             "week": week, "mood": mood, "day": day,
         ]
         if let weightTrend { d["weightTrend"] = weightTrend }
@@ -64,6 +75,8 @@ struct FriendStats: Codable, Equatable {
         weightTrend = d["weightTrend"] as? Double
         todayPct = n("todayPct"); todayScore = n("todayScore", -1); todayEntries = n("todayEntries")
         todayKcal = n("todayKcal", -1); todayGoal = n("todayGoal", -1)
+        todayProtein = n("todayProtein", -1); todayCarbs = n("todayCarbs", -1); todayFat = n("todayFat", -1)
+        goalProtein = n("goalProtein", -1); goalCarbs = n("goalCarbs", -1); goalFat = n("goalFat", -1)
         week = d["week"] as? [Double] ?? []
         mood = d["mood"] as? String ?? "idle"
         day = d["day"] as? String ?? ""
@@ -151,6 +164,10 @@ struct FriendStats: Codable, Equatable {
         s.todayPct = (kcal / max(t.kcal, 1) * 100).rounded()
         s.todayKcal = kcal.rounded()
         s.todayGoal = t.kcal.rounded()
+        s.todayProtein = todays.reduce(0) { $0 + $1.protein }.rounded()
+        s.todayCarbs = todays.reduce(0) { $0 + $1.carbs }.rounded()
+        s.todayFat = todays.reduce(0) { $0 + $1.fat }.rounded()
+        s.goalProtein = t.protein.rounded(); s.goalCarbs = t.carbs.rounded(); s.goalFat = t.fat.rounded()
         s.todayEntries = Double(todays.count)
         if !todays.isEmpty {
             s.todayScore = Double(HealthScore(entries: todays, goalKcal: t.kcal, goalProtein: t.protein).score)

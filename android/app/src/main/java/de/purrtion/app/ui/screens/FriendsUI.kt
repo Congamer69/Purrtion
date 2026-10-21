@@ -1,5 +1,9 @@
 package de.purrtion.app.ui.screens
 
+import de.purrtion.app.domain.FirebaseConfig
+import android.content.Context
+import android.content.ClipboardManager
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -134,7 +138,7 @@ fun FriendsScreen() {
                 }
             }
             when {
-                !store.isAvailable -> Info("Nicht eingerichtet", "Für die Freunde-Seite fehlt in diesem Build die Firebase-Konfiguration (siehe backend/README.md).")
+                !store.isAvailable -> Info("Nicht eingerichtet", "Verbinde zuerst den Freunde-Server: Einstellungen → Freunde → Server-Code einfügen.")
                 !store.isSetUp -> FriendsSetupCard()
                 else -> {
                     MeCard()
@@ -273,7 +277,7 @@ private fun TodayCard(myStats: FriendStats) {
             val s = p.stats
             val known = s.isToday && s.todayGoal > 0
             val color = goalColor(GoalStatus.of(s.todayKcal, s.todayGoal))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().clickable { Nav.sheet { FriendTodaySheet(p, isMe) } }, verticalAlignment = Alignment.CenterVertically) {
                 PersonCat(p, 2f)
                 Spacer(Modifier.width(10.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -287,9 +291,10 @@ private fun TodayCard(myStats: FriendStats) {
                     }
                     Bar(if (known) s.todayKcal / s.todayGoal else 0.0, if (known) color else Color.Transparent, track = C.cardAlt, minWidth = if (known) 4.dp else 0.dp)
                 }
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = C.textSecondary)
             }
         }
-        Text("Ziel inklusive angerechneter Aktivität.", style = font(11), color = C.textSecondary)
+        Text("Ziel inklusive angerechneter Aktivität. Antippen zeigt die Makros.", style = font(11), color = C.textSecondary)
     }
 }
 
@@ -374,7 +379,7 @@ fun FriendsSetupCard() {
     Column(Modifier.fillMaxWidth().card(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         CatMascot(CatMood.proud, 5.dp)
         Text("Mit Freunden vergleichen", style = font(20, FontWeight.Bold), color = C.textPrimary)
-        Text("Wer hält die längste Serie, trinkt am meisten Wasser, isst am meisten Gemüse? Geteilt werden nur Kennzahlen wie Serie, Zieltreue, Health Score und deine Tageskalorien mit Ziel. Keine einzelnen Mahlzeiten und kein Gewicht.",
+        Text("Wer hält die längste Serie, trinkt am meisten Wasser, isst am meisten Gemüse? Geteilt werden nur Kennzahlen wie Serie, Zieltreue, Health Score und deine Tageskalorien und Makros mit Ziel. Keine einzelnen Mahlzeiten und kein Gewicht.",
             style = font(14), color = C.textSecondary, textAlign = TextAlign.Center)
         TextInput(draft, { draft = it }, "Dein Name", Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(14.dp)).background(C.cardAlt).padding(horizontal = 14.dp),
             keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Words))
@@ -501,7 +506,7 @@ private fun CompareBar(who: String, v: Double?, scale: Double, m: FriendMetric, 
 @Composable
 fun FriendsSettingsSection() {
     val store = FriendsStore
-    if (!store.isAvailable) return
+    if (!store.isAvailable) { ServerConnectSection(); return }
     val prefs = App.prefs
     val scope = rememberCoroutineScope()
     val enabled = prefs.bool(FriendsStore.ENABLED_KEY, true)
@@ -516,7 +521,7 @@ fun FriendsSettingsSection() {
     }
     // Save shortly after typing stops.
     LaunchedEffect(draft) { delay(1200); saveName() }
-    FormSection("Freunde", if (enabled) "Freunde sehen nur Kennzahlen (Serie, Zieltreue, Score, Protein, Wasser, Aktivität, Obst & Gemüse) und deine Tageskalorien mit Ziel. Keine Mahlzeiten, kein Gewicht. Den Gewichtstrend (kg pro Woche) nur, wenn du ihn teilst."
+    FormSection("Freunde", if (enabled) "Freunde sehen nur Kennzahlen (Serie, Zieltreue, Score, Protein, Wasser, Aktivität, Obst & Gemüse) und deine Tageskalorien und Makros mit Ziel. Keine Mahlzeiten, kein Gewicht. Den Gewichtstrend (kg pro Woche) nur, wenn du ihn teilst."
         else "Ausgeblendet. Die Seite verschwindet aus der Leiste unten. Deine Freunde bleiben erhalten.") {
         FormToggle("Freunde-Seite anzeigen", enabled, { prefs.set(FriendsStore.ENABLED_KEY, it) }, Icons.Rounded.Group)
         AnimatedVisibility(enabled) {
@@ -535,6 +540,8 @@ fun FriendsSettingsSection() {
                     FormRow("Freunde verwalten", value = "${store.friends.size}", chevron = true, onClick = { Nav.sheet { FriendsManageSheet() } })
                     Divider()
                     FormRow("Dein Code", value = store.me?.code ?: "–")
+                    Divider()
+                    ServerCodeRow()
                     Divider()
                     FormRow("Freunde-Daten löschen", titleColor = Palette.danger, onClick = { confirmDelete = true })
                 }
@@ -626,4 +633,112 @@ private fun ManageRow(p: FriendsStore.Person, subtitle: String?, actions: @Compo
         }
         actions()
     }
+}
+
+/** One person's day so far: kcal and protein / carbs / fat, each against their own goal. */
+@Composable
+fun FriendTodaySheet(person: FriendsStore.Person, isMe: Boolean) {
+    val s = person.stats
+    Screen("Heute", leading = "Fertig") {
+        Row(Modifier.fillMaxWidth().card(), verticalAlignment = Alignment.CenterVertically) {
+            PersonCat(person, 3.6f)
+            Spacer(Modifier.width(14.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (isMe) "${person.name} (du)" else person.name, style = font(22, FontWeight.Bold), color = C.textPrimary)
+                Text(if (!s.isToday) "Heute noch nichts eingetragen"
+                    else "${s.todayEntries.toInt()} ${if (s.todayEntries == 1.0) "Eintrag" else "Einträge"}" + if (s.todayScore >= 0) " · Health Score ${s.todayScore.toInt()}" else "",
+                    style = font(13), color = C.textSecondary)
+                if (!isMe) person.updated?.let { Text("Stand ${relative(it)}", style = font(11), color = C.textSecondary) }
+            }
+        }
+        if (s.isToday && s.todayGoal > 0) {
+            Column(Modifier.fillMaxWidth().card(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                MacroLine("Kalorien", s.todayKcal, s.todayGoal, "kcal", goalColor(GoalStatus.of(s.todayKcal, s.todayGoal)))
+                if (s.hasMacros) {
+                    MacroLine("Protein", s.todayProtein, s.goalProtein, "g", Palette.protein)
+                    MacroLine("Kohlenhydrate", s.todayCarbs, s.goalCarbs, "g", Palette.carbs)
+                    MacroLine("Fett", s.todayFat, s.goalFat, "g", Palette.fat)
+                } else Text("Die Makros erscheinen, sobald ${person.name} Purrtion aktualisiert hat.", style = font(13), color = C.textSecondary)
+            }
+            if (s.hasMacros && s.todayKcal > 0) {
+                val p = s.todayProtein * 4; val c = s.todayCarbs * 4; val f = s.todayFat * 9
+                val total = maxOf(p + c + f, 1.0)
+                Column(Modifier.fillMaxWidth().card(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Verteilung", style = font(15, FontWeight.Bold), color = C.textPrimary)
+                    Row(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        for ((v, color) in listOf(p to Palette.protein, c to Palette.carbs, f to Palette.fat))
+                            if (v > 0) Box(Modifier.weight(v.toFloat()).fillMaxSize().background(color))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        for ((name, v, color) in listOf(Triple("Protein", p, Palette.protein), Triple("Kohlenh.", c, Palette.carbs), Triple("Fett", f, Palette.fat)))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(color))
+                                Spacer(Modifier.width(4.dp))
+                                Text("$name ${Math.round(v / total * 100)} %", style = font(12, FontWeight.Medium), color = C.textSecondary)
+                            }
+                    }
+                }
+            }
+        }
+        if (!isMe) PillButton("Vergleich ansehen", filled = false) { Nav.dismissSheet(); Nav.sheet { FriendDetailSheet(person) } }
+    }
+}
+
+@Composable
+private fun MacroLine(title: String, value: Double, goal: Double, unit: String, color: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(title, style = font(15, FontWeight.SemiBold), color = C.textPrimary, modifier = Modifier.weight(1f))
+            Text(if (unit == "kcal") value.kcalString else Math.round(value).toString(), style = font(16, FontWeight.Bold), color = color)
+            Text(" / ${if (unit == "kcal") goal.kcalString else Math.round(goal).toString()} $unit", style = font(13), color = C.textSecondary)
+        }
+        Bar(value / maxOf(goal, 1.0), color, height = 8.dp, track = C.cardAlt)
+    }
+}
+
+/** The friends server is not known yet: paste the server code (sent by whoever runs the server). */
+@Composable
+private fun ServerConnectSection() {
+    val context = LocalContext.current
+    val h = rememberHaptics()
+    var text by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    // Was connected before (friends set up) but this version has no server built in: one paste restores everything.
+    val wasConnected = App.prefs.optString("friends.me") != null
+    FormSection("Freunde", error ?: if (wasConnected)
+        "Seit dieser Version ist der Freunde-Server nicht mehr fest in der App. Füge den Server-Code einmal ein. Deine Freunde, dein Code und alle Einträge bleiben erhalten."
+    else "Für die Freunde-Seite brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Freunde → Server-Code teilen).") {
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Group, null, Modifier.size(20.dp), tint = Palette.accent)
+            Spacer(Modifier.width(12.dp))
+            Text("Freunde-Server verbinden", style = font(16, FontWeight.SemiBold), color = C.textPrimary)
+        }
+        TextInput(text, { text = it; error = null }, "purrtion-server:…", Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.cardAlt)
+            .padding(horizontal = 12.dp, vertical = 12.dp), style = font(14), singleLine = false,
+            keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
+        Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton("Einfügen", Modifier.weight(1f), filled = false) {
+                val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip
+                text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
+            }
+            PillButton("Verbinden", Modifier.weight(1f), enabled = text.isNotBlank()) {
+                if (FirebaseConfig.connect(text)) { h.success(); text = "" }
+                else { h.warning(); error = "Das ist kein gültiger Server-Code. Er beginnt mit „purrtion-server:“." }
+            }
+        }
+    }
+}
+
+/** Share the server code, so friends can connect their app to the same server. */
+@Composable
+private fun ServerCodeRow() {
+    val context = LocalContext.current
+    val code = FirebaseConfig.code ?: return
+    FormRow("Server-Code teilen", icon = Icons.Rounded.Share, chevron = true, onClick = {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, "Mit diesem Code verbindest du Purrtion mit unserem Freunde-Server (Einstellungen → Freunde):\n\n$code")
+        }
+        context.startActivity(Intent.createChooser(send, "Server-Code teilen"))
+    })
 }

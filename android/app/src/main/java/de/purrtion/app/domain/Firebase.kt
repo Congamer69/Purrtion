@@ -1,5 +1,6 @@
 package de.purrtion.app.domain
 
+import de.purrtion.app.App
 import de.purrtion.app.BuildConfig
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,12 +21,57 @@ import kotlinx.serialization.json.putJsonObject
 import java.net.URLEncoder
 import java.time.Instant
 
-/** Firebase config of the friends page – taken from the (gitignored) iOS Firebase.plist at build time. */
+/**
+ * Server of the friends page. Comes from a pasted server code (Einstellungen → Freunde) or, in older or private
+ * builds, from the Firebase.plist built into the app. A built-in config is copied to the settings on first start, so it
+ * survives updates to APKs without one (the public APKs on GitHub carry no server data).
+ */
 object FirebaseConfig {
-    val apiKey: String = BuildConfig.FIREBASE_API_KEY
-    val projectId: String = BuildConfig.FIREBASE_PROJECT_ID
-    val inviteUrl: String = BuildConfig.FIREBASE_INVITE_URL
-    val isAvailable: Boolean get() = apiKey.isNotEmpty() && !apiKey.startsWith("<") && projectId.isNotEmpty()
+    private const val KEY = "friends.server"
+    private const val PREFIX = "purrtion-server:"
+
+    @kotlinx.serialization.Serializable
+    data class Server(val k: String, val p: String, val i: String = "") {
+        val isValid: Boolean get() = k.length > 20 && !k.startsWith("<") && p.isNotBlank()
+    }
+
+    private val bundled: Server? = Server(BuildConfig.FIREBASE_API_KEY, BuildConfig.FIREBASE_PROJECT_ID, BuildConfig.FIREBASE_INVITE_URL)
+        .takeIf { it.isValid }
+
+    private val stored: Server? get() = App.prefs.optString(KEY)?.let(::decode)
+
+    /** Keeps a built-in config for later versions without one. Called on every start (cheap). */
+    fun persistBundled() {
+        if (stored == null && bundled != null) App.prefs.set(KEY, encode(bundled))
+    }
+
+    val server: Server? get() = stored ?: bundled
+    val apiKey: String get() = server?.k ?: ""
+    val projectId: String get() = server?.p ?: ""
+    val inviteUrl: String get() = server?.i ?: ""
+    val isAvailable: Boolean get() = server?.isValid == true
+
+    /** The code to share with friends ("purrtion-server:…"), null when not connected. */
+    val code: String? get() = server?.let(::encode)
+
+    fun encode(s: Server): String = PREFIX + android.util.Base64.encodeToString(
+        de.purrtion.app.model.AppJson.encodeToString(Server.serializer(), s).toByteArray(),
+        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+
+    /** Reads a pasted code; whitespace, line breaks and quotes from chats are ignored. */
+    fun decode(raw: String): Server? = runCatching {
+        val t = raw.trim().trim('"', '\'', '„', '“').filterNot { it.isWhitespace() }
+        val body = if (t.startsWith(PREFIX)) t.removePrefix(PREFIX) else return null
+        val json = String(android.util.Base64.decode(body, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP))
+        de.purrtion.app.model.AppJson.decodeFromString(Server.serializer(), json).takeIf { it.isValid }
+    }.getOrNull()
+
+    /** Saves a pasted code; false when it is not a valid server code. */
+    fun connect(raw: String): Boolean {
+        val s = decode(raw) ?: return false
+        App.prefs.set(KEY, encode(s))
+        return true
+    }
 }
 
 class FirebaseException(message: String) : Exception(message) {

@@ -546,17 +546,29 @@ struct DayContent: View {
                 } else {
                     ForEach(entries) { entry in
                         let expanded = entry.isComposite && expandedMeals.contains(entry.id) && !selecting
-                        HStack(spacing: 10) {
+                        Group {
                             if selecting {
-                                CheckCircle(on: selection?.contains(entry.id) ?? false)
-                                    .transition(.move(edge: .leading).combined(with: .opacity))
+                                // While selecting, the whole row (circle included) is one plain tap target: no button
+                                // press state, no context menu and no inner buttons that could swallow quick taps.
+                                HStack(spacing: 10) {
+                                    CheckCircle(on: selection?.contains(entry.id) ?? false)
+                                        .transition(.move(edge: .leading).combined(with: .opacity))
+                                    EntryRow(entry: entry, expanded: nil, onToggle: {})
+                                        .allowsHitTesting(false)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture { tap(entry) }
+                            } else {
+                                Button { tap(entry) } label: {
+                                    EntryRow(entry: entry, expanded: entry.isComposite ? expanded : nil, onToggle: { toggle(entry) })
+                                }
+                                .buttonStyle(SquishButtonStyle())
+                                .contextMenu {
+                                    Button { duplicate(entry) } label: { Label("Nochmal eintragen", systemImage: "plus.square.on.square") }
+                                    Button { withAnimation(.snappy) { selection = [entry.id] } } label: { Label("Auswählen", systemImage: "checkmark.circle") }
+                                    Button(role: .destructive) { delete(entry) } label: { Label("Löschen", systemImage: "trash") }
+                                }
                             }
-                            Button { tap(entry) } label: {
-                                EntryRow(entry: entry,
-                                         expanded: entry.isComposite && !selecting ? expanded : nil,
-                                         onToggle: { toggle(entry) })
-                            }
-                            .buttonStyle(SquishButtonStyle())
                         }
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         .listRowBackground(Color.clear)
@@ -571,11 +583,6 @@ struct DayContent: View {
                                 Button { duplicate(entry) } label: { Label("Nochmal", systemImage: "plus.square.on.square") }
                                     .tint(Theme.accent)
                             }
-                        }
-                        .contextMenu {
-                            Button { duplicate(entry) } label: { Label("Nochmal eintragen", systemImage: "plus.square.on.square") }
-                            Button { withAnimation(.snappy) { selection = [entry.id] } } label: { Label("Auswählen", systemImage: "checkmark.circle") }
-                            Button(role: .destructive) { delete(entry) } label: { Label("Löschen", systemImage: "trash") }
                         }
                         .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity), removal: .opacity))
 
@@ -695,9 +702,8 @@ struct DayContent: View {
     private func tap(_ entry: FoodEntry) {
         if selecting {
             Haptics.tap()
-            withAnimation(.snappy) {
-                if selection?.contains(entry.id) == true { selection?.remove(entry.id) } else { selection?.insert(entry.id) }
-            }
+            // No animation: an animated list update still running would swallow the next quick tap.
+            if selection?.contains(entry.id) == true { selection?.remove(entry.id) } else { selection?.insert(entry.id) }
         } else {
             sheet = entry.isComposite ? .meal(entry) : .edit(entry)
         }

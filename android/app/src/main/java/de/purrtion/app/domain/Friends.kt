@@ -43,8 +43,16 @@ data class FriendStats(
     val week: List<Double> = emptyList(),
     val mood: String = "idle",
     val day: String = "",
+    /** Today's protein / carbs / fat in g and the matching goals, -1 = unknown (older app version). */
+    val todayProtein: Double = -1.0,
+    val todayCarbs: Double = -1.0,
+    val todayFat: Double = -1.0,
+    val goalProtein: Double = -1.0,
+    val goalCarbs: Double = -1.0,
+    val goalFat: Double = -1.0,
 ) {
     val isToday: Boolean get() = day == LocalDate.now().toString()
+    val hasMacros: Boolean get() = todayProtein >= 0 && goalProtein > 0
 
     fun toMap(): Map<String, Any?> {
         val m = mutableMapOf<String, Any?>(
@@ -52,6 +60,8 @@ data class FriendStats(
             "water7" to water7, "active7" to active7, "fiber7" to fiber7, "fruitveg7" to fruitveg7, "logged30" to logged30,
             "todayPct" to todayPct, "todayScore" to todayScore, "todayEntries" to todayEntries, "todayKcal" to todayKcal, "todayGoal" to todayGoal,
             "week" to week, "mood" to mood, "day" to day,
+            "todayProtein" to todayProtein, "todayCarbs" to todayCarbs, "todayFat" to todayFat,
+            "goalProtein" to goalProtein, "goalCarbs" to goalCarbs, "goalFat" to goalFat,
         )
         weightTrend?.let { m["weightTrend"] = it }
         return m
@@ -63,7 +73,8 @@ data class FriendStats(
             return FriendStats(n("streak"), n("goal7"), n("goal30"), n("score7"), n("protein7"), n("water7", -1.0), n("active7", -1.0),
                 n("fiber7"), n("fruitveg7"), n("logged30"), d["weightTrend"] as? Double, n("todayPct"), n("todayScore", -1.0),
                 n("todayEntries"), n("todayKcal", -1.0), n("todayGoal", -1.0),
-                (d["week"] as? List<*>)?.mapNotNull { it as? Double } ?: emptyList(), d["mood"] as? String ?: "idle", d["day"] as? String ?: "")
+                (d["week"] as? List<*>)?.mapNotNull { it as? Double } ?: emptyList(), d["mood"] as? String ?: "idle", d["day"] as? String ?: "",
+                n("todayProtein", -1.0), n("todayCarbs", -1.0), n("todayFat", -1.0), n("goalProtein", -1.0), n("goalCarbs", -1.0), n("goalFat", -1.0))
         }
 
         /** Computes my own stats from the local data. */
@@ -135,6 +146,9 @@ data class FriendStats(
                 todayPct = Math.round(kcal / maxOf(t.kcal, 1.0) * 100).toDouble(),
                 todayKcal = Math.round(kcal).toDouble(), todayGoal = Math.round(t.kcal).toDouble(),
                 todayEntries = todays.size.toDouble(),
+                todayProtein = Math.round(todays.sumOf { it.protein }).toDouble(), todayCarbs = Math.round(todays.sumOf { it.carbs }).toDouble(),
+                todayFat = Math.round(todays.sumOf { it.fat }).toDouble(),
+                goalProtein = Math.round(t.protein).toDouble(), goalCarbs = Math.round(t.carbs).toDouble(), goalFat = Math.round(t.fat).toDouble(),
                 todayScore = if (todays.isEmpty()) -1.0 else HealthScore.of(todays, t.kcal, t.protein).score.toDouble(),
                 week = (6 downTo 0).map { status(day(it)) },
                 mood = catMood(todays, t, water[today.toEpochDay()] ?: 0, goals, today,

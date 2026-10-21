@@ -4,6 +4,8 @@ import AVFoundation
 /// Scan → look up in Open Food Facts → choose amount → log.
 struct BarcodeFlowView: View {
     let day: Date
+    /// Set when scanning for a recipe or meal: the product is picked with its amount instead of being logged.
+    var onPick: ((FoodItem, Double, ServingOption) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var path: [FoodItem] = []
     @State private var state: LookupState = .scanning
@@ -51,7 +53,14 @@ struct BarcodeFlowView: View {
                 }
             }
             .navigationDestination(for: FoodItem.self) { food in
-                FoodDetailView(food: food, mode: .add(day: day)) { _ in dismiss() }
+                if let onPick {
+                    FoodDetailView(food: food, mode: .pick { f, q, s in
+                        onPick(f, q, s)
+                        dismiss()
+                    })
+                } else {
+                    FoodDetailView(food: food, mode: .add(day: day)) { _ in dismiss() }
+                }
             }
             .onChange(of: path) { _, p in if p.isEmpty { state = .scanning; lastCode = nil } }
         }

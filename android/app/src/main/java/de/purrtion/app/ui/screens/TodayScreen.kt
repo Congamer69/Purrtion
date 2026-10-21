@@ -351,7 +351,11 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
                     Column(Modifier.animateItem()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             AnimatedVisibility(selecting) {
-                                CheckCircle(selection?.contains(entry.id) == true, Modifier.padding(end = 10.dp))
+                                CheckCircle(selection?.contains(entry.id) == true, Modifier.padding(end = 10.dp).clickable {
+                                    h.tap()
+                                    val s = selection ?: emptySet()
+                                    setSelection(if (entry.id in s) s - entry.id else s + entry.id)
+                                })
                             }
                             SwipeRow(
                                 enabled = !selecting,

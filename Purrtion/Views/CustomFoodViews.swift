@@ -291,12 +291,27 @@ struct IngredientPicker: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var search = FoodSearch()
     @State private var path: [FoodItem] = []
+    @State private var scanning = false
     @FocusState private var focused: Bool
+    /// What was logged recently, for the empty search field.
+    @Query(sort: \SavedFood.lastUsed, order: .reverse) private var recent: [SavedFood]
+
+    private var queryEmpty: Bool { search.query.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                ForEach(search.foods + search.products) { food in
+                if queryEmpty {
+                    let items = recent.prefix(40).compactMap(\.food)
+                    if !items.isEmpty {
+                        Section {
+                            ForEach(items) { food in
+                                NavigationLink(value: food) { FoodRow(food: food) }.plainRow()
+                            }
+                        } header: { SectionTitle("Zuletzt verwendet", icon: "clock.fill") }
+                    }
+                }
+                ForEach(search.foods + search.swiss + search.restaurants + search.products) { food in
                     NavigationLink(value: food) { FoodRow(food: food) }.plainRow()
                 }
                 if search.isLoading {
@@ -318,7 +333,19 @@ struct IngredientPicker: View {
             }
             .navigationTitle("Zutat")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { scanning = true } label: { Image(systemName: "barcode.viewfinder") }
+                        .accessibilityLabel("Produkt scannen")
+                }
+            }
+            .sheet(isPresented: $scanning) {
+                BarcodeFlowView(day: .now) { f, q, s in
+                    onPick(f, q, s)
+                    dismiss()
+                }
+            }
             .navigationDestination(for: FoodItem.self) { food in
                 FoodDetailView(food: food, mode: .pick { f, q, s in
                     onPick(f, q, s)

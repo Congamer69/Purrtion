@@ -18,6 +18,8 @@ struct PurrtionApp: App {
     }()
 
     init() {
+        // A server config built into this app is kept in the settings, so builds without one stay connected.
+        FirebaseConfig.persistBundled()
         BLSDatabase.shared.preload()
         SwissDatabase.shared.preload()
         RestaurantDatabase.shared.preload()
@@ -43,13 +45,15 @@ struct RootView: View {
     @State private var tab = 0
     @ObservedObject private var router = NotificationRouter.shared
     @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
+    /// Re-renders the tabs when a server code is pasted.
+    @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
 
     var body: some View {
         ZStack {
             TabView(selection: $tab) {
                 Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView() }
                 Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView() }
-                if friendsEnabled && FirebaseConfig.isAvailable {
+                if friendsEnabled && (FirebaseConfig.isAvailable || !serverCode.isEmpty) {
                     Tab("Freunde", systemImage: "person.2.fill", value: 3) { FriendsView() }
                 }
                 Tab("Einstellungen", systemImage: "gearshape.fill", value: 2) { SettingsView() }
