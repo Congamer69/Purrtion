@@ -37,6 +37,43 @@ struct PurrtionApp: App {
     }
 }
 
+/// The four ways to log food, always one tap away. Expanded: four buttons above the tab bar.
+/// Inline (tab bar minimized while scrolling down): just "Suchen".
+struct QuickAddAccessory: View {
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    var body: some View {
+        if placement == .inline {
+            button("magnifyingglass", "Suchen", .search)
+                .frame(maxWidth: .infinity)
+        } else {
+            HStack(spacing: 0) {
+                button("magnifyingglass", "Suchen", .search)
+                button("barcode.viewfinder", "Barcode", .barcode)
+                button("camera.fill", "Foto", .photo)
+                button("bolt.fill", "Schnell", .quick)
+            }
+        }
+    }
+
+    private func button(_ icon: String, _ title: String, _ sheet: AddSheet) -> some View {
+        Button {
+            Haptics.tap()
+            AddRouter.shared.open(sheet)
+        } label: {
+            Label(title, systemImage: icon)
+                .font(Theme.font(14, .bold))
+                .foregroundStyle(Theme.accent)
+                .labelStyle(.titleAndIcon)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject private var goals: Goals
     @Environment(\.modelContext) private var ctx
@@ -58,6 +95,9 @@ struct RootView: View {
                 }
                 Tab("Profil", systemImage: "person.crop.circle.fill", value: 2) { SettingsView() }
             }
+            // System behaviour: the tab bar shrinks while scrolling down and the accessory folds in next to it.
+            .tabBarMinimizeBehavior(.onScrollDown)
+            .tabViewBottomAccessory(isEnabled: tab == 0) { QuickAddAccessory() }
             .opacity(showSplash ? 0 : 1)
 
             if showSplash {

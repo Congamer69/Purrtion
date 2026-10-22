@@ -4,14 +4,14 @@
 
 ### Neu
 - **Neue Navigation:** Heute, Verlauf, Profil (und Freunde, wenn aktiv) in der nativen Leiste.
-- **Eintragen mit einem Tipp:** Suchen, Barcode, Foto und Schnell sitzen als neues Glas-Dock mit Beschriftung direkt über der Leiste auf „Heute“.
+- **Eintragen mit einem Tipp:** Suchen, Barcode, Foto und Schnell sitzen als Zusatzleiste direkt über der Tab-Leiste auf „Heute“ (iOS-Bottom-Accessory).
 - **Neues Suchfenster:** Barcode, Foto und Schnell-Eintrag sind auch hier, dazu „Was passt noch?“ und Zuletzt/Favoriten/Meine.
 - **Heute neu aufgebaut:** Wochenleiste mit Zielfarben statt Pfeilen, Serie im Kopf, eine große Karte mit Kalorienring, Katze und Makros, Health Score und Tagesfazit wie gewohnt, schmale Wasser-Zeile, Mahlzeiten mit Uhrzeit weiter oben. Leerer Tag mit vier Startoptionen.
 - **Verlauf:** Kalorien-Diagramm zuerst, dann Serie, echter Verbrauch, Zielübersicht, Score und Gewicht. Seltener genutzte Auswertungen stehen unter „Weitere Auswertungen“. Zeiträume: Woche, Monat, 3 Monate.
 - **Profil:** Einstellungen nach Aufgaben gruppiert (Darstellung, Funktionen, Apple Health, Freunde, Daten & Backup, Datenquellen & KI).
 - **Einrichtung in vier Schritten:** Ziel, Eckdaten per Wheel-Picker, Aktivität, Tagesziel mit Apple-Health-Option.
 - **Serie mit Streak-Freeze:** Die Serie sitzt oben rechts auf „Heute“ (grau, bis du heute etwas einträgst). Tippen öffnet die Serien-Ansicht mit Rekord, Freezes und den letzten fünf Wochen. Fehlt ein Tag, rettet ein Freeze die Serie automatisch. Alle 7 Tage in Folge gibt es einen neuen, maximal 2. Beim ersten Eintrag des Tages leuchtet die Flamme kurz auf, ohne dass du warten musst. Hat gestern ein Freeze die Serie gerettet und heute ist noch nichts eingetragen, wird aus der Flamme eine blaue Schneeflocke, und der Tag steht blau in der Wochenleiste.
-- **Mehr Platz auf „Heute“:** Die Wochenleiste ist nicht mehr angeheftet und scrollt mit. Beim Runterscrollen faltet sich das Eintragen-Dock weich nach links in den „Suchen“-Button zusammen (ein Tipp öffnet direkt die Suche) und kommt beim Hochscrollen zurück.
+- **Mehr Platz auf „Heute“:** Die Wochenleiste ist nicht mehr angeheftet und scrollt mit. Beim Runterscrollen schrumpft die Tab-Leiste und die Zusatzleiste rückt als „Suchen“-Button daneben (ein Tipp öffnet direkt die Suche). Beim Hochscrollen kommt alles zurück. Das macht iOS selbst.
 - **Einheitliche Typografie und Abstände:** vier Schriftgrößen, zwei Schriftstärken, weiche getönte Schatten.
 
 ## 1.8.1 – 22. Oktober 2026

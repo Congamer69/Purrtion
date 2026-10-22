@@ -48,8 +48,7 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var router = NotificationRouter.shared
     @State private var sheet: AddSheet?
-    /// Scroll-linked fold of the quick-add dock (kept out of @State so scrolling doesn't re-render this whole view).
-    @StateObject private var dock = DockState()
+    @ObservedObject private var addRouter = AddRouter.shared
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
     @State private var nextSheet: AddSheet?
@@ -60,7 +59,7 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            DayContent(day: day, sheet: $sheet, selection: $selection, dock: dock, onSelectDay: { picked in
+            DayContent(day: day, sheet: $sheet, selection: $selection, onSelectDay: { picked in
                 withAnimation(.snappy) { day = picked }
             }, onSaveRecipe: { fromSelection in
                 recipeFromSelection = fromSelection
@@ -82,8 +81,6 @@ struct TodayView: View {
                                      onRecipe: { recipeFromSelection = true; recipeName = "Meine Mahlzeit"; askRecipeName = true },
                                      onDone: { withAnimation(.snappy) { self.selection = nil } })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
-                    } else {
-                        QuickAddDock(sheet: $sheet, dock: dock)
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -96,16 +93,20 @@ struct TodayView: View {
                     withAnimation(.snappy) { day = next }
                 })
                 .onChange(of: day) { _, _ in selection = nil }
+                // Quick-add buttons in the tab bar's accessory.
+                .onChange(of: addRouter.request?.id) { _, _ in
+                    guard let req = addRouter.request else { return }
+                    addRouter.request = nil
+                    guard router.appReady else { return }
+                    selection = nil
+                    sheet = req
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
                     followMidnight()
                 }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { followMidnight() } }
                 #if DEBUG
                 .task {
-                    if ProcessInfo.processInfo.arguments.contains("-debugFold") {
-                        try? await Task.sleep(for: .seconds(1.5))
-                        dock.progress = 1
-                    }
                     if UserDefaults.standard.string(forKey: "debugSearch") != nil {
                         try? await Task.sleep(for: .seconds(1.6))
                         sheet = .search
@@ -597,47 +598,10 @@ struct SparkBurst: View {
 
 // MARK: - Day content
 
-/// Fold state of the quick-add dock: 0 = all four buttons, 1 = only "Suchen".
-/// Like the system tab bar it reacts to the scroll *direction*: a short scroll down folds it, a short scroll up unfolds it,
-/// and the move itself is a fixed-length spring, so a fast flick looks exactly like a slow scroll.
-@MainActor
-final class DockState: ObservableObject {
-    @Published var progress: CGFloat = 0
-    private var travelled: CGFloat = 0
-    private let foldAfter: CGFloat = 40
-    private let unfoldAfter: CGFloat = 24
-    private let spring = Animation.spring(duration: 0.55, bounce: 0.12)
-
-    func scrolled(by delta: CGFloat) {
-        guard abs(delta) > 0.01 else { return }
-        // A change of direction starts counting again.
-        if (delta > 0) != (travelled > 0) { travelled = 0 }
-        travelled += delta
-        if travelled > foldAfter { set(1) } else if travelled < -unfoldAfter { set(0) }
-    }
-
-    func expand() {
-        travelled = 0
-        set(0)
-    }
-
-    private func set(_ target: CGFloat) {
-        guard progress != target else { return }
-        withAnimation(spring) { progress = target }
-    }
-}
-
-/// Vertical scroll offset of the day list plus whether it sits at (or beyond) the bottom edge.
-private struct ScrollPosition: Equatable {
-    var y: CGFloat
-    var atBottom: Bool
-}
-
 struct DayContent: View {
     let day: Date
     @Binding var sheet: AddSheet?
     @Binding var selection: Set<UUID>?
-    let dock: DockState
     var onSelectDay: (Date) -> Void
     var onSaveRecipe: (Bool) -> Void
     @EnvironmentObject private var goals: Goals
@@ -654,12 +618,10 @@ struct DayContent: View {
     @State private var closing = false
     @State private var closeError: String?
 
-    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, dock: DockState,
-         onSelectDay: @escaping (Date) -> Void, onSaveRecipe: @escaping (Bool) -> Void) {
+    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, onSelectDay: @escaping (Date) -> Void, onSaveRecipe: @escaping (Bool) -> Void) {
         self.day = day
         self._sheet = sheet
         self._selection = selection
-        self.dock = dock
         self.onSelectDay = onSelectDay
         self.onSaveRecipe = onSaveRecipe
         let d = day
@@ -850,18 +812,6 @@ struct DayContent: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        // Scrolling down folds the dock, scrolling up unfolds it.
-        // Ignored near the bottom edge so the rubber-band bounce there can't move it.
-        .onScrollGeometryChange(for: ScrollPosition.self) { g in
-            let y = g.contentOffset.y + g.contentInsets.top
-            let maxY = g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom - g.containerSize.height
-            return ScrollPosition(y: y, atBottom: y >= maxY - 4)
-        } action: { old, new in
-            guard selection == nil else { return }
-            if new.y <= 12 { dock.expand(); return }
-            if old.atBottom || new.atBottom { return }
-            dock.scrolled(by: new.y - old.y)
-        }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entries.count)
         .animation(.snappy, value: selecting)
         .animation(.snappy, value: reviews.first?.createdAt)
@@ -1304,90 +1254,5 @@ struct EmptyDayView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Space.xl)
-    }
-}
-
-// MARK: - Quick add dock
-
-/// The four ways to log food, always one tap away: a floating dock above the tab bar.
-/// Scrolling down folds the other three into the search button on the left (scroll-linked, like the system tab bar).
-struct QuickAddDock: View {
-    @Binding var sheet: AddSheet?
-    @ObservedObject var dock: DockState
-    @State private var availableWidth: CGFloat = 0
-
-    private let inset = Theme.Space.xs
-    private let gap = Theme.Space.xs
-    private let collapsedCell: CGFloat = 124
-    /// Reserved height stays fixed so folding never changes the list's bottom inset (which would feed back into scrolling).
-    private let reserved: CGFloat = 58 + 8 + 16
-
-    private var cell: CGFloat { max((max(availableWidth, 320) - 32 - inset * 2 - gap * 3) / 4, 60) }
-    private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat { a + (b - a) * t }
-
-    var body: some View {
-        let p = dock.progress
-        HStack(spacing: 0) {
-            HStack(spacing: gap * (1 - p)) {
-                searchButton(p)
-                    .frame(width: lerp(cell, collapsedCell, p))
-                ForEach([("barcode.viewfinder", "Barcode", AddSheet.barcode), ("camera.fill", "Foto", .photo), ("bolt.fill", "Schnell", .quick)], id: \.1) { item in
-                    action(item.0, item.1, item.2)
-                        .opacity(max(0, 1 - p * 2.4))
-                        .frame(width: cell * (1 - p), height: lerp(58, 48, p))
-                        .clipped()
-                        .allowsHitTesting(p < 0.5)
-                        .accessibilityHidden(p >= 0.5)
-                }
-            }
-            .padding(inset)
-            // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
-            .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: lerp(28, 26, p), style: .continuous))
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: lerp(28, 26, p), style: .continuous))
-            .shadow(color: Theme.cardShadow, radius: 14, y: 6)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.Space.l)
-        .padding(.vertical, Theme.Space.s)
-        .frame(height: reserved, alignment: .bottom)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
-    }
-
-    /// Icon over label when open, icon beside label when folded; the two cross-fade with the progress.
-    private func searchButton(_ p: CGFloat) -> some View {
-        Button { Haptics.tap(); sheet = .search } label: {
-            ZStack {
-                VStack(spacing: 3) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 20, weight: .bold)).frame(height: 24)
-                    Text("Suchen").font(Theme.font(12, .bold)).lineLimit(1).fixedSize()
-                }
-                .opacity(max(0, 1 - p * 2.2))
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 18, weight: .bold))
-                    Text("Suchen").font(Theme.font(17, .bold)).lineLimit(1).fixedSize()
-                }
-                .opacity(max(0, p * 2.2 - 1.2))
-            }
-            .foregroundStyle(Color.white)
-            .frame(maxWidth: .infinity).frame(height: lerp(58, 48, p))
-            .background(RoundedRectangle(cornerRadius: lerp(28, 26, p) - inset, style: .continuous).fill(Theme.accent))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(SquishButtonStyle())
-        .accessibilityLabel("Suchen")
-    }
-
-    private func action(_ icon: String, _ title: String, _ s: AddSheet) -> some View {
-        Button { Haptics.tap(); sheet = s } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon).font(.system(size: 20, weight: .bold)).frame(height: 24)
-                Text(title).font(Theme.font(12, .bold)).lineLimit(1).fixedSize()
-            }
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity).frame(height: 58)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(SquishButtonStyle())
-        .accessibilityLabel(title)
     }
 }
