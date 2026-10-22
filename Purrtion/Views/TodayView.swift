@@ -613,6 +613,9 @@ struct StreakChip: View {
     let pop: Int
     let action: () -> Void
 
+    /// Time stretch of the whole hop (1 = quick, higher = calmer).
+    private let k = 1.65
+
     private struct Hop {
         var sx: CGFloat = 1
         var sy: CGFloat = 1
@@ -642,27 +645,27 @@ struct StreakChip: View {
                     .offset(y: h.y)
             } keyframes: { _ in
                 KeyframeTrack(\.sx) {
-                    CubicKeyframe(1.12, duration: 0.09)
-                    CubicKeyframe(0.9, duration: 0.16)
-                    CubicKeyframe(1.14, duration: 0.12)
-                    SpringKeyframe(1, duration: 0.5, spring: .bouncy)
+                    CubicKeyframe(1.12, duration: 0.09 * k)
+                    CubicKeyframe(0.9, duration: 0.16 * k)
+                    CubicKeyframe(1.14, duration: 0.12 * k)
+                    SpringKeyframe(1, duration: 0.5 * k, spring: .bouncy)
                 }
                 KeyframeTrack(\.sy) {
-                    CubicKeyframe(0.86, duration: 0.09)
-                    CubicKeyframe(1.12, duration: 0.16)
-                    CubicKeyframe(0.84, duration: 0.12)
-                    SpringKeyframe(1, duration: 0.5, spring: .bouncy)
+                    CubicKeyframe(0.86, duration: 0.09 * k)
+                    CubicKeyframe(1.12, duration: 0.16 * k)
+                    CubicKeyframe(0.84, duration: 0.12 * k)
+                    SpringKeyframe(1, duration: 0.5 * k, spring: .bouncy)
                 }
                 KeyframeTrack(\.y) {
-                    CubicKeyframe(0, duration: 0.09)
-                    CubicKeyframe(-12, duration: 0.16)
-                    CubicKeyframe(0, duration: 0.12)
-                    SpringKeyframe(0, duration: 0.5, spring: .bouncy)
+                    CubicKeyframe(0, duration: 0.09 * k)
+                    CubicKeyframe(-14, duration: 0.16 * k)
+                    CubicKeyframe(0, duration: 0.12 * k)
+                    SpringKeyframe(0, duration: 0.5 * k, spring: .bouncy)
                 }
                 KeyframeTrack(\.flash) {
-                    CubicKeyframe(0, duration: 0.2)
-                    CubicKeyframe(0.4, duration: 0.1)
-                    CubicKeyframe(0, duration: 0.4)
+                    CubicKeyframe(0, duration: 0.2 * k)
+                    CubicKeyframe(0.4, duration: 0.1 * k)
+                    CubicKeyframe(0, duration: 0.4 * k)
                 }
             }
             .accessibilityLabel("\(streak.count) Tage in Folge" + (iced ? ", gestern per Streak-Freeze gerettet" : (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : "")))
@@ -676,16 +679,16 @@ struct StreakChip: View {
                     view.scaleEffect(h.flame).rotationEffect(.degrees(h.tilt))
                 } keyframes: { _ in
                     KeyframeTrack(\.flame) {
-                        CubicKeyframe(1, duration: 0.09)
-                        SpringKeyframe(1.6, duration: 0.2, spring: .snappy)
-                        SpringKeyframe(1, duration: 0.55, spring: .bouncy)
+                        CubicKeyframe(1, duration: 0.09 * k)
+                        SpringKeyframe(1.6, duration: 0.2 * k, spring: .snappy)
+                        SpringKeyframe(1, duration: 0.55 * k, spring: .bouncy)
                     }
                     KeyframeTrack(\.tilt) {
-                        LinearKeyframe(0, duration: 0.18)
-                        LinearKeyframe(-16, duration: 0.09)
-                        LinearKeyframe(14, duration: 0.11)
-                        LinearKeyframe(-8, duration: 0.1)
-                        SpringKeyframe(0, duration: 0.35, spring: .smooth)
+                        LinearKeyframe(0, duration: 0.18 * k)
+                        LinearKeyframe(-16, duration: 0.09 * k)
+                        LinearKeyframe(14, duration: 0.11 * k)
+                        LinearKeyframe(-8, duration: 0.1 * k)
+                        SpringKeyframe(0, duration: 0.35 * k, spring: .smooth)
                     }
                 }
             Text("\(streak.count)").font(Theme.font(14, .bold)).contentTransition(.numericText(value: Double(streak.count)))
