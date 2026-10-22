@@ -606,13 +606,21 @@ struct WeekPage: View {
     }
 }
 
-/// Flame + count in the Today header. Dim until the first entry of the day, then it lights up with a short pop.
+/// Flame + count in the Today header. Dim until the first entry of the day, then the chip hops like a bouncy ball:
+/// squash, jump, landing squash, settle, while the flame swells and wobbles and the chip flashes once.
 struct StreakChip: View {
     let streak: Streak.State
     let pop: Int
     let action: () -> Void
 
-    private struct Flame { var scale: CGFloat = 1; var tilt: Double = 0 }
+    private struct Hop {
+        var sx: CGFloat = 1
+        var sy: CGFloat = 1
+        var y: CGFloat = 0
+        var flame: CGFloat = 1
+        var tilt: Double = 0
+        var flash: Double = 0
+    }
 
     private var lit: Bool { streak.loggedToday }
     /// A freeze covered yesterday and today is still empty: ice-blue instead of grey, so a missed day is visible.
@@ -626,60 +634,68 @@ struct StreakChip: View {
     private var tint: Color { iced ? Theme.water : (lit ? Theme.accent : Theme.textSecondary) }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: iced ? "snowflake" : "flame.fill").font(.system(size: 12, weight: .bold))
-                    .keyframeAnimator(initialValue: Flame(), trigger: pop) { view, f in
-                        view.scaleEffect(f.scale).rotationEffect(.degrees(f.tilt))
-                    } keyframes: { _ in
-                        KeyframeTrack(\.scale) {
-                            SpringKeyframe(1.7, duration: 0.2, spring: .snappy)
-                            SpringKeyframe(1, duration: 0.5, spring: .bouncy)
-                        }
-                        KeyframeTrack(\.tilt) {
-                            LinearKeyframe(-12, duration: 0.09)
-                            LinearKeyframe(10, duration: 0.12)
-                            SpringKeyframe(0, duration: 0.35, spring: .smooth)
-                        }
-                    }
-                Text("\(streak.count)").font(Theme.font(14, .bold)).contentTransition(.numericText(value: Double(streak.count)))
-                if streak.freezes > 0, !iced {
-                    Image(systemName: "snowflake").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.water)
+        Button(action: action) { chip }
+            .keyframeAnimator(initialValue: Hop(), trigger: pop) { view, h in
+                view
+                    .overlay(Capsule().fill(Theme.accent.opacity(h.flash)).allowsHitTesting(false))
+                    .scaleEffect(x: h.sx, y: h.sy, anchor: .bottom)
+                    .offset(y: h.y)
+            } keyframes: { _ in
+                KeyframeTrack(\.sx) {
+                    CubicKeyframe(1.12, duration: 0.09)
+                    CubicKeyframe(0.9, duration: 0.16)
+                    CubicKeyframe(1.14, duration: 0.12)
+                    SpringKeyframe(1, duration: 0.5, spring: .bouncy)
+                }
+                KeyframeTrack(\.sy) {
+                    CubicKeyframe(0.86, duration: 0.09)
+                    CubicKeyframe(1.12, duration: 0.16)
+                    CubicKeyframe(0.84, duration: 0.12)
+                    SpringKeyframe(1, duration: 0.5, spring: .bouncy)
+                }
+                KeyframeTrack(\.y) {
+                    CubicKeyframe(0, duration: 0.09)
+                    CubicKeyframe(-12, duration: 0.16)
+                    CubicKeyframe(0, duration: 0.12)
+                    SpringKeyframe(0, duration: 0.5, spring: .bouncy)
+                }
+                KeyframeTrack(\.flash) {
+                    CubicKeyframe(0, duration: 0.2)
+                    CubicKeyframe(0.4, duration: 0.1)
+                    CubicKeyframe(0, duration: 0.4)
                 }
             }
-            .foregroundStyle(tint)
-            .padding(.horizontal, 10).frame(height: 34)
-            .background(iced ? Theme.water.opacity(0.16) : (lit ? Theme.accentSoft : Theme.cardAlt), in: Capsule())
-        }
-        .overlay { SparkBurst(pop: pop).allowsHitTesting(false) }
-        .accessibilityLabel("\(streak.count) Tage in Folge" + (iced ? ", gestern per Streak-Freeze gerettet" : (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : "")))
-        .accessibilityHint("Zeigt die Serie")
+            .accessibilityLabel("\(streak.count) Tage in Folge" + (iced ? ", gestern per Streak-Freeze gerettet" : (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : "")))
+            .accessibilityHint("Zeigt die Serie")
     }
-}
 
-/// A few small sparks rising from the flame and fading out; purely decorative and never blocks touches.
-struct SparkBurst: View {
-    let pop: Int
-    private let targets: [(CGFloat, CGFloat)] = [(-20, -22), (-6, -30), (10, -28), (24, -18), (-28, -8)]
-
-    var body: some View {
-        ZStack {
-            ForEach(targets.indices, id: \.self) { i in
-                Image(systemName: "sparkle").font(.system(size: i % 2 == 0 ? 9 : 7, weight: .bold)).foregroundStyle(Theme.carbs)
-                    .keyframeAnimator(initialValue: 0.0, trigger: pop) { view, p in
-                        view
-                            .offset(x: targets[i].0 * p, y: targets[i].1 * p)
-                            .scaleEffect(0.4 + 0.8 * sin(.pi * p))
-                            .opacity(sin(.pi * p))
-                    } keyframes: { _ in
-                        KeyframeTrack {
-                            LinearKeyframe(0, duration: 0.04 * Double(i))
-                            CubicKeyframe(1, duration: 0.75)
-                        }
+    private var chip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: iced ? "snowflake" : "flame.fill").font(.system(size: 12, weight: .bold))
+                .keyframeAnimator(initialValue: Hop(), trigger: pop) { view, h in
+                    view.scaleEffect(h.flame).rotationEffect(.degrees(h.tilt))
+                } keyframes: { _ in
+                    KeyframeTrack(\.flame) {
+                        CubicKeyframe(1, duration: 0.09)
+                        SpringKeyframe(1.6, duration: 0.2, spring: .snappy)
+                        SpringKeyframe(1, duration: 0.55, spring: .bouncy)
                     }
+                    KeyframeTrack(\.tilt) {
+                        LinearKeyframe(0, duration: 0.18)
+                        LinearKeyframe(-16, duration: 0.09)
+                        LinearKeyframe(14, duration: 0.11)
+                        LinearKeyframe(-8, duration: 0.1)
+                        SpringKeyframe(0, duration: 0.35, spring: .smooth)
+                    }
+                }
+            Text("\(streak.count)").font(Theme.font(14, .bold)).contentTransition(.numericText(value: Double(streak.count)))
+            if streak.freezes > 0, !iced {
+                Image(systemName: "snowflake").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.water)
             }
         }
-        .offset(x: -10, y: 2)
+        .foregroundStyle(tint)
+        .padding(.horizontal, 10).frame(height: 34)
+        .background(iced ? Theme.water.opacity(0.16) : (lit ? Theme.accentSoft : Theme.cardAlt), in: Capsule())
     }
 }
 
