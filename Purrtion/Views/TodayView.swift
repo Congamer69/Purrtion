@@ -597,29 +597,33 @@ struct SparkBurst: View {
 
 // MARK: - Day content
 
-/// Fold progress of the quick-add dock: 0 = all four buttons, 1 = only "Suchen". Follows the scroll distance like the
-/// system tab bar's minimize behaviour, then springs to the nearer end when scrolling stops.
+/// Fold state of the quick-add dock: 0 = all four buttons, 1 = only "Suchen".
+/// Like the system tab bar it reacts to the scroll *direction*: a short scroll down folds it, a short scroll up unfolds it,
+/// and the move itself is a fixed-length spring, so a fast flick looks exactly like a slow scroll.
 @MainActor
 final class DockState: ObservableObject {
     @Published var progress: CGFloat = 0
-    private var goingDown = false
-    private let distance: CGFloat = 160
+    private var travelled: CGFloat = 0
+    private let foldAfter: CGFloat = 40
+    private let unfoldAfter: CGFloat = 24
+    private let spring = Animation.spring(duration: 0.55, bounce: 0.12)
 
     func scrolled(by delta: CGFloat) {
         guard abs(delta) > 0.01 else { return }
-        goingDown = delta > 0
-        progress = min(1, max(0, progress + delta / distance))
-    }
-
-    func settle() {
-        guard progress > 0, progress < 1 else { return }
-        let target: CGFloat = goingDown ? (progress > 0.35 ? 1 : 0) : (progress < 0.65 ? 0 : 1)
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { progress = target }
+        // A change of direction starts counting again.
+        if (delta > 0) != (travelled > 0) { travelled = 0 }
+        travelled += delta
+        if travelled > foldAfter { set(1) } else if travelled < -unfoldAfter { set(0) }
     }
 
     func expand() {
-        guard progress > 0 else { return }
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { progress = 0 }
+        travelled = 0
+        set(0)
+    }
+
+    private func set(_ target: CGFloat) {
+        guard progress != target else { return }
+        withAnimation(spring) { progress = target }
     }
 }
 
@@ -846,7 +850,7 @@ struct DayContent: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        // The dock folds with the scroll distance (down folds, up unfolds) and settles when the scrolling stops.
+        // Scrolling down folds the dock, scrolling up unfolds it.
         // Ignored near the bottom edge so the rubber-band bounce there can't move it.
         .onScrollGeometryChange(for: ScrollPosition.self) { g in
             let y = g.contentOffset.y + g.contentInsets.top
@@ -857,9 +861,6 @@ struct DayContent: View {
             if new.y <= 12 { dock.expand(); return }
             if old.atBottom || new.atBottom { return }
             dock.scrolled(by: new.y - old.y)
-        }
-        .onScrollPhaseChange { _, phase in
-            if phase == .idle { dock.settle() }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entries.count)
         .animation(.snappy, value: selecting)
@@ -1333,7 +1334,7 @@ struct QuickAddDock: View {
                 ForEach([("barcode.viewfinder", "Barcode", AddSheet.barcode), ("camera.fill", "Foto", .photo), ("bolt.fill", "Schnell", .quick)], id: \.1) { item in
                     action(item.0, item.1, item.2)
                         .opacity(max(0, 1 - p * 2.4))
-                        .frame(width: cell * (1 - p))
+                        .frame(width: cell * (1 - p), height: lerp(58, 48, p))
                         .clipped()
                         .allowsHitTesting(p < 0.5)
                         .accessibilityHidden(p >= 0.5)
@@ -1341,8 +1342,8 @@ struct QuickAddDock: View {
             }
             .padding(inset)
             // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
-            .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: lerp(28, 26, p), style: .continuous))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: lerp(28, 26, p), style: .continuous))
             .shadow(color: Theme.cardShadow, radius: 14, y: 6)
             Spacer(minLength: 0)
         }
@@ -1369,7 +1370,7 @@ struct QuickAddDock: View {
             }
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity).frame(height: lerp(58, 48, p))
-            .background(RoundedRectangle(cornerRadius: lerp(24, 22, p), style: .continuous).fill(Theme.accent))
+            .background(RoundedRectangle(cornerRadius: lerp(28, 26, p) - inset, style: .continuous).fill(Theme.accent))
             .contentShape(Rectangle())
         }
         .buttonStyle(SquishButtonStyle())
