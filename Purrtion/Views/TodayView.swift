@@ -107,6 +107,9 @@ struct TodayView: View {
                 .onChange(of: scenePhase) { _, phase in if phase == .active { followMidnight() } }
                 #if DEBUG
                 .task {
+                    if let off = UserDefaults.standard.string(forKey: "debugDaysAgo").flatMap(Int.init) {
+                        day = Calendar.current.date(byAdding: .day, value: -off, to: day)!
+                    }
                     if UserDefaults.standard.string(forKey: "debugSearch") != nil {
                         try? await Task.sleep(for: .seconds(1.6))
                         sheet = .search
@@ -407,7 +410,8 @@ struct DayHeader: View {
 
     private var subtitle: String {
         let name = profileName.trimmingCharacters(in: .whitespaces)
-        guard isToday, !name.isEmpty else { return day.formatted(.dateTime.day().month(.wide).year()) }
+        guard isToday else { return "Rückblick · " + day.formatted(.dateTime.day().month(.wide)) }
+        guard !name.isEmpty else { return day.formatted(.dateTime.day().month(.wide).year()) }
         let hour = Calendar.current.component(.hour, from: .now)
         let greeting = hour < 5 ? "Gute Nacht" : hour < 11 ? "Guten Morgen" : hour < 17 ? "Hallo" : hour < 22 ? "Guten Abend" : "Gute Nacht"
         return "\(greeting), \(name) · \(day.formatted(.dateTime.day().month(.abbreviated)))"
@@ -512,6 +516,9 @@ struct WeekStrip: View {
         let isToday = Calendar.current.isDateInToday(d)
         let showFreeze = frozen && kcal == 0
         let label = String(d.formatted(.dateTime.weekday(.abbreviated)).prefix(2))
+        // Today sits on the accent pill; any other day on an inverted (text-coloured) pill, so looking back is obvious.
+        let pill = isToday ? Theme.accent : Theme.textPrimary
+        let onPill = isToday ? Color.white : Theme.background
         return Button {
             guard !future else { return }
             Haptics.tap()
@@ -519,17 +526,17 @@ struct WeekStrip: View {
         } label: {
             VStack(spacing: 5) {
                 Text(label).font(Theme.font(12, .medium))
-                    .foregroundStyle(selected ? Color.white.opacity(0.85) : (isToday ? Theme.accent : Theme.textSecondary))
+                    .foregroundStyle(selected ? onPill.opacity(0.75) : (isToday ? Theme.accent : Theme.textSecondary))
                 Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(17, .bold))
-                    .foregroundStyle(selected ? Color.white : Theme.textPrimary)
+                    .foregroundStyle(selected ? onPill : Theme.textPrimary)
                 ZStack {
                     if showFreeze {
                         Image(systemName: "snowflake").font(.system(size: 9, weight: .heavy))
-                            .foregroundStyle(selected ? Color.white : Theme.water)
+                            .foregroundStyle(selected ? onPill : Theme.water)
                     } else {
-                        Circle().fill(status == .none ? (selected ? Color.white.opacity(0.35) : Theme.line) : status.color)
+                        Circle().fill(status == .none ? (selected ? onPill.opacity(0.35) : Theme.line) : status.color)
                             .frame(width: 7, height: 7)
-                            .overlay(Circle().stroke(Color.white.opacity(selected && status != .none ? 0.9 : 0), lineWidth: 1.5).padding(-1.5))
+                            .overlay(Circle().stroke(onPill.opacity(selected && status != .none ? 0.9 : 0), lineWidth: 1.5).padding(-1.5))
                     }
                 }
                 .frame(height: 9)
@@ -537,7 +544,7 @@ struct WeekStrip: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background {
-                if selected { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.accent) }
+                if selected { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(pill) }
             }
             .opacity(future ? 0.35 : 1)
             .contentShape(Rectangle())
