@@ -381,7 +381,9 @@ struct DayHeader: View {
     @EnvironmentObject private var goals: Goals
     @Environment(\.modelContext) private var ctx
     @Query private var week: [FoodEntry]
-    @State private var streak = 0
+    @State private var streak = Streak.State()
+    @State private var showStreak = false
+    @State private var pop = 0
     private let cal = Calendar.mondayFirst
     private var isToday: Bool { Calendar.current.isDateInToday(day) }
 
@@ -424,16 +426,7 @@ struct DayHeader: View {
                     }
                     .transition(.scale.combined(with: .opacity))
                 }
-                if streak > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold))
-                        Text("\(streak)").font(Theme.font(13, .bold)).contentTransition(.numericText(value: Double(streak)))
-                    }
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 10).frame(height: 34)
-                    .background(Theme.accentSoft, in: Capsule())
-                    .accessibilityLabel("\(streak) Tage in Folge")
-                }
+                StreakChip(streak: streak, pop: pop) { showStreak = true }
                 Button(action: onCalendar) {
                     Image(systemName: "calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
                         .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
@@ -451,8 +444,18 @@ struct DayHeader: View {
         .padding(.bottom, Theme.Space.s)
         .background(Theme.background)
         .animation(.snappy, value: isToday)
-        .task { refreshStreak() }
-        .onChange(of: week.count) { _, _ in refreshStreak() }
+        .task {
+            refreshStreak(animate: false)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-debugStreak") { showStreak = true }
+            #endif
+        }
+        .onChange(of: week.count) { _, _ in refreshStreak(animate: true) }
+        .onChange(of: day) { _, _ in refreshStreak(animate: false) }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+            refreshStreak(animate: false)
+        }
+        .sheet(isPresented: $showStreak) { StreakSheet().presentationDetents([.large]) }
     }
 
     private func cell(_ d: Date, kcal: Double) -> some View {
@@ -483,17 +486,71 @@ struct DayHeader: View {
         .accessibilityLabel(d.formatted(.dateTime.weekday(.wide).day().month(.wide)))
     }
 
-    /// Consecutive logged days up to today (or yesterday while today is still empty).
-    private func refreshStreak() {
-        let today = Calendar.current.startOfDay(for: .now)
-        let from = Calendar.current.date(byAdding: .day, value: -400, to: today)!
-        var fetch = FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day >= from })
-        fetch.propertiesToFetch = [\.day]
-        let days = Set((try? ctx.fetch(fetch))?.map(\.day) ?? [])
-        var d = days.contains(today) ? today : Calendar.current.date(byAdding: .day, value: -1, to: today)!
-        var n = 0
-        while days.contains(d) { n += 1; d = Calendar.current.date(byAdding: .day, value: -1, to: d)! }
-        if n != streak { withAnimation(.snappy) { streak = n } }
+    private func refreshStreak(animate: Bool) {
+        let new = Streak.refresh(ctx: ctx)
+        // First entry of the day: the flame lights up (never blocks anything).
+        if animate, new.loggedToday, !streak.loggedToday, Calendar.current.isDateInToday(day) {
+            pop += 1
+            Haptics.tap()
+        }
+        if new != streak { withAnimation(.snappy) { streak = new } }
+    }
+}
+
+/// Flame + count in the Today header. Dim until the first entry of the day, then it lights up with a short burst.
+struct StreakChip: View {
+    let streak: Streak.State
+    let pop: Int
+    let action: () -> Void
+    @State private var burst = false
+    @State private var scale: CGFloat = 1
+
+    private var lit: Bool { streak.loggedToday }
+    private var tint: Color { lit ? Theme.accent : Theme.textSecondary }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill").font(.system(size: 12, weight: .bold)).scaleEffect(scale)
+                Text("\(streak.count)").font(Theme.font(14, .bold)).contentTransition(.numericText(value: Double(streak.count)))
+                if streak.freezes > 0 {
+                    Image(systemName: "snowflake").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.water)
+                }
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10).frame(height: 34)
+            .background(lit ? Theme.accentSoft : Theme.cardAlt, in: Capsule())
+        }
+        .overlay { SparkBurst(active: burst).allowsHitTesting(false) }
+        .onChange(of: pop) { _, _ in play() }
+        .accessibilityLabel("\(streak.count) Tage in Folge" + (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : ""))
+        .accessibilityHint("Zeigt die Serie")
+    }
+
+    private func play() {
+        burst = false
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.45)) { scale = 1.5 }
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.18)) { scale = 1 }
+        withAnimation(.easeOut(duration: 0.9)) { burst = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { burst = false }
+    }
+}
+
+/// A few small sparks drifting up and fading; purely decorative.
+struct SparkBurst: View {
+    let active: Bool
+    private let offsets: [(CGFloat, CGFloat)] = [(-14, -20), (0, -26), (14, -20), (-22, -6), (22, -6)]
+
+    var body: some View {
+        ZStack {
+            ForEach(offsets.indices, id: \.self) { i in
+                Image(systemName: "sparkle").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.carbs)
+                    .offset(x: active ? offsets[i].0 : 0, y: active ? offsets[i].1 : 4)
+                    .scaleEffect(active ? 1 : 0.2)
+                    .opacity(active ? 0 : 0.001)
+                    .animation(.easeOut(duration: 0.9).delay(Double(i) * 0.03), value: active)
+            }
+        }
     }
 }
 

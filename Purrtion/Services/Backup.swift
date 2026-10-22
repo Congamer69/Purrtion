@@ -10,7 +10,7 @@ enum Backup {
     static let autoKey = "backup.auto"
 
     /// UserDefaults keys that belong to the user's settings.
-    private static let settingPrefixes = ["goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "appearance", "onboarded", "health.", "friends.server"]
+    private static let settingPrefixes = ["goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "appearance", "onboarded", "health.", "friends.server", "streak."]
 
     struct Payload: Codable {
         var version = 1

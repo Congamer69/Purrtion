@@ -10,6 +10,7 @@
 - **Verlauf:** Kalorien-Diagramm zuerst, dann Serie, echter Verbrauch, Zielübersicht, Score und Gewicht. Seltener genutzte Auswertungen stehen unter „Weitere Auswertungen“. Zeiträume: Woche, Monat, 3 Monate.
 - **Profil:** Einstellungen nach Aufgaben gruppiert (Darstellung, Funktionen, Apple Health, Freunde, Daten & Backup, Datenquellen & KI).
 - **Einrichtung in vier Schritten:** Ziel, Eckdaten per Wheel-Picker, Aktivität, Tagesziel mit Apple-Health-Option.
+- **Serie mit Streak-Freeze:** Die Serie sitzt oben rechts auf „Heute“ (grau, bis du heute etwas einträgst). Tippen öffnet die Serien-Ansicht mit Rekord, Freezes und den letzten fünf Wochen. Fehlt ein Tag, rettet ein Freeze die Serie automatisch. Alle 7 Tage in Folge gibt es einen neuen, maximal 2. Beim ersten Eintrag des Tages leuchtet die Flamme kurz auf, ohne dass du warten musst.
 - **Einheitliche Typografie und Abstände:** vier Schriftgrößen, zwei Schriftstärken, weiche getönte Schatten.
 
 ## 1.8.1 – 22. Oktober 2026
