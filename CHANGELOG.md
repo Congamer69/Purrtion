@@ -3,9 +3,10 @@
 ## 2.0 – Redesign (iPhone)
 
 ### Neu
-- **Neue Navigation:** Heute, Verlauf, Profil (und Freunde, wenn aktiv) in der nativen Leiste, dazu „Hinzufügen“ als eigener Punkt. Der schwebende Button-Streifen auf „Heute“ ist weg.
-- **Ein Hinzufügen-Fenster:** Suche (auch ganze Sätze), Barcode, Foto, Schnell-Eintrag, „Was passt noch?“ und Zuletzt/Favoriten/Meine an einem Ort.
-- **Heute neu aufgebaut:** Wochenleiste mit Zielfarben statt Pfeilen, Serie im Kopf, eine große Karte mit Kalorienring, Katze und Makros, Health Score und Tagesfazit als kompakte Kacheln, schmale Wasser-Zeile, Mahlzeiten mit Uhrzeit weiter oben. Leerer Tag mit vier Startoptionen.
+- **Neue Navigation:** Heute, Verlauf, Profil (und Freunde, wenn aktiv) in der nativen Leiste.
+- **Eintragen mit einem Tipp:** Suchen, Barcode, Foto und Schnell sitzen als neues Glas-Dock mit Beschriftung direkt über der Leiste auf „Heute“.
+- **Neues Suchfenster:** Barcode, Foto und Schnell-Eintrag sind auch hier, dazu „Was passt noch?“ und Zuletzt/Favoriten/Meine.
+- **Heute neu aufgebaut:** Wochenleiste mit Zielfarben statt Pfeilen, Serie im Kopf, eine große Karte mit Kalorienring, Katze und Makros, Health Score und Tagesfazit wie gewohnt, schmale Wasser-Zeile, Mahlzeiten mit Uhrzeit weiter oben. Leerer Tag mit vier Startoptionen.
 - **Verlauf:** Kalorien-Diagramm zuerst, dann Serie, echter Verbrauch, Zielübersicht, Score und Gewicht. Seltener genutzte Auswertungen stehen unter „Weitere Auswertungen“. Zeiträume: Woche, Monat, 3 Monate.
 - **Profil:** Einstellungen nach Aufgaben gruppiert (Darstellung, Funktionen, Apple Health, Freunde, Daten & Backup, Datenquellen & KI).
 - **Einrichtung in vier Schritten:** Ziel, Eckdaten per Wheel-Picker, Aktivität, Tagesziel mit Apple-Health-Option.

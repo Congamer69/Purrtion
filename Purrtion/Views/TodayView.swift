@@ -47,7 +47,6 @@ struct TodayView: View {
     @State private var todayAnchor = Calendar.current.startOfDay(for: .now)
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var router = NotificationRouter.shared
-    @ObservedObject private var addRouter = AddRouter.shared
     @State private var sheet: AddSheet?
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
@@ -79,6 +78,8 @@ struct TodayView: View {
                                      onRecipe: { recipeFromSelection = true; recipeName = "Meine Mahlzeit"; askRecipeName = true },
                                      onDone: { withAnimation(.snappy) { self.selection = nil } })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
+                    } else {
+                        QuickAddDock(sheet: $sheet)
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -91,12 +92,6 @@ struct TodayView: View {
                     withAnimation(.snappy) { day = next }
                 })
                 .onChange(of: day) { _, _ in selection = nil }
-                // The "+" in the tab bar.
-                .onChange(of: addRouter.request) { _, _ in
-                    guard router.appReady else { return }
-                    selection = nil
-                    sheet = .search
-                }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
                     followMidnight()
                 }
@@ -593,22 +588,16 @@ struct DayContent: View {
                         .buttonStyle(SquishButtonStyle())
                 }
                 .card(padding: 18)
-                let score: HealthScore? = goals.healthScoreEnabled && !entries.isEmpty
-                    ? HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein) : nil
-                let review = entries.isEmpty ? nil : reviews.first
-                if score != nil || review != nil {
-                    HStack(spacing: Theme.Space.m) {
-                        if let score {
-                            let baseline = aiBaseline(score)
-                            Button { sheet = .score(score, baseline: baseline) } label: { HealthScoreChip(score: score, baseline: baseline) }
-                                .buttonStyle(SquishButtonStyle())
-                        }
-                        if let review {
-                            Button { sheet = .review(review) } label: { ReviewChip(review: review, outdated: reviewOutdated) }
-                                .buttonStyle(SquishButtonStyle())
-                                .transition(.scale(scale: 0.95).combined(with: .opacity))
-                        }
-                    }
+                if goals.healthScoreEnabled, !entries.isEmpty {
+                    let score = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein)
+                    let baseline = aiBaseline(score)
+                    Button { sheet = .score(score, baseline: baseline) } label: { HealthScoreCard(score: score, baseline: baseline) }
+                        .buttonStyle(SquishButtonStyle())
+                }
+                if let review = reviews.first, !entries.isEmpty {
+                    Button { sheet = .review(review) } label: { DayReviewCard(review: review, outdated: reviewOutdated) }
+                        .buttonStyle(SquishButtonStyle())
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
                 if goals.waterEnabled {
                     WaterCard(day: day, logs: water)
@@ -620,7 +609,7 @@ struct DayContent: View {
 
             Section {
                 if entries.isEmpty {
-                    EmptyDayView(sheet: $sheet)
+                    EmptyDayView()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 } else {
@@ -939,55 +928,6 @@ struct MacroRow: View {
     }
 }
 
-/// Compact Health Score tile next to the Tagesfazit.
-struct HealthScoreChip: View {
-    let score: HealthScore
-    var baseline: HealthScore? = nil
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ScoreRing(value: Double(score.score) / 100, color: score.color, lineWidth: 5,
-                      baseline: baseline.map { Double($0.score) / 100 }) {
-                Text("\(score.score)").font(Theme.font(14, .bold)).foregroundStyle(Theme.textPrimary)
-                    .contentTransition(.numericText(value: Double(score.score)))
-            }
-            .frame(width: 40, height: 40)
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Health Score").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                Text(score.isPreliminary ? "vorläufig" : score.rating).font(Theme.font(14, .bold))
-                    .foregroundStyle(score.isPreliminary ? Theme.textSecondary : score.color).lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Theme.Space.m)
-        .frame(maxWidth: .infinity)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius - 4, style: .continuous))
-        .shadow(color: Theme.cardShadow, radius: 10, y: 4)
-    }
-}
-
-/// Compact Tagesfazit tile.
-struct ReviewChip: View {
-    let review: DayReview
-    let outdated: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "sparkles").font(.system(size: 15, weight: .bold)).foregroundStyle(review.color)
-                .frame(width: 40, height: 40).background(review.color.opacity(0.16), in: Circle())
-            VStack(alignment: .leading, spacing: 0) {
-                Text(outdated ? "Tagesfazit · veraltet" : "Tagesfazit").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                Text(review.rating).font(Theme.font(14, .bold)).foregroundStyle(review.color).lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Theme.Space.m)
-        .frame(maxWidth: .infinity)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius - 4, style: .continuous))
-        .shadow(color: Theme.cardShadow, radius: 10, y: 4)
-    }
-}
-
 struct MacroBar: View {
     let name: String
     let value: Double
@@ -1203,33 +1143,54 @@ struct MacroDot: View {
 }
 
 struct EmptyDayView: View {
-    @Binding var sheet: AddSheet?
-
     var body: some View {
         VStack(spacing: Theme.Space.m) {
             AnimatedSprite(frames: [Sprites.bowl], pixel: 4)
             Text("Der Napf ist noch leer").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
-            Text("Womit startest du?").font(Theme.font(14)).foregroundStyle(Theme.textSecondary)
-            HStack(spacing: Theme.Space.s) {
-                option("magnifyingglass", "Suchen", .search)
-                option("barcode.viewfinder", "Barcode", .barcode)
-                option("camera.fill", "Foto", .photo)
-                option("bolt.fill", "Schnell", .quick)
-            }
+            Text("Tippe unten auf eine Option, um dein erstes Essen einzutragen.")
+                .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Space.xl)
     }
+}
 
-    private func option(_ icon: String, _ title: String, _ s: AddSheet) -> some View {
+// MARK: - Quick add dock
+
+/// The four ways to log food, always one tap away: a floating glass dock above the tab bar.
+struct QuickAddDock: View {
+    @Binding var sheet: AddSheet?
+
+    var body: some View {
+        HStack(spacing: Theme.Space.xs) {
+            action("magnifyingglass", "Suchen", .search, primary: true)
+            action("barcode.viewfinder", "Barcode", .barcode)
+            action("camera.fill", "Foto", .photo)
+            action("bolt.fill", "Schnell", .quick)
+        }
+        .padding(Theme.Space.xs)
+        // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
+        .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: Theme.cardShadow, radius: 14, y: 6)
+        .padding(.horizontal, Theme.Space.l)
+        .padding(.vertical, Theme.Space.s)
+    }
+
+    private func action(_ icon: String, _ title: String, _ s: AddSheet, primary: Bool = false) -> some View {
         Button { Haptics.tap(); sheet = s } label: {
-            VStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent).frame(height: 22)
-                Text(title).font(Theme.font(12, .bold)).foregroundStyle(Theme.textPrimary)
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 20, weight: .bold)).frame(height: 24)
+                Text(title).font(Theme.font(12, .bold))
             }
-            .frame(maxWidth: .infinity).frame(height: 64)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .foregroundStyle(primary ? Color.white : Theme.accent)
+            .frame(maxWidth: .infinity).frame(height: 58)
+            .background {
+                if primary { RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Theme.accent) }
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(SquishButtonStyle())
+        .accessibilityLabel(title)
     }
 }

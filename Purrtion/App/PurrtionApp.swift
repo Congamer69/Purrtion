@@ -43,7 +43,6 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
     @State private var tab = 0
-    private static let addTab = 99
     @ObservedObject private var router = NotificationRouter.shared
     @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
     /// Re-renders the tabs when a server code is pasted or the server is disconnected.
@@ -58,14 +57,6 @@ struct RootView: View {
                     Tab("Freunde", systemImage: "person.2.fill", value: 3) { FriendsView() }
                 }
                 Tab("Profil", systemImage: "person.crop.circle.fill", value: 2) { SettingsView() }
-                // Detached round button next to the native bar (the system draws `.search` tabs that way).
-                Tab("Hinzufügen", systemImage: "plus", value: Self.addTab, role: .search) { Color.clear }
-            }
-            .onChange(of: tab) { _, new in
-                guard new == Self.addTab else { return }
-                tab = 0
-                Haptics.tap()
-                AddRouter.shared.open()
             }
             .opacity(showSplash ? 0 : 1)
 
@@ -83,7 +74,6 @@ struct RootView: View {
             router.appReady = true
             #if DEBUG
             if let t = UserDefaults.standard.string(forKey: "debugTab").flatMap(Int.init) { tab = t }
-            if ProcessInfo.processInfo.arguments.contains("-debugAdd") { AddRouter.shared.open() }
             if ProcessInfo.processInfo.arguments.contains("-seedMeal") { seedDemoMeal() }
             if ProcessInfo.processInfo.arguments.contains("-demoData") { seedDemoData() }
             #endif
