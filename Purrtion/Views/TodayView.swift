@@ -48,8 +48,8 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var router = NotificationRouter.shared
     @State private var sheet: AddSheet?
-    /// Scrolling down folds the quick-add dock to one search button.
-    @State private var dockCollapsed = false
+    /// Scroll-linked fold of the quick-add dock (kept out of @State so scrolling doesn't re-render this whole view).
+    @StateObject private var dock = DockState()
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
     @State private var nextSheet: AddSheet?
@@ -60,7 +60,7 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            DayContent(day: day, sheet: $sheet, selection: $selection, dockCollapsed: $dockCollapsed, onSelectDay: { picked in
+            DayContent(day: day, sheet: $sheet, selection: $selection, dock: dock, onSelectDay: { picked in
                 withAnimation(.snappy) { day = picked }
             }, onSaveRecipe: { fromSelection in
                 recipeFromSelection = fromSelection
@@ -83,7 +83,7 @@ struct TodayView: View {
                                      onDone: { withAnimation(.snappy) { self.selection = nil } })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     } else {
-                        QuickAddDock(sheet: $sheet, collapsed: dockCollapsed)
+                        QuickAddDock(sheet: $sheet, dock: dock)
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -104,7 +104,7 @@ struct TodayView: View {
                 .task {
                     if ProcessInfo.processInfo.arguments.contains("-debugFold") {
                         try? await Task.sleep(for: .seconds(1.5))
-                        dockCollapsed = true
+                        dock.progress = 1
                     }
                     if UserDefaults.standard.string(forKey: "debugSearch") != nil {
                         try? await Task.sleep(for: .seconds(1.6))
@@ -597,6 +597,32 @@ struct SparkBurst: View {
 
 // MARK: - Day content
 
+/// Fold progress of the quick-add dock: 0 = all four buttons, 1 = only "Suchen". Follows the scroll distance like the
+/// system tab bar's minimize behaviour, then springs to the nearer end when scrolling stops.
+@MainActor
+final class DockState: ObservableObject {
+    @Published var progress: CGFloat = 0
+    private var goingDown = false
+    private let distance: CGFloat = 72
+
+    func scrolled(by delta: CGFloat) {
+        guard abs(delta) > 0.01 else { return }
+        goingDown = delta > 0
+        progress = min(1, max(0, progress + delta / distance))
+    }
+
+    func settle() {
+        guard progress > 0, progress < 1 else { return }
+        let target: CGFloat = goingDown ? (progress > 0.2 ? 1 : 0) : (progress < 0.8 ? 0 : 1)
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { progress = target }
+    }
+
+    func expand() {
+        guard progress > 0 else { return }
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { progress = 0 }
+    }
+}
+
 /// Vertical scroll offset of the day list plus whether it sits at (or beyond) the bottom edge.
 private struct ScrollPosition: Equatable {
     var y: CGFloat
@@ -607,7 +633,7 @@ struct DayContent: View {
     let day: Date
     @Binding var sheet: AddSheet?
     @Binding var selection: Set<UUID>?
-    @Binding var dockCollapsed: Bool
+    let dock: DockState
     var onSelectDay: (Date) -> Void
     var onSaveRecipe: (Bool) -> Void
     @EnvironmentObject private var goals: Goals
@@ -624,12 +650,12 @@ struct DayContent: View {
     @State private var closing = false
     @State private var closeError: String?
 
-    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, dockCollapsed: Binding<Bool>,
+    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, dock: DockState,
          onSelectDay: @escaping (Date) -> Void, onSaveRecipe: @escaping (Bool) -> Void) {
         self.day = day
         self._sheet = sheet
         self._selection = selection
-        self._dockCollapsed = dockCollapsed
+        self.dock = dock
         self.onSelectDay = onSelectDay
         self.onSaveRecipe = onSaveRecipe
         let d = day
@@ -820,21 +846,20 @@ struct DayContent: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        // Down folds the dock, up (or back at the top) unfolds it. Ignored near the bottom edge so the rubber-band
-        // bounce there can't flip it back and forth.
+        // The dock folds with the scroll distance (down folds, up unfolds) and settles when the scrolling stops.
+        // Ignored near the bottom edge so the rubber-band bounce there can't move it.
         .onScrollGeometryChange(for: ScrollPosition.self) { g in
             let y = g.contentOffset.y + g.contentInsets.top
             let maxY = g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom - g.containerSize.height
             return ScrollPosition(y: y, atBottom: y >= maxY - 4)
         } action: { old, new in
             guard selection == nil else { return }
-            let folded: Bool
-            if new.y <= 12 { folded = false }
-            else if old.atBottom || new.atBottom { return }
-            else if new.y - old.y > 6 { folded = true }
-            else if old.y - new.y > 6 { folded = false }
-            else { return }
-            if folded != dockCollapsed { dockCollapsed = folded }
+            if new.y <= 12 { dock.expand(); return }
+            if old.atBottom || new.atBottom { return }
+            dock.scrolled(by: new.y - old.y)
+        }
+        .onScrollPhaseChange { _, phase in
+            if phase == .idle { dock.settle() }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entries.count)
         .animation(.snappy, value: selecting)
@@ -1284,10 +1309,10 @@ struct EmptyDayView: View {
 // MARK: - Quick add dock
 
 /// The four ways to log food, always one tap away: a floating dock above the tab bar.
-/// While scrolling down the other three fold into the search button on the left; tapping it opens the search.
+/// Scrolling down folds the other three into the search button on the left (scroll-linked, like the system tab bar).
 struct QuickAddDock: View {
     @Binding var sheet: AddSheet?
-    var collapsed = false
+    @ObservedObject var dock: DockState
     @State private var availableWidth: CGFloat = 0
 
     private let inset = Theme.Space.xs
@@ -1297,21 +1322,21 @@ struct QuickAddDock: View {
     private let reserved: CGFloat = 58 + 8 + 16
 
     private var cell: CGFloat { max((max(availableWidth, 320) - 32 - inset * 2 - gap * 3) / 4, 60) }
+    private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat { a + (b - a) * t }
 
     var body: some View {
+        let p = dock.progress
         HStack(spacing: 0) {
-            HStack(spacing: collapsed ? 0 : gap) {
-                action("magnifyingglass", "Suchen", .search, primary: true)
-                    .frame(width: collapsed ? collapsedCell : cell)
+            HStack(spacing: gap * (1 - p)) {
+                searchButton(p)
+                    .frame(width: lerp(cell, collapsedCell, p))
                 ForEach([("barcode.viewfinder", "Barcode", AddSheet.barcode), ("camera.fill", "Foto", .photo), ("bolt.fill", "Schnell", .quick)], id: \.1) { item in
                     action(item.0, item.1, item.2)
-                        // Labels fade quickly on the way out and arrive slightly after the dock has opened.
-                        .opacity(collapsed ? 0 : 1)
-                        .animation(collapsed ? .easeIn(duration: 0.14) : .easeOut(duration: 0.22).delay(0.1), value: collapsed)
-                        .frame(width: collapsed ? 0 : cell)
+                        .opacity(max(0, 1 - p * 2.4))
+                        .frame(width: cell * (1 - p))
                         .clipped()
-                        .allowsHitTesting(!collapsed)
-                        .accessibilityHidden(collapsed)
+                        .allowsHitTesting(p < 0.5)
+                        .accessibilityHidden(p >= 0.5)
                 }
             }
             .padding(inset)
@@ -1325,21 +1350,40 @@ struct QuickAddDock: View {
         .padding(.vertical, Theme.Space.s)
         .frame(height: reserved, alignment: .bottom)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
-        .animation(.spring(response: 0.46, dampingFraction: 0.74), value: collapsed)
     }
 
-    private func action(_ icon: String, _ title: String, _ s: AddSheet, primary: Bool = false) -> some View {
-        let layout = (primary && collapsed) ? AnyLayout(HStackLayout(spacing: 6)) : AnyLayout(VStackLayout(spacing: 3))
-        return Button { Haptics.tap(); sheet = s } label: {
-            layout {
+    /// Icon over label when open, icon beside label when folded; the two cross-fade with the progress.
+    private func searchButton(_ p: CGFloat) -> some View {
+        Button { Haptics.tap(); sheet = .search } label: {
+            ZStack {
+                VStack(spacing: 3) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 20, weight: .bold)).frame(height: 24)
+                    Text("Suchen").font(Theme.font(12, .bold)).lineLimit(1).fixedSize()
+                }
+                .opacity(max(0, 1 - p * 2.2))
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 18, weight: .bold))
+                    Text("Suchen").font(Theme.font(17, .bold)).lineLimit(1).fixedSize()
+                }
+                .opacity(max(0, p * 2.2 - 1.2))
+            }
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity).frame(height: lerp(58, 48, p))
+            .background(RoundedRectangle(cornerRadius: lerp(24, 22, p), style: .continuous).fill(Theme.accent))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SquishButtonStyle())
+        .accessibilityLabel("Suchen")
+    }
+
+    private func action(_ icon: String, _ title: String, _ s: AddSheet) -> some View {
+        Button { Haptics.tap(); sheet = s } label: {
+            VStack(spacing: 3) {
                 Image(systemName: icon).font(.system(size: 20, weight: .bold)).frame(height: 24)
-                Text(title).font(Theme.font(primary && collapsed ? 17 : 12, .bold)).lineLimit(1).fixedSize()
+                Text(title).font(Theme.font(12, .bold)).lineLimit(1).fixedSize()
             }
-            .foregroundStyle(primary ? Color.white : Theme.accent)
-            .frame(maxWidth: .infinity).frame(height: collapsed ? 48 : 58)
-            .background {
-                if primary { RoundedRectangle(cornerRadius: collapsed ? 22 : 24, style: .continuous).fill(Theme.accent) }
-            }
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity).frame(height: 58)
             .contentShape(Rectangle())
         }
         .buttonStyle(SquishButtonStyle())
