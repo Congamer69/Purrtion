@@ -49,6 +49,8 @@ struct TodayView: View {
     @ObservedObject private var router = NotificationRouter.shared
     @State private var sheet: AddSheet?
     @ObservedObject private var addRouter = AddRouter.shared
+    /// Which week the strip shows (0 = this week). Kept here because the day list below is rebuilt for every day.
+    @State private var weekOffset = 0
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
     @State private var nextSheet: AddSheet?
@@ -59,7 +61,7 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            DayContent(day: day, sheet: $sheet, selection: $selection, onSelectDay: { picked in
+            DayContent(day: day, sheet: $sheet, selection: $selection, weekOffset: $weekOffset, onSelectDay: { picked in
                 withAnimation(.snappy) { day = picked }
             }, onSaveRecipe: { fromSelection in
                 recipeFromSelection = fromSelection
@@ -92,7 +94,12 @@ struct TodayView: View {
                     Haptics.tap()
                     withAnimation(.snappy) { day = next }
                 })
-                .onChange(of: day) { _, _ in selection = nil }
+                .onChange(of: day) { _, new in
+                    selection = nil
+                    // Another way of changing the day (calendar, swipe, "Zu Heute"): bring that week into view.
+                    let w = WeekStrip.offset(of: new)
+                    if weekOffset != w { withAnimation(.snappy) { weekOffset = w } }
+                }
                 // Quick-add buttons in the tab bar's accessory.
                 .onChange(of: addRouter.request?.id) { _, _ in
                     guard let req = addRouter.request else { return }
@@ -477,27 +484,60 @@ struct DayHeader: View {
     }
 }
 
-/// Mo–So of the shown week with goal colors. Scrolls with the list instead of staying pinned.
+/// Swipeable weeks (Mo–So) with goal status, back two years. Scrolls with the list instead of staying pinned.
 struct WeekStrip: View {
+    let day: Date
+    @Binding var weekOffset: Int
+    let onSelect: (Date) -> Void
+    private static let weeks = Array(-103...0)
+
+    /// Monday of the week `offset` weeks away from the current one.
+    static func monday(offset: Int) -> Date {
+        let c = Calendar.mondayFirst
+        let thisMonday = c.dateInterval(of: .weekOfYear, for: .now)!.start
+        return c.date(byAdding: .day, value: offset * 7, to: thisMonday)!
+    }
+
+    /// How many weeks `date` lies from the current week (0 = this week).
+    static func offset(of date: Date) -> Int {
+        let c = Calendar.mondayFirst
+        let thisMonday = c.dateInterval(of: .weekOfYear, for: .now)!.start
+        let monday = c.dateInterval(of: .weekOfYear, for: date)!.start
+        let days = c.dateComponents([.day], from: thisMonday, to: monday).day ?? 0
+        return Int((Double(days) / 7).rounded())
+    }
+
+    var body: some View {
+        // Paged TabView: reliable start page and snapping; only the neighbouring weeks are kept alive.
+        TabView(selection: $weekOffset) {
+            ForEach(Self.weeks, id: \.self) { w in
+                WeekPage(weekStart: Self.monday(offset: w), day: day, onSelect: onSelect).tag(w)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(height: 92)
+        .sensoryFeedback(.selection, trigger: weekOffset)
+    }
+}
+
+/// One week of the strip.
+struct WeekPage: View {
+    let weekStart: Date
     let day: Date
     let onSelect: (Date) -> Void
     @EnvironmentObject private var goals: Goals
     @Query private var week: [FoodEntry]
     private let cal = Calendar.mondayFirst
 
-    init(day: Date, onSelect: @escaping (Date) -> Void) {
+    init(weekStart: Date, day: Date, onSelect: @escaping (Date) -> Void) {
+        self.weekStart = weekStart
         self.day = day
         self.onSelect = onSelect
-        let c = Calendar.mondayFirst
-        let monday = c.dateInterval(of: .weekOfYear, for: day)!.start
-        let sunday = c.date(byAdding: .day, value: 6, to: monday)!
-        _week = Query(filter: #Predicate<FoodEntry> { $0.day >= monday && $0.day <= sunday })
+        let sunday = Calendar.mondayFirst.date(byAdding: .day, value: 6, to: weekStart)!
+        _week = Query(filter: #Predicate<FoodEntry> { $0.day >= weekStart && $0.day <= sunday })
     }
 
-    private var weekDays: [Date] {
-        let monday = cal.dateInterval(of: .weekOfYear, for: day)!.start
-        return (0..<7).map { cal.date(byAdding: .day, value: $0, to: monday)! }
-    }
+    private var weekDays: [Date] { (0..<7).map { cal.date(byAdding: .day, value: $0, to: weekStart)! } }
 
     var body: some View {
         let kcalByDay = Dictionary(grouping: week, by: \.day).mapValues { $0.reduce(0) { $0 + $1.kcal } }
@@ -626,6 +666,7 @@ struct DayContent: View {
     let day: Date
     @Binding var sheet: AddSheet?
     @Binding var selection: Set<UUID>?
+    @Binding var weekOffset: Int
     var onSelectDay: (Date) -> Void
     var onSaveRecipe: (Bool) -> Void
     @EnvironmentObject private var goals: Goals
@@ -642,10 +683,12 @@ struct DayContent: View {
     @State private var closing = false
     @State private var closeError: String?
 
-    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, onSelectDay: @escaping (Date) -> Void, onSaveRecipe: @escaping (Bool) -> Void) {
+    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, weekOffset: Binding<Int>,
+         onSelectDay: @escaping (Date) -> Void, onSaveRecipe: @escaping (Bool) -> Void) {
         self.day = day
         self._sheet = sheet
         self._selection = selection
+        self._weekOffset = weekOffset
         self.onSelectDay = onSelectDay
         self.onSaveRecipe = onSaveRecipe
         let d = day
@@ -705,7 +748,7 @@ struct DayContent: View {
     var body: some View {
         List {
             Group {
-                WeekStrip(day: day, onSelect: onSelectDay)
+                WeekStrip(day: day, weekOffset: $weekOffset, onSelect: onSelectDay)
                 VStack(spacing: Theme.Space.l) {
                     Button { sheet = .overview } label: { SummaryCard(total: total, mood: mood, burst: burst, target: target) }
                         .buttonStyle(SquishButtonStyle())
