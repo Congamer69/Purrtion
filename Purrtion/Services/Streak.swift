@@ -26,6 +26,11 @@ enum Streak {
         static let best = "streak.best"
     }
 
+    /// Days covered by a freeze (cheap read for the week strip).
+    static func frozenDays(defaults: UserDefaults = .standard) -> Set<Date> {
+        Set((defaults.array(forKey: Key.frozen) as? [Double] ?? []).map { Date(timeIntervalSince1970: $0) })
+    }
+
     /// Brings freezes and the count up to date. Safe to call often.
     static func refresh(ctx: ModelContext, defaults: UserDefaults = .standard) -> State {
         let cal = Calendar.current

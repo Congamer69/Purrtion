@@ -48,6 +48,8 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var router = NotificationRouter.shared
     @State private var sheet: AddSheet?
+    /// Scrolling down folds the quick-add dock to one search button.
+    @State private var dockCollapsed = false
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
     @State private var nextSheet: AddSheet?
@@ -58,7 +60,9 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            DayContent(day: day, sheet: $sheet, selection: $selection, onSaveRecipe: { fromSelection in
+            DayContent(day: day, sheet: $sheet, selection: $selection, dockCollapsed: $dockCollapsed, onSelectDay: { picked in
+                withAnimation(.snappy) { day = picked }
+            }, onSaveRecipe: { fromSelection in
                 recipeFromSelection = fromSelection
                 recipeName = "Mahlzeit \(day.formatted(.dateTime.day().month(.abbreviated)))"
                 askRecipeName = true
@@ -79,7 +83,7 @@ struct TodayView: View {
                                      onDone: { withAnimation(.snappy) { self.selection = nil } })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     } else {
-                        QuickAddDock(sheet: $sheet)
+                        QuickAddDock(sheet: $sheet, collapsed: dockCollapsed)
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -98,6 +102,10 @@ struct TodayView: View {
                 .onChange(of: scenePhase) { _, phase in if phase == .active { followMidnight() } }
                 #if DEBUG
                 .task {
+                    if ProcessInfo.processInfo.arguments.contains("-debugFold") {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        dockCollapsed = true
+                    }
                     if UserDefaults.standard.string(forKey: "debugSearch") != nil {
                         try? await Task.sleep(for: .seconds(1.6))
                         sheet = .search
@@ -374,27 +382,25 @@ struct CheckCircle: View {
 
 // MARK: - Header
 
+/// Pinned title row: day, streak and calendar. The week strip lives in the list so it scrolls away.
 struct DayHeader: View {
     @Binding var day: Date
     var onCalendar: () -> Void = {}
     var onToday: () -> Void = {}
-    @EnvironmentObject private var goals: Goals
     @Environment(\.modelContext) private var ctx
-    @Query private var week: [FoodEntry]
+    /// Only used to notice the first entry of the day.
+    @Query private var todayEntries: [FoodEntry]
     @State private var streak = Streak.State()
     @State private var showStreak = false
     @State private var pop = 0
-    private let cal = Calendar.mondayFirst
     private var isToday: Bool { Calendar.current.isDateInToday(day) }
 
     init(day: Binding<Date>, onCalendar: @escaping () -> Void = {}, onToday: @escaping () -> Void = {}) {
         _day = day
         self.onCalendar = onCalendar
         self.onToday = onToday
-        let c = Calendar.mondayFirst
-        let monday = c.dateInterval(of: .weekOfYear, for: day.wrappedValue)!.start
-        let sunday = c.date(byAdding: .day, value: 6, to: monday)!
-        _week = Query(filter: #Predicate<FoodEntry> { $0.day >= monday && $0.day <= sunday })
+        let today = Calendar.current.startOfDay(for: .now)
+        _todayEntries = Query(filter: #Predicate<FoodEntry> { $0.day == today })
     }
 
     var title: String {
@@ -403,45 +409,33 @@ struct DayHeader: View {
         return day.formatted(.dateTime.weekday(.wide))
     }
 
-    private var weekDays: [Date] {
-        let monday = cal.dateInterval(of: .weekOfYear, for: day)!.start
-        return (0..<7).map { cal.date(byAdding: .day, value: $0, to: monday)! }
-    }
-
     var body: some View {
-        VStack(spacing: Theme.Space.m) {
-            HStack(alignment: .center, spacing: Theme.Space.s) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(title).font(Theme.font(22, .bold)).foregroundStyle(Theme.textPrimary)
-                    Text(day.formatted(.dateTime.day().month(.wide).year())).font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
-                }
-                .contentTransition(.numericText())
-                Spacer(minLength: 0)
-                if !isToday {
-                    Button(action: onToday) {
-                        Label("Zu Heute", systemImage: "arrow.uturn.forward").font(Theme.font(12, .bold))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.horizontal, 10).frame(height: 34)
-                            .background(Theme.accentSoft, in: Capsule())
-                    }
-                    .transition(.scale.combined(with: .opacity))
-                }
-                StreakChip(streak: streak, pop: pop) { showStreak = true }
-                Button(action: onCalendar) {
-                    Image(systemName: "calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
-                        .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
-                }
-                .accessibilityLabel("Kalender")
+        HStack(alignment: .center, spacing: Theme.Space.s) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).font(Theme.font(22, .bold)).foregroundStyle(Theme.textPrimary)
+                Text(day.formatted(.dateTime.day().month(.wide).year())).font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
             }
-            HStack(spacing: 6) {
-                let kcalByDay = Dictionary(grouping: week, by: \.day).mapValues { $0.reduce(0) { $0 + $1.kcal } }
-                ForEach(weekDays, id: \.self) { d in cell(d, kcal: kcalByDay[d] ?? 0) }
+            .contentTransition(.numericText())
+            Spacer(minLength: 0)
+            if !isToday {
+                Button(action: onToday) {
+                    Label("Zu Heute", systemImage: "arrow.uturn.forward").font(Theme.font(12, .bold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 10).frame(height: 34)
+                        .background(Theme.accentSoft, in: Capsule())
+                }
+                .transition(.scale.combined(with: .opacity))
             }
+            StreakChip(streak: streak, pop: pop) { showStreak = true }
+            Button(action: onCalendar) {
+                Image(systemName: "calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                    .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
+            }
+            .accessibilityLabel("Kalender")
         }
         .buttonStyle(SquishButtonStyle())
         .padding(.horizontal, Theme.Space.l)
-        .padding(.top, Theme.Space.s)
-        .padding(.bottom, Theme.Space.s)
+        .padding(.vertical, Theme.Space.s)
         .background(Theme.background)
         .animation(.snappy, value: isToday)
         .task {
@@ -450,40 +444,12 @@ struct DayHeader: View {
             if ProcessInfo.processInfo.arguments.contains("-debugStreak") { showStreak = true }
             #endif
         }
-        .onChange(of: week.count) { _, _ in refreshStreak(animate: true) }
+        .onChange(of: todayEntries.count) { _, _ in refreshStreak(animate: true) }
         .onChange(of: day) { _, _ in refreshStreak(animate: false) }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
             refreshStreak(animate: false)
         }
         .sheet(isPresented: $showStreak) { StreakSheet().presentationDetents([.large]) }
-    }
-
-    private func cell(_ d: Date, kcal: Double) -> some View {
-        let future = d > Calendar.current.startOfDay(for: .now)
-        let status = GoalStatus(kcal: kcal, goal: goals.target(for: d).kcal)
-        let selected = Calendar.current.isDate(d, inSameDayAs: day)
-        let label = String(d.formatted(.dateTime.weekday(.abbreviated)).prefix(2))
-        return Button {
-            guard !future else { return }
-            Haptics.tap()
-            withAnimation(.snappy) { day = d }
-        } label: {
-            VStack(spacing: 4) {
-                Text(label).font(Theme.font(12, selected ? .bold : .regular))
-                    .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(status.color)
-                    .frame(height: 32)
-                    .overlay(Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(12, .bold))
-                        .foregroundStyle(kcal > 0 ? Color.white : Theme.textSecondary))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(selected ? Theme.textPrimary : .clear, lineWidth: 2).padding(-3))
-            }
-            .frame(maxWidth: .infinity)
-            .opacity(future ? 0.35 : 1)
-        }
-        .disabled(future)
-        .accessibilityLabel(d.formatted(.dateTime.weekday(.wide).day().month(.wide)))
     }
 
     private func refreshStreak(animate: Bool) {
@@ -497,6 +463,73 @@ struct DayHeader: View {
     }
 }
 
+/// Mo–So of the shown week with goal colors. Scrolls with the list instead of staying pinned.
+struct WeekStrip: View {
+    let day: Date
+    let onSelect: (Date) -> Void
+    @EnvironmentObject private var goals: Goals
+    @Query private var week: [FoodEntry]
+    private let cal = Calendar.mondayFirst
+
+    init(day: Date, onSelect: @escaping (Date) -> Void) {
+        self.day = day
+        self.onSelect = onSelect
+        let c = Calendar.mondayFirst
+        let monday = c.dateInterval(of: .weekOfYear, for: day)!.start
+        let sunday = c.date(byAdding: .day, value: 6, to: monday)!
+        _week = Query(filter: #Predicate<FoodEntry> { $0.day >= monday && $0.day <= sunday })
+    }
+
+    private var weekDays: [Date] {
+        let monday = cal.dateInterval(of: .weekOfYear, for: day)!.start
+        return (0..<7).map { cal.date(byAdding: .day, value: $0, to: monday)! }
+    }
+
+    var body: some View {
+        let kcalByDay = Dictionary(grouping: week, by: \.day).mapValues { $0.reduce(0) { $0 + $1.kcal } }
+        let frozen = Streak.frozenDays()
+        HStack(spacing: 6) {
+            ForEach(weekDays, id: \.self) { d in cell(d, kcal: kcalByDay[d] ?? 0, frozen: frozen.contains(d)) }
+        }
+        .buttonStyle(SquishButtonStyle())
+    }
+
+    private func cell(_ d: Date, kcal: Double, frozen: Bool) -> some View {
+        let future = d > Calendar.current.startOfDay(for: .now)
+        let status = GoalStatus(kcal: kcal, goal: goals.target(for: d).kcal)
+        let selected = Calendar.current.isDate(d, inSameDayAs: day)
+        let showFreeze = frozen && kcal == 0
+        let label = String(d.formatted(.dateTime.weekday(.abbreviated)).prefix(2))
+        return Button {
+            guard !future else { return }
+            Haptics.tap()
+            onSelect(d)
+        } label: {
+            VStack(spacing: 4) {
+                Text(label).font(Theme.font(12, selected ? .bold : .regular))
+                    .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(showFreeze ? Theme.water.opacity(0.85) : status.color)
+                    .frame(height: 32)
+                    .overlay {
+                        if showFreeze {
+                            Image(systemName: "snowflake").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                        } else {
+                            Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(12, .bold))
+                                .foregroundStyle(kcal > 0 ? Color.white : Theme.textSecondary)
+                        }
+                    }
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(selected ? Theme.textPrimary : .clear, lineWidth: 2).padding(-3))
+            }
+            .frame(maxWidth: .infinity)
+            .opacity(future ? 0.35 : 1)
+        }
+        .disabled(future)
+        .accessibilityLabel(d.formatted(.dateTime.weekday(.wide).day().month(.wide)) + (showFreeze ? ", Streak-Freeze" : ""))
+    }
+}
+
 /// Flame + count in the Today header. Dim until the first entry of the day, then it lights up with a short burst.
 struct StreakChip: View {
     let streak: Streak.State
@@ -506,24 +539,32 @@ struct StreakChip: View {
     @State private var scale: CGFloat = 1
 
     private var lit: Bool { streak.loggedToday }
-    private var tint: Color { lit ? Theme.accent : Theme.textSecondary }
+    /// A freeze covered yesterday and today is still empty: ice-blue instead of grey, so a missed day is visible.
+    private var iced: Bool {
+        let y = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: .now))!
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-debugIced") { return true }
+        #endif
+        return !lit && streak.frozen.contains(y)
+    }
+    private var tint: Color { iced ? Theme.water : (lit ? Theme.accent : Theme.textSecondary) }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: "flame.fill").font(.system(size: 12, weight: .bold)).scaleEffect(scale)
+                Image(systemName: iced ? "snowflake" : "flame.fill").font(.system(size: 12, weight: .bold)).scaleEffect(scale)
                 Text("\(streak.count)").font(Theme.font(14, .bold)).contentTransition(.numericText(value: Double(streak.count)))
-                if streak.freezes > 0 {
+                if streak.freezes > 0, !iced {
                     Image(systemName: "snowflake").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.water)
                 }
             }
             .foregroundStyle(tint)
             .padding(.horizontal, 10).frame(height: 34)
-            .background(lit ? Theme.accentSoft : Theme.cardAlt, in: Capsule())
+            .background(iced ? Theme.water.opacity(0.16) : (lit ? Theme.accentSoft : Theme.cardAlt), in: Capsule())
         }
         .overlay { SparkBurst(active: burst).allowsHitTesting(false) }
         .onChange(of: pop) { _, _ in play() }
-        .accessibilityLabel("\(streak.count) Tage in Folge" + (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : ""))
+        .accessibilityLabel("\(streak.count) Tage in Folge" + (iced ? ", gestern per Streak-Freeze gerettet" : (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : "")))
         .accessibilityHint("Zeigt die Serie")
     }
 
@@ -560,6 +601,8 @@ struct DayContent: View {
     let day: Date
     @Binding var sheet: AddSheet?
     @Binding var selection: Set<UUID>?
+    @Binding var dockCollapsed: Bool
+    var onSelectDay: (Date) -> Void
     var onSaveRecipe: (Bool) -> Void
     @EnvironmentObject private var goals: Goals
     @Environment(\.modelContext) private var ctx
@@ -575,10 +618,13 @@ struct DayContent: View {
     @State private var closing = false
     @State private var closeError: String?
 
-    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, onSaveRecipe: @escaping (Bool) -> Void) {
+    init(day: Date, sheet: Binding<AddSheet?>, selection: Binding<Set<UUID>?>, dockCollapsed: Binding<Bool>,
+         onSelectDay: @escaping (Date) -> Void, onSaveRecipe: @escaping (Bool) -> Void) {
         self.day = day
         self._sheet = sheet
         self._selection = selection
+        self._dockCollapsed = dockCollapsed
+        self.onSelectDay = onSelectDay
         self.onSaveRecipe = onSaveRecipe
         let d = day
         _entries = Query(filter: #Predicate<FoodEntry> { $0.day == d }, sort: \FoodEntry.createdAt, order: .reverse)
@@ -637,6 +683,7 @@ struct DayContent: View {
     var body: some View {
         List {
             Group {
+                WeekStrip(day: day, onSelect: onSelectDay)
                 VStack(spacing: Theme.Space.l) {
                     Button { sheet = .overview } label: { SummaryCard(total: total, mood: mood, burst: burst, target: target) }
                         .buttonStyle(SquishButtonStyle())
@@ -767,6 +814,16 @@ struct DayContent: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        // Down folds the dock, up (or back at the top) unfolds it.
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { old, new in
+            guard selection == nil else { return }
+            let folded: Bool
+            if new <= 12 { folded = false }
+            else if new - old > 6 { folded = true }
+            else if old - new > 6 { folded = false }
+            else { return }
+            if folded != dockCollapsed { dockCollapsed = folded }
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entries.count)
         .animation(.snappy, value: selecting)
         .animation(.snappy, value: reviews.first?.createdAt)
@@ -1214,24 +1271,43 @@ struct EmptyDayView: View {
 
 // MARK: - Quick add dock
 
-/// The four ways to log food, always one tap away: a floating glass dock above the tab bar.
+/// The four ways to log food, always one tap away: a floating dock above the tab bar.
+/// While scrolling down it folds to a single search button; tapping that opens the search directly.
 struct QuickAddDock: View {
     @Binding var sheet: AddSheet?
+    var collapsed = false
 
     var body: some View {
-        HStack(spacing: Theme.Space.xs) {
-            action("magnifyingglass", "Suchen", .search, primary: true)
-            action("barcode.viewfinder", "Barcode", .barcode)
-            action("camera.fill", "Foto", .photo)
-            action("bolt.fill", "Schnell", .quick)
+        ZStack(alignment: .bottom) {
+            if collapsed {
+                Button { Haptics.tap(); sheet = .search } label: {
+                    Label("Suchen", systemImage: "magnifyingglass").font(Theme.font(17, .bold))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, Theme.Space.xl).frame(height: 48)
+                        .background(Theme.accent, in: Capsule())
+                        .shadow(color: Theme.accent.opacity(0.35), radius: 10, y: 4)
+                }
+                .buttonStyle(SquishButtonStyle())
+                .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
+            } else {
+                HStack(spacing: Theme.Space.xs) {
+                    action("magnifyingglass", "Suchen", .search, primary: true)
+                    action("barcode.viewfinder", "Barcode", .barcode)
+                    action("camera.fill", "Foto", .photo)
+                    action("bolt.fill", "Schnell", .quick)
+                }
+                .padding(Theme.Space.xs)
+                // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
+                .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .shadow(color: Theme.cardShadow, radius: 14, y: 6)
+                .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+            }
         }
-        .padding(Theme.Space.xs)
-        // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
-        .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: Theme.cardShadow, radius: 14, y: 6)
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, Theme.Space.l)
         .padding(.vertical, Theme.Space.s)
+        .animation(.snappy(duration: 0.3), value: collapsed)
     }
 
     private func action(_ icon: String, _ title: String, _ s: AddSheet, primary: Bool = false) -> some View {
