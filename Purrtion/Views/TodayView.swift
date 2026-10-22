@@ -1305,8 +1305,10 @@ struct QuickAddDock: View {
                     .frame(width: collapsed ? collapsedCell : cell)
                 ForEach([("barcode.viewfinder", "Barcode", AddSheet.barcode), ("camera.fill", "Foto", .photo), ("bolt.fill", "Schnell", .quick)], id: \.1) { item in
                     action(item.0, item.1, item.2)
-                        .frame(width: collapsed ? 0 : cell)
+                        // Labels fade quickly on the way out and arrive slightly after the dock has opened.
                         .opacity(collapsed ? 0 : 1)
+                        .animation(collapsed ? .easeIn(duration: 0.14) : .easeOut(duration: 0.22).delay(0.1), value: collapsed)
+                        .frame(width: collapsed ? 0 : cell)
                         .clipped()
                         .allowsHitTesting(!collapsed)
                         .accessibilityHidden(collapsed)
@@ -1323,7 +1325,7 @@ struct QuickAddDock: View {
         .padding(.vertical, Theme.Space.s)
         .frame(height: reserved, alignment: .bottom)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
-        .animation(.smooth(duration: 0.38), value: collapsed)
+        .animation(.spring(response: 0.46, dampingFraction: 0.74), value: collapsed)
     }
 
     private func action(_ icon: String, _ title: String, _ s: AddSheet, primary: Bool = false) -> some View {
