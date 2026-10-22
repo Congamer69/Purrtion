@@ -25,7 +25,7 @@ enum GoalStatus {
         switch self {
         case .none: Theme.cardAlt
         case .within: Theme.fiber
-        case .slightlyOver: Theme.accent
+        case .slightlyOver: Color(hex: 0xFF9F43)   // status colours stay fixed, whatever accent is chosen
         case .over: Theme.danger
         }
     }

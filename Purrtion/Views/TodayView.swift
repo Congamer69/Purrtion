@@ -391,6 +391,7 @@ struct DayHeader: View {
     @Environment(\.modelContext) private var ctx
     /// Only used to notice the first entry of the day.
     @Query private var todayEntries: [FoodEntry]
+    @AppStorage("profile.name") private var profileName = ""
     @State private var streak = Streak.State()
     @State private var showStreak = false
     @State private var pop = 0
@@ -404,6 +405,14 @@ struct DayHeader: View {
         _todayEntries = Query(filter: #Predicate<FoodEntry> { $0.day == today })
     }
 
+    private var subtitle: String {
+        let name = profileName.trimmingCharacters(in: .whitespaces)
+        guard isToday, !name.isEmpty else { return day.formatted(.dateTime.day().month(.wide).year()) }
+        let hour = Calendar.current.component(.hour, from: .now)
+        let greeting = hour < 5 ? "Gute Nacht" : hour < 11 ? "Guten Morgen" : hour < 17 ? "Hallo" : hour < 22 ? "Guten Abend" : "Gute Nacht"
+        return "\(greeting), \(name) · \(day.formatted(.dateTime.day().month(.abbreviated)))"
+    }
+
     var title: String {
         if isToday { return "Heute" }
         if Calendar.current.isDateInYesterday(day) { return "Gestern" }
@@ -414,7 +423,7 @@ struct DayHeader: View {
         HStack(alignment: .center, spacing: Theme.Space.s) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title).font(Theme.font(22, .bold)).foregroundStyle(Theme.textPrimary)
-                Text(day.formatted(.dateTime.day().month(.wide).year())).font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                Text(subtitle).font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
             .contentTransition(.numericText())
             Spacer(minLength: 0)

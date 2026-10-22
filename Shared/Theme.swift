@@ -1,23 +1,108 @@
 import SwiftUI
 import UIKit
 
-enum Theme {
-    static let accent = Color(hex: 0xFF8A4A)
-    static let accentSoft = Color(light: 0xFFE7D6, dark: 0x302A35)
+/// Look & feel choices from Profil → Darstellung. Stored in UserDefaults; the app re-creates its screens when one changes.
+enum ThemeAccent: String, CaseIterable, Identifiable {
+    case orange, berry, violet, sky, mint, graphite
+    var id: String { rawValue }
+    var name: String {
+        switch self { case .orange: "Orange"; case .berry: "Beere"; case .violet: "Violett"; case .sky: "Himmel"; case .mint: "Minze"; case .graphite: "Graphit" }
+    }
+    var hex: UInt32 {
+        switch self { case .orange: 0xFF8A4A; case .berry: 0xFF5D8F; case .violet: 0x9B7BFF; case .sky: 0x3E9BFF; case .mint: 0x2FBF94; case .graphite: 0x7C7C8A }
+    }
+}
 
-    static let background = Color(light: 0xFFF8F1, dark: 0x17151B)
-    static let card = Color(light: 0xFFFFFF, dark: 0x24212A)
-    static let cardAlt = Color(light: 0xF6EEE6, dark: 0x2E2A35)
+enum ThemeCorners: String, CaseIterable, Identifiable {
+    case compact, normal, round
+    var id: String { rawValue }
+    var name: String { switch self { case .compact: "Eckig"; case .normal: "Rund"; case .round: "Extra rund" } }
+    var radius: CGFloat { switch self { case .compact: 14; case .normal: 22; case .round: 30 } }
+    var small: CGFloat { switch self { case .compact: 10; case .normal: 14; case .round: 20 } }
+}
+
+enum ThemeCards: String, CaseIterable, Identifiable {
+    case shadow, flat, outline
+    var id: String { rawValue }
+    var name: String { switch self { case .shadow: "Schatten"; case .flat: "Flach"; case .outline: "Rand" } }
+}
+
+enum ThemeBackground: String, CaseIterable, Identifiable {
+    case warm, neutral, black
+    var id: String { rawValue }
+    var name: String { switch self { case .warm: "Warm"; case .neutral: "Neutral"; case .black: "Schwarz" } }
+}
+
+enum ThemeFont: String, CaseIterable, Identifiable {
+    case rounded, standard, serif, mono
+    var id: String { rawValue }
+    var name: String { switch self { case .rounded: "Rund"; case .standard: "Standard"; case .serif: "Serif"; case .mono: "Mono" } }
+    var design: Font.Design { switch self { case .rounded: .rounded; case .standard: .default; case .serif: .serif; case .mono: .monospaced } }
+}
+
+enum ThemeSetting {
+    static let accentKey = "theme.accent", cornersKey = "theme.corners", cardsKey = "theme.cards", backgroundKey = "theme.bg", fontKey = "theme.font"
+
+    static var accent: ThemeAccent { ThemeAccent(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .orange }
+    static var corners: ThemeCorners { ThemeCorners(rawValue: UserDefaults.standard.string(forKey: cornersKey) ?? "") ?? .normal }
+    static var cards: ThemeCards { ThemeCards(rawValue: UserDefaults.standard.string(forKey: cardsKey) ?? "") ?? .shadow }
+    static var background: ThemeBackground { ThemeBackground(rawValue: UserDefaults.standard.string(forKey: backgroundKey) ?? "") ?? .warm }
+    static var font: ThemeFont { ThemeFont(rawValue: UserDefaults.standard.string(forKey: fontKey) ?? "") ?? .rounded }
+}
+
+enum Theme {
+    static var accent: Color { Color(hex: ThemeSetting.accent.hex) }
+    /// Soft tint of the accent for chips and icon backgrounds.
+    static var accentSoft: Color {
+        let h = ThemeSetting.accent.hex
+        return Color(light: mix(h, 0xFFFFFF, 0.20), dark: mix(0x24212A, h, 0.16))
+    }
+
+    private static func mix(_ a: UInt32, _ b: UInt32, _ t: Double) -> UInt32 {
+        func ch(_ s: UInt32) -> Double { Double(s) }
+        func c(_ shift: UInt32) -> UInt32 {
+            UInt32((ch((a >> shift) & 0xFF) * (1 - t) + ch((b >> shift) & 0xFF) * t).rounded())
+        }
+        return c(16) << 16 | c(8) << 8 | c(0)
+    }
+
+    static var background: Color {
+        switch ThemeSetting.background {
+        case .warm: Color(light: 0xFFF8F1, dark: 0x17151B)
+        case .neutral: Color(light: 0xF3F4F6, dark: 0x121214)
+        case .black: Color(light: 0xFFFFFF, dark: 0x000000)
+        }
+    }
+    static var card: Color {
+        switch ThemeSetting.background {
+        case .warm: Color(light: 0xFFFFFF, dark: 0x24212A)
+        case .neutral: Color(light: 0xFFFFFF, dark: 0x1D1D20)
+        case .black: Color(light: 0xF4F4F6, dark: 0x121214)
+        }
+    }
+    static var cardAlt: Color {
+        switch ThemeSetting.background {
+        case .warm: Color(light: 0xF6EEE6, dark: 0x2E2A35)
+        case .neutral: Color(light: 0xEBECEF, dark: 0x2A2A2E)
+        case .black: Color(light: 0xE9E9EC, dark: 0x1D1D20)
+        }
+    }
     static let textPrimary = Color(light: 0x2B2530, dark: 0xF6F0EA)
     static let textSecondary = Color(light: 0x8A8190, dark: 0x9E96A6)
-    static let line = Color(light: 0xEFE5DB, dark: 0x38333F)
+    static var line: Color {
+        switch ThemeSetting.background {
+        case .warm: Color(light: 0xEFE5DB, dark: 0x38333F)
+        case .neutral: Color(light: 0xE1E2E6, dark: 0x333337)
+        case .black: Color(light: 0xE3E3E6, dark: 0x2A2A2E)
+        }
+    }
     /// Pixel-art outline: warm aubergine on light, near-black on dark so sprites keep a crisp edge.
     static let pixelOutline = Color(light: 0x3B2F3F, dark: 0x0C0A10)
 
     /// Background track for progress bars: tinted in light mode, neutral in dark mode.
     static func track(_ color: Color) -> Color {
         Color(UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(Color(hex: 0x2E2A35)) : UIColor(color.opacity(0.18))
+            traits.userInterfaceStyle == .dark ? UIColor(Theme.cardAlt) : UIColor(color.opacity(0.18))
         })
     }
 
@@ -29,10 +114,12 @@ enum Theme {
     static let danger = Color(hex: 0xFF5A5F)
 
     /// Soft shadow tinted like the background (warm in light mode, none needed in dark mode).
-    static let cardShadow = Color(light: 0xE9C9AE, dark: 0x000000).opacity(0.35)
+    static var cardShadow: Color {
+        ThemeSetting.cards == .shadow ? Color(light: 0xE9C9AE, dark: 0x000000).opacity(0.35) : .clear
+    }
 
-    static let radius: CGFloat = 22
-    static let radiusSmall: CGFloat = 14
+    static var radius: CGFloat { ThemeSetting.corners.radius }
+    static var radiusSmall: CGFloat { ThemeSetting.corners.small }
 
     /// 8-pt spacing scale (use for paddings and gaps).
     enum Space {
@@ -59,7 +146,7 @@ enum Theme {
         case .heavy, .black: w = size >= 26 ? .heavy : .bold
         default: w = .bold
         }
-        return .system(size: snap(size), weight: w, design: .rounded)
+        return .system(size: snap(size), weight: w, design: ThemeSetting.font.design)
     }
 }
 
@@ -100,6 +187,11 @@ struct CardStyle: ViewModifier {
         content
             .padding(padding)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            .overlay {
+                if ThemeSetting.cards == .outline {
+                    RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).stroke(Theme.line, lineWidth: 1.5)
+                }
+            }
             .shadow(color: Theme.cardShadow, radius: 14, y: 6)
     }
 }

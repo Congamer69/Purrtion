@@ -7,6 +7,12 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var ctx
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
     @AppStorage("appearance") private var appearance = Appearance.system
+    @AppStorage("profile.name") private var profileName = ""
+    @AppStorage(ThemeSetting.accentKey) private var accent = ThemeAccent.orange
+    @AppStorage(ThemeSetting.cornersKey) private var corners = ThemeCorners.normal
+    @AppStorage(ThemeSetting.cardsKey) private var cardStyle = ThemeCards.shadow
+    @AppStorage(ThemeSetting.backgroundKey) private var backgroundTone = ThemeBackground.warm
+    @AppStorage(ThemeSetting.fontKey) private var fontStyle = ThemeFont.rounded
     @AppStorage(VisionProvider.storageKey) private var visionProvider = VisionProvider.apple.rawValue
     @AppStorage(AITask.day.providerKey) private var dayProvider = ""
 
@@ -43,7 +49,7 @@ struct SettingsView: View {
                         HStack(spacing: 12) {
                             CatMascot(mood: .happy, pixel: 2.4).frame(width: 44)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Dein Profil").font(Theme.font(16, .semibold))
+                                Text(profileName.isEmpty ? "Dein Profil" : profileName).font(Theme.font(16, .semibold))
                                 Text("\(goals.sex.label) · \(goals.age) Jahre · \(Int(goals.heightCM)) cm · \(goals.weightKG.formatted(.number.precision(.fractionLength(0...1)))) kg")
                                     .font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                             }
@@ -125,7 +131,73 @@ struct SettingsView: View {
         }
     }
 
+    private var themePreview: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.m) {
+            HStack(spacing: 16) {
+                CatMascot(mood: .happy, pixel: 3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profileName.isEmpty ? "Vorschau" : profileName).font(Theme.font(14)).foregroundStyle(Theme.textSecondary)
+                    Text("601").font(Theme.font(38, .heavy)).foregroundStyle(Theme.textPrimary)
+                    Text("kcal übrig").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 6) {
+                Capsule().fill(Theme.accent).frame(height: 8)
+                Capsule().fill(Theme.track(Theme.accent)).frame(width: 60, height: 8)
+            }
+            HStack(spacing: 8) {
+                Label("Serie 12", systemImage: "flame.fill").font(Theme.font(12, .bold)).foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 10).padding(.vertical, 6).background(Theme.accentSoft, in: Capsule())
+                Text("Suchen").font(Theme.font(14, .bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 16).padding(.vertical, 8).background(Theme.accent, in: Capsule())
+            }
+        }
+        .card(padding: 18)
+    }
+
     @ViewBuilder private var appearanceSection: some View {
+        Section { themePreview }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+
+        Section {
+            TextField("Dein Name (optional)", text: $profileName).textContentType(.givenName)
+        } header: { Text("Du") } footer: { Text("Erscheint in der Begrüßung auf „Heute“ und im Profil.") }
+        .listRowBackground(Theme.card)
+
+        Section {
+            HStack(spacing: 12) {
+                ForEach(ThemeAccent.allCases) { a in
+                    Button {
+                        Haptics.tap()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { accent = a }
+                    } label: {
+                        Circle().fill(Color(hex: a.hex)).frame(height: 40)
+                            .overlay { if accent == a { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
+                            .overlay(Circle().stroke(Theme.textPrimary.opacity(accent == a ? 0.9 : 0), lineWidth: 2).padding(-4))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(a.name)
+                    .accessibilityAddTraits(accent == a ? .isSelected : [])
+                }
+            }
+            .padding(.vertical, 6)
+        } header: { Text("Akzentfarbe") }
+        .listRowBackground(Theme.card)
+
+        Section {
+            Picker("Ecken", selection: $corners) { ForEach(ThemeCorners.allCases) { Text($0.name).tag($0) } }
+            Picker("Karten", selection: $cardStyle) { ForEach(ThemeCards.allCases) { Text($0.name).tag($0) } }
+            Picker("Hintergrund", selection: $backgroundTone) { ForEach(ThemeBackground.allCases) { Text($0.name).tag($0) } }
+            Picker("Schrift", selection: $fontStyle) { ForEach(ThemeFont.allCases) { Text($0.name).tag($0) } }
+            Button("Auf Standard zurücksetzen") {
+                accent = .orange; corners = .normal; cardStyle = .shadow; backgroundTone = .warm; fontStyle = .rounded
+            }
+        } header: { Text("Stil") }
+        .listRowBackground(Theme.card)
+
                 Section {
                     HStack(spacing: 16) {
                         ForEach(CatPalette.all) { p in

@@ -7,6 +7,7 @@ struct PurrtionApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var goals = Goals()
     @AppStorage("appearance") private var appearance = Appearance.system
+    @AppStorage(ThemeSetting.accentKey) private var accentID = ""
 
     /// Shared so the nightly background analysis can use the same store.
     static let container: ModelContainer = {
@@ -61,13 +62,14 @@ struct QuickAddAccessory: View {
             Haptics.tap()
             AddRouter.shared.open(sheet)
         } label: {
-            Label(title, systemImage: icon)
-                .font(Theme.font(14, .bold))
-                .foregroundStyle(Theme.accent)
-                .labelStyle(.titleAndIcon)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
+            // Primary-colour text on the glass reads best; the accent stays on the icon.
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accent)
+                Text(title).font(Theme.font(14, .bold)).foregroundStyle(Theme.textPrimary)
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
@@ -82,16 +84,23 @@ struct RootView: View {
     @State private var tab = 0
     @ObservedObject private var router = NotificationRouter.shared
     @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
+    // Look & feel (Profil → Darstellung): screens are re-created with the new theme when one of these changes.
+    @AppStorage(ThemeSetting.accentKey) private var themeAccent = ""
+    @AppStorage(ThemeSetting.cornersKey) private var themeCorners = ""
+    @AppStorage(ThemeSetting.cardsKey) private var themeCards = ""
+    @AppStorage(ThemeSetting.backgroundKey) private var themeBackground = ""
+    @AppStorage(ThemeSetting.fontKey) private var themeFont = ""
+    private var themeRevision: String { [themeAccent, themeCorners, themeCards, themeBackground, themeFont].joined(separator: "|") }
     /// Re-renders the tabs when a server code is pasted or the server is disconnected.
     @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
 
     var body: some View {
         ZStack {
             TabView(selection: $tab) {
-                Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView() }
-                Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView() }
+                Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView().id(themeRevision) }
+                Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView().id(themeRevision) }
                 if friendsEnabled && FirebaseConfig.isAvailable(serverCode) {
-                    Tab("Freunde", systemImage: "person.2.fill", value: 3) { FriendsView() }
+                    Tab("Freunde", systemImage: "person.2.fill", value: 3) { FriendsView().id(themeRevision) }
                 }
                 Tab("Profil", systemImage: "person.crop.circle.fill", value: 2) { SettingsView() }
             }
@@ -102,13 +111,13 @@ struct RootView: View {
 
             if showSplash {
                 SplashView()
-                    .transition(.opacity.combined(with: .scale(scale: 1.15)))
+                    .transition(.opacity.combined(with: .scale(scale: 1.12)))
                     .zIndex(1)
             }
         }
         .task {
             // Short, cute splash – just long enough for the food database to finish loading.
-            try? await Task.sleep(for: .milliseconds(1300))
+            try? await Task.sleep(for: .milliseconds(1500))
             withAnimation(.easeInOut(duration: 0.4)) { showSplash = false }
             try? await Task.sleep(for: .milliseconds(450))
             router.appReady = true
@@ -268,60 +277,56 @@ extension RootView {
 
 struct SplashView: View {
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
-    @State private var landed = false
+    @State private var discIn = false
+    @State private var catIn = false
     @State private var squash = false
+    @State private var ring: CGFloat = 0
     @State private var lettersShown = 0
-    @State private var start = Date()
+    @State private var burst = false
 
     private let word = Array("PURRTION")
-    private let blocks = 14
-    private let duration = 1.15
+    /// Same orange as the system launch screen, so the app opens without a visible seam.
+    private let brand = Color(hex: 0xFF8A4A)
+    private let cream = Color(hex: 0xFFF3E4)
 
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
-            TwinklingStars()
+            brand.ignoresSafeArea()
 
-            VStack(spacing: 26) {
+            VStack(spacing: 40) {
                 ZStack {
-                    // soft pixel shadow that grows when the cat lands
-                    Capsule().fill(Theme.textPrimary.opacity(0.08))
-                        .frame(width: landed ? 110 : 30, height: 10)
-                        .offset(y: 72)
-                    AnimatedSprite(frames: landed ? CatMood.happy.frames : [Sprites.sit], fps: 4, pixel: 8,
+                    Circle().fill(cream)
+                        .frame(width: 184, height: 184)
+                        .scaleEffect(discIn ? 1 : 0.05)
+                        .shadow(color: Color(hex: 0xC4531C).opacity(0.25), radius: 18, y: 10)
+                    Circle().trim(from: 0, to: ring)
+                        .stroke(cream.opacity(0.9), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .frame(width: 216, height: 216)
+                        .rotationEffect(.degrees(-90))
+                    AnimatedSprite(frames: catIn ? CatMood.happy.frames : [Sprites.sit], fps: 4, pixel: 7,
                                    palette: CatPalette.byID(paletteID))
-                        .scaleEffect(x: squash ? 1.15 : 1, y: squash ? 0.82 : 1, anchor: .bottom)
-                        .offset(y: landed ? 0 : -420)
+                        .scaleEffect(x: squash ? 1.14 : 1, y: squash ? 0.84 : 1, anchor: .bottom)
+                        .offset(y: catIn ? -4 : -230)
+                        .opacity(discIn ? 1 : 0)
+                    ForEach(0..<8, id: \.self) { i in
+                        let angle = Double(i) / 8 * 2 * .pi + 0.2
+                        Rectangle().fill(cream)
+                            .frame(width: 8, height: 8)
+                            .rotationEffect(.degrees(45))
+                            .offset(x: cos(angle) * (burst ? 140 : 104), y: sin(angle) * (burst ? 140 : 104))
+                            .scaleEffect(burst ? 0.2 : 1)
+                            .opacity(burst ? 0 : 0.001)
+                    }
                 }
-                .frame(height: 140)
+                .frame(height: 224)
 
                 HStack(spacing: 5) {
                     ForEach(Array(word.enumerated()), id: \.offset) { i, ch in
-                        PixelText(text: String(ch), pixel: 5, color: Theme.accent)
-                            .offset(y: i < lettersShown ? 0 : 26)
-                            .scaleEffect(i < lettersShown ? 1 : 0.3)
+                        PixelText(text: String(ch), pixel: 5, color: cream)
+                            .offset(y: i < lettersShown ? 0 : 30)
+                            .scaleEffect(i < lettersShown ? 1 : 0.2, anchor: .bottom)
                             .opacity(i < lettersShown ? 1 : 0)
                     }
-                }
-
-                TimelineView(.animation) { ctx in
-                    let p = min(1, ctx.date.timeIntervalSince(start) / duration)
-                    let barWidth: CGFloat = 196
-                    let filled = Int((p * Double(blocks)).rounded(.down))
-                    VStack(alignment: .leading, spacing: 4) {
-                        PixelSpriteView(sprite: Int(ctx.date.timeIntervalSinceReferenceDate * 9) % 2 == 0 ? Sprites.walk1 : Sprites.walk2,
-                                        pixel: 2, palette: CatPalette.byID(paletteID))
-                            .offset(x: (barWidth - 40) * p)
-                        HStack(spacing: 4) {
-                            ForEach(0..<blocks, id: \.self) { i in
-                                Rectangle()
-                                    .fill(i < filled ? Theme.accent : Theme.line)
-                                    .frame(width: 10, height: 10)
-                                    .scaleEffect(i == filled - 1 ? 1.25 : 1)
-                            }
-                        }
-                    }
-                    .frame(width: barWidth, alignment: .leading)
                 }
             }
         }
@@ -329,17 +334,25 @@ struct SplashView: View {
     }
 
     private func play() {
-        start = .now
-        withAnimation(.interpolatingSpring(stiffness: 260, damping: 18)) { landed = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+        // 1. the plate pops in
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.62)) { discIn = true }
+        // 2. the cat drops onto it and squashes a little
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            withAnimation(.interpolatingSpring(stiffness: 230, damping: 15)) { catIn = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            Haptics.tap()
             withAnimation(.easeOut(duration: 0.08)) { squash = true }
+            withAnimation(.easeOut(duration: 0.7)) { burst = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) { squash = false }
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.4)) { squash = false }
             }
         }
+        // 3. the ring draws around it while the letters bounce in
+        withAnimation(.easeInOut(duration: 1.0).delay(0.25)) { ring = 1 }
         for i in 0..<word.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25 + Double(i) * 0.06) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) { lettersShown = i + 1 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + Double(i) * 0.05) {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.55)) { lettersShown = i + 1 }
             }
         }
     }
