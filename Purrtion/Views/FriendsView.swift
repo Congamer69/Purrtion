@@ -185,7 +185,7 @@ struct FriendsView: View {
                     ForEach(FriendMetric.allCases) { m in
                         Button {
                             Haptics.select()
-                            withAnimation(.snappy) { metric = m }
+                            withAnimation(Motion.quick) { metric = m }
                         } label: {
                             Label(m.short, systemImage: m.icon).font(Theme.font(13, .semibold))
                                 .foregroundStyle(metric == m ? .white : Theme.textSecondary)
@@ -231,7 +231,7 @@ struct FriendsView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .animation(.snappy, value: metric)
+            .animation(Motion.quick, value: metric)
         }
         .card()
     }
@@ -641,7 +641,7 @@ struct FriendsSettingsSection: View {
                             .disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
-                .animation(.snappy, value: serverCheck)
+                .animation(Motion.quick, value: serverCheck)
             } header: { Text("Freunde-Server verbinden") } footer: {
                 if let serverError { Text(serverError).foregroundStyle(Theme.danger) }
                 else {

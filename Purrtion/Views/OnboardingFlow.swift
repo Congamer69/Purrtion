@@ -53,7 +53,7 @@ struct OnboardingSetup: View {
         .background(Theme.background.ignoresSafeArea())
     }
 
-    private func go(_ d: Int) { Haptics.tap(); withAnimation(.snappy) { step += d } }
+    private func go(_ d: Int) { Haptics.tap(); withAnimation(Motion.quick) { step += d } }
 
     private func next() {
         if step < steps - 1 { go(1); return }
@@ -156,7 +156,7 @@ struct OnboardingSetup: View {
     }
 
     private func choice(_ title: String, detail: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button { Haptics.tap(); withAnimation(.snappy) { action() } } label: {
+        Button { Haptics.tap(); withAnimation(Motion.quick) { action() } } label: {
             HStack(spacing: Theme.Space.m) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)

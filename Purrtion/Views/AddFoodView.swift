@@ -156,7 +156,7 @@ struct AddFoodView: View {
                 let on = tab == t
                 Button {
                     Haptics.tap()
-                    withAnimation(.snappy) { tab = t }
+                    withAnimation(Motion.quick) { tab = t }
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: t.icon).font(.system(size: 12, weight: .bold))
@@ -405,7 +405,7 @@ struct AddFoodView: View {
         Haptics.success()
         addedToNight = BloodAlcohol.lastMovedToNight
         BloodAlcohol.lastMovedToNight = false
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { addedName = name }
+        withAnimation(Motion.quick) { addedName = name }
         DispatchQueue.main.asyncAfter(deadline: .now() + (addedToNight ? 2.6 : 1.6)) {
             withAnimation(.easeOut) { if addedName == name { addedName = nil } }
         }

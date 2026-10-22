@@ -81,7 +81,7 @@ struct ScoreRing<Label: View>: View {
             label()
         }
         .padding(lineWidth / 2)
-        .onAppear { withAnimation(.spring(response: 1, dampingFraction: 0.8).delay(0.1)) { shown = value } }
+        .onAppear { withAnimation(Motion.fill.delay(0.1)) { shown = value } }
         .onChange(of: value) { _, v in withAnimation(.spring) { shown = v } }
     }
 }
@@ -195,7 +195,7 @@ struct HealthScoreView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
-                Button { withAnimation(.snappy) { expanded.toggle() } } label: {
+                Button { withAnimation(Motion.quick) { expanded.toggle() } } label: {
                     HStack(spacing: 10) {
                         Image(systemName: c.icon).font(.system(size: 13, weight: .bold)).foregroundStyle(color)
                             .frame(width: 28, height: 28).background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))

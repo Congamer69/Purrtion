@@ -87,7 +87,7 @@ struct DayOverviewSheet: View {
             }
         }
         .card()
-        .animation(.snappy, value: target.kcal)
+        .animation(Motion.quick, value: target.kcal)
     }
 
     private func line(_ title: String, _ value: Double, sign: String = "", color: Color = Theme.textPrimary,
@@ -151,7 +151,7 @@ struct DayOverviewSheet: View {
 
     private func change(_ delta: Double) {
         Haptics.tap()
-        withAnimation(.snappy) { manual = max(0, min(5000, manual + delta)) }
+        withAnimation(Motion.quick) { manual = max(0, min(5000, manual + delta)) }
         ActivityStore.setManual(manual, for: day)
         goals.activityUpdated()
         WidgetBridge.update(ctx, goals: goals)

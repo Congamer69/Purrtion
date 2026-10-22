@@ -62,7 +62,7 @@ struct TodayView: View {
     var body: some View {
         NavigationStack {
             DayContent(day: day, sheet: $sheet, selection: $selection, weekOffset: $weekOffset, onSelectDay: { picked in
-                withAnimation(.snappy) { day = picked }
+                withAnimation(Motion.quick) { day = picked }
             }, onSaveRecipe: { fromSelection in
                 recipeFromSelection = fromSelection
                 recipeName = "Mahlzeit \(day.formatted(.dateTime.day().month(.abbreviated)))"
@@ -72,7 +72,7 @@ struct TodayView: View {
                 .background(Theme.background.ignoresSafeArea())
                 .safeAreaInset(edge: .top, spacing: 0) {
                     DayHeader(day: $day, onCalendar: { sheet = .calendar }, onToday: {
-                        withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                        withAnimation(Motion.quick) { day = Calendar.current.startOfDay(for: .now) }
                     })
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -81,7 +81,7 @@ struct TodayView: View {
                                      onDelete: deleteSelected,
                                      onCopy: { sheet = .copySelectionTo },
                                      onRecipe: { recipeFromSelection = true; recipeName = "Meine Mahlzeit"; askRecipeName = true },
-                                     onDone: { withAnimation(.snappy) { self.selection = nil } })
+                                     onDone: { withAnimation(Motion.quick) { self.selection = nil } })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -92,13 +92,13 @@ struct TodayView: View {
                     let next = Calendar.current.date(byAdding: .day, value: delta, to: day)!
                     guard next <= Calendar.current.startOfDay(for: .now) else { return }
                     Haptics.tap()
-                    withAnimation(.snappy) { day = next }
+                    withAnimation(Motion.quick) { day = next }
                 })
                 .onChange(of: day) { _, new in
                     selection = nil
                     // Another way of changing the day (calendar, swipe, "Zu Heute"): bring that week into view.
                     let w = WeekStrip.offset(of: new)
-                    if weekOffset != w { withAnimation(.snappy) { weekOffset = w } }
+                    if weekOffset != w { withAnimation(Motion.quick) { weekOffset = w } }
                 }
                 // Quick-add buttons in the tab bar's accessory.
                 .onChange(of: addRouter.request?.id) { _, _ in
@@ -179,7 +179,7 @@ struct TodayView: View {
     /// Notification tap: show that day and its verdict.
     private func openReview(for target: Date) {
         let d = Calendar.current.startOfDay(for: target)
-        withAnimation(.snappy) { day = d }
+        withAnimation(Motion.quick) { day = d }
         if let review = try? ctx.fetch(FetchDescriptor<DayReview>(predicate: #Predicate { $0.day == d })).first {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { sheet = .review(review) }
         }
@@ -189,7 +189,7 @@ struct TodayView: View {
     private func followMidnight() {
         let now = Calendar.current.startOfDay(for: .now)
         guard now != todayAnchor else { return }
-        if day == todayAnchor { withAnimation(.snappy) { day = now } }
+        if day == todayAnchor { withAnimation(Motion.quick) { day = now } }
         todayAnchor = now
     }
 
@@ -312,7 +312,7 @@ struct CopyPickerSheet: View {
                     Section {
                         Button {
                             Haptics.tap()
-                            withAnimation(.snappy) { selected = allSelected ? [] : Set(entries.map(\.id)) }
+                            withAnimation(Motion.quick) { selected = allSelected ? [] : Set(entries.map(\.id)) }
                         } label: {
                             HStack {
                                 CheckCircle(on: allSelected)
@@ -327,7 +327,7 @@ struct CopyPickerSheet: View {
                         ForEach(entries) { e in
                             Button {
                                 Haptics.tap()
-                                withAnimation(.snappy) {
+                                withAnimation(Motion.quick) {
                                     if selected.contains(e.id) { selected.remove(e.id) } else { selected.insert(e.id) }
                                 }
                             } label: {
@@ -458,7 +458,7 @@ struct DayHeader: View {
         .padding(.horizontal, Theme.Space.l)
         .padding(.vertical, Theme.Space.s)
         .background(Theme.background)
-        .animation(.snappy, value: isToday)
+        .animation(Motion.quick, value: isToday)
         .task {
             refreshStreak(animate: false)
             #if DEBUG
@@ -469,7 +469,7 @@ struct DayHeader: View {
                 while !Task.isCancelled {
                     streak.loggedToday = false
                     try? await Task.sleep(for: .seconds(1.5))
-                    withAnimation(.snappy) { streak.loggedToday = true }
+                    withAnimation(Motion.quick) { streak.loggedToday = true }
                     pop += 1
                     try? await Task.sleep(for: .seconds(2.5))
                 }
@@ -491,7 +491,7 @@ struct DayHeader: View {
             pop += 1
             Haptics.tap()
         }
-        if new != streak { withAnimation(.snappy) { streak = new } }
+        if new != streak { withAnimation(Motion.quick) { streak = new } }
     }
 }
 
@@ -757,7 +757,7 @@ struct DayContent: View {
 
     private func closeDay() {
         Haptics.tap()
-        withAnimation(.snappy) { closing = true }
+        withAnimation(Motion.quick) { closing = true }
         Task {
             do {
                 _ = try await DayCloser.close(day: day, goals: goals, ctx: ctx)
@@ -765,7 +765,7 @@ struct DayContent: View {
             } catch {
                 closeError = error.localizedDescription
             }
-            withAnimation(.snappy) { closing = false }
+            withAnimation(Motion.quick) { closing = false }
         }
     }
 
@@ -845,7 +845,7 @@ struct DayContent: View {
                                 .buttonStyle(SquishButtonStyle())
                                 .contextMenu {
                                     Button { duplicate(entry) } label: { Label("Nochmal eintragen", systemImage: "plus.square.on.square") }
-                                    Button { withAnimation(.snappy) { selection = [entry.id] } } label: { Label("Auswählen", systemImage: "checkmark.circle") }
+                                    Button { withAnimation(Motion.quick) { selection = [entry.id] } } label: { Label("Auswählen", systemImage: "checkmark.circle") }
                                     Button(role: .destructive) { delete(entry) } label: { Label("Löschen", systemImage: "trash") }
                                 }
                             }
@@ -904,7 +904,7 @@ struct DayContent: View {
                     if selecting {
                         Button(allSelected ? "Keine" : "Alle") {
                             Haptics.tap()
-                            withAnimation(.snappy) { selection = allSelected ? [] : Set(entries.map(\.id)) }
+                            withAnimation(Motion.quick) { selection = allSelected ? [] : Set(entries.map(\.id)) }
                         }
                         .font(Theme.font(14, .semibold))
                         .foregroundStyle(Theme.accent)
@@ -921,9 +921,9 @@ struct DayContent: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: entries.count)
-        .animation(.snappy, value: selecting)
-        .animation(.snappy, value: reviews.first?.createdAt)
+        .animation(Motion.smooth, value: entries.count)
+        .animation(Motion.quick, value: selecting)
+        .animation(Motion.quick, value: reviews.first?.createdAt)
         .alert("Tag abschließen fehlgeschlagen", isPresented: Binding(get: { closeError != nil }, set: { if !$0 { closeError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(closeError ?? "") }
@@ -955,7 +955,7 @@ struct DayContent: View {
             }
             if !entries.isEmpty {
                 Section("Einträge") {
-                    Button { withAnimation(.snappy) { selection = [] } } label: {
+                    Button { withAnimation(Motion.quick) { selection = [] } } label: {
                         Label("Auswählen …", systemImage: "checkmark.circle")
                     }
                     Button { onSaveRecipe(false) } label: { Label("Tag als Rezept speichern", systemImage: "frying.pan") }
@@ -974,7 +974,7 @@ struct DayContent: View {
 
     private func toggle(_ entry: FoodEntry) {
         Haptics.tap()
-        withAnimation(.smooth(duration: 0.32)) {
+        withAnimation(Motion.smooth) {
             if expandedMeals.contains(entry.id) { expandedMeals.remove(entry.id) } else { expandedMeals.insert(entry.id) }
         }
     }
@@ -1049,7 +1049,7 @@ struct SummaryCard: View {
                         .font(Theme.font(38, .heavy))
                         .foregroundStyle(remaining >= 0 ? Theme.textPrimary : Theme.danger)
                         .contentTransition(.numericText(value: remaining))
-                        .animation(.snappy, value: remaining)
+                        .animation(Motion.quick, value: remaining)
                     HStack(spacing: 6) {
                         Text("kcal").font(Theme.font(13, .semibold)).foregroundStyle(Theme.textSecondary)
                         if target.activityBonus > 0 {
@@ -1120,8 +1120,8 @@ struct CalorieRing: View {
             }
         }
         .padding(lineWidth / 2)
-        .onAppear { withAnimation(.spring(response: 1, dampingFraction: 0.8).delay(0.1)) { shown = progress } }
-        .onChange(of: progress) { _, p in withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) { shown = p } }
+        .onAppear { withAnimation(Motion.fill.delay(0.1)) { shown = progress } }
+        .onChange(of: progress) { _, p in withAnimation(Motion.fill) { shown = p } }
     }
 }
 
@@ -1153,7 +1153,7 @@ struct MacroBar: View {
                     Capsule().fill(Theme.track(color))
                     Capsule().fill(color)
                         .frame(width: max(8, geo.size.width * min(value / max(goal, 1), 1)))
-                        .animation(.spring(response: 0.7, dampingFraction: 0.75), value: value)
+                        .animation(Motion.fill, value: value)
                 }
             }
             .frame(height: 8)
@@ -1189,7 +1189,7 @@ struct WaterCard: View {
             ForEach(0..<min(glasses, 12), id: \.self) { i in
                 Button {
                     Haptics.tap()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    withAnimation(Motion.playful) {
                         if i < filled { add(-goals.waterStep) } else { add(goals.waterStep) }
                     }
                 } label: {

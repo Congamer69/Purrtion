@@ -65,9 +65,9 @@ struct CatMascot: View {
         }
         .onChange(of: mood) { _, new in
             guard new == .eating || new == .happy || new == .proud else { return }
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.4)) { bounce = true }
+            withAnimation(.spring(duration: 0.28, bounce: 0.3)) { bounce = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { bounce = false }
+                withAnimation(Motion.playful) { bounce = false }
             }
         }
     }

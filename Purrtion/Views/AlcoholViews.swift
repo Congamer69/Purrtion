@@ -63,7 +63,7 @@ struct AlcoholCard: View {
                 }
                 Button {
                     Haptics.tap()
-                    withAnimation(.snappy) { editing.toggle() }
+                    withAnimation(Motion.quick) { editing.toggle() }
                 } label: {
                     HStack {
                         Text("Getränke & Uhrzeiten").font(Theme.font(14, .semibold))

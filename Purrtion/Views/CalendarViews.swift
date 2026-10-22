@@ -129,7 +129,7 @@ struct CalendarMonthView: View {
 
     private func shift(_ d: Int) {
         Haptics.tap()
-        withAnimation(.snappy) { month = cal.date(byAdding: .month, value: d, to: month)! }
+        withAnimation(Motion.quick) { month = cal.date(byAdding: .month, value: d, to: month)! }
     }
 }
 

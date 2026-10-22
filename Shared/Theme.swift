@@ -50,6 +50,20 @@ enum ThemeSetting {
     static var font: ThemeFont { ThemeFont(rawValue: UserDefaults.standard.string(forKey: fontKey) ?? "") ?? .rounded }
 }
 
+/// One motion vocabulary for the whole app, so everything moves like it belongs together.
+enum Motion {
+    /// Taps and small state changes: selection, toggles, list edits.
+    static let quick = Animation.snappy(duration: 0.32)
+    /// Content that changes size or position: expanding rows, cards appearing, theme changes.
+    static let smooth = Animation.smooth(duration: 0.4)
+    /// Small rewards: water glass, cat reaction, picking a colour.
+    static let playful = Animation.spring(duration: 0.45, bounce: 0.3)
+    /// Values that fill up: rings and bars. Settles softly, barely overshoots.
+    static let fill = Animation.spring(duration: 0.9, bounce: 0.08)
+    /// Button press and release.
+    static let press = Animation.spring(duration: 0.28, bounce: 0.2)
+}
+
 enum Theme {
     static var accent: Color { Color(hex: ThemeSetting.accent.hex) }
     /// Soft tint of the accent for chips and icon backgrounds.
@@ -213,7 +227,7 @@ struct SquishButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .animation(Motion.press, value: configuration.isPressed)
     }
 }
 
@@ -229,7 +243,7 @@ struct PillButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .background(filled ? color : color.opacity(0.14), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .animation(Motion.press, value: configuration.isPressed)
     }
 }
 

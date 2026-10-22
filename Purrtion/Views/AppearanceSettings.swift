@@ -18,10 +18,10 @@ struct AppearanceSettingsView: View {
             .navigationTitle("Darstellung")
             .navigationBarTitleDisplayMode(.inline)
             .keyboardDoneButton()
-            .animation(.smooth(duration: 0.3), value: corners)
-            .animation(.smooth(duration: 0.3), value: cardStyle)
-            .animation(.smooth(duration: 0.3), value: backgroundTone)
-            .animation(.smooth(duration: 0.3), value: accent)
+            .animation(Motion.smooth, value: corners)
+            .animation(Motion.smooth, value: cardStyle)
+            .animation(Motion.smooth, value: backgroundTone)
+            .animation(Motion.smooth, value: accent)
     }
 
     /// A small Today screen built from the real card styles, so every choice below is visible right here.
@@ -89,7 +89,7 @@ struct AppearanceSettingsView: View {
                 ForEach(ThemeAccent.allCases) { a in
                     Button {
                         Haptics.tap()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { accent = a }
+                        withAnimation(Motion.playful) { accent = a }
                     } label: {
                         Circle().fill(Color(hex: a.hex)).frame(height: 40)
                             .overlay { if accent == a { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
@@ -121,7 +121,7 @@ struct AppearanceSettingsView: View {
                         ForEach(CatPalette.all) { p in
                             Button {
                                 Haptics.tap()
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { paletteID = p.id }
+                                withAnimation(Motion.playful) { paletteID = p.id }
                             } label: {
                                 VStack(spacing: 6) {
                                     PixelSpriteView(sprite: paletteID == p.id ? Sprites.happy : Sprites.sit, pixel: 3, palette: p)

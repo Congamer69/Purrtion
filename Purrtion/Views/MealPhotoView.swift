@@ -267,7 +267,7 @@ struct MealPhotoView: View {
             let n = item.food.nutrients(grams: item.grams)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top) {
-                    Button { withAnimation(.snappy) { item.include.toggle() } } label: {
+                    Button { withAnimation(Motion.quick) { item.include.toggle() } } label: {
                         Image(systemName: item.include ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 22)).foregroundStyle(item.include ? Theme.accent : Theme.textSecondary)
                     }

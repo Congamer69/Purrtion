@@ -505,7 +505,7 @@ private struct TaskSection: View {
     private func row(icon: String, title: String, note: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button {
             Haptics.tap()
-            withAnimation(.snappy) { action() }
+            withAnimation(Motion.quick) { action() }
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
@@ -671,7 +671,7 @@ private struct WeekdayGoalsSection: View {
                     for wd in weekdays where dict[wd] == nil { dict[wd] = goals.kcal }
                     goals.weekdayKcal = dict
                 }
-                withAnimation(.snappy) { goals.weekdayEnabled = on }
+                withAnimation(Motion.quick) { goals.weekdayEnabled = on }
             })) { Label("Ziel pro Wochentag", systemImage: "calendar.badge.clock") }
             if goals.weekdayEnabled {
                 ForEach(weekdays, id: \.self) { wd in
@@ -703,7 +703,7 @@ private struct ActivityGoalSection: View {
     var body: some View {
         Section {
             Toggle(isOn: Binding(get: { goals.activityEnabled }, set: { on in
-                withAnimation(.snappy) { goals.activityEnabled = on }
+                withAnimation(Motion.quick) { goals.activityEnabled = on }
                 guard on else { return }
                 Task {
                     do { try await ActivityStore.requestAuthorization() } catch { failed = true }
@@ -749,7 +749,7 @@ struct MacroSplitBar: View {
                 Capsule().fill(Theme.carbs).frame(width: max(4, geo.size.width * c / 100 - 3))
                 Capsule().fill(Theme.fat).frame(width: max(4, geo.size.width * f / 100 - 3))
             }
-            .animation(.snappy, value: p + f)
+            .animation(Motion.quick, value: p + f)
         }
         .frame(height: 10)
         .padding(.vertical, 4)
@@ -849,7 +849,7 @@ struct ProfileCalculator: View {
                     Button {
                         store()
                         Haptics.success()
-                        withAnimation(.snappy) { saved = true }
+                        withAnimation(Motion.quick) { saved = true }
                     } label: {
                         Label(saved && !changed ? "Profil gespeichert" : "Nur Profil speichern",
                               systemImage: saved && !changed ? "checkmark" : "person.crop.circle.badge.checkmark")

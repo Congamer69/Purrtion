@@ -128,7 +128,7 @@ struct FoodDetailView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.snappy, value: amountFocused)
+        .animation(Motion.quick, value: amountFocused)
     }
 
     private var quickTitle: String {
@@ -196,7 +196,7 @@ struct FoodDetailView: View {
                         let selected = s == serving
                         Button {
                             Haptics.tap()
-                            withAnimation(.snappy) {
+                            withAnimation(Motion.quick) {
                                 serving = s
                                 setQuantity(s.grams == 1 ? (food.servings.first?.grams ?? 100).rounded() : 1)
                             }
@@ -264,7 +264,7 @@ struct FoodDetailView: View {
     private func bigStat(_ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value).font(Theme.font(18, .heavy)).foregroundStyle(Theme.textPrimary)
-                .contentTransition(.numericText()).animation(.snappy, value: value)
+                .contentTransition(.numericText()).animation(Motion.quick, value: value)
             HStack(spacing: 4) {
                 Rectangle().fill(color).frame(width: 6, height: 6)
                 Text(label).font(Theme.font(12, .medium)).foregroundStyle(Theme.textSecondary)
@@ -373,7 +373,7 @@ struct MealEntryDetailView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .animation(.smooth(duration: 0.3), value: ingredients.map(\.id))
+            .animation(Motion.smooth, value: ingredients.map(\.id))
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Mahlzeit bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
@@ -434,7 +434,7 @@ private struct MealSummaryCard: View {
             }
         }
         .card(padding: 16)
-        .animation(.snappy, value: entry.kcal)
+        .animation(Motion.quick, value: entry.kcal)
     }
 }
 

@@ -65,7 +65,7 @@ struct QuickAddView: View {
                 VStack(spacing: 16) {
                     Picker("Eingabe", selection: Binding(get: { per100 }, set: { v in
                         Haptics.tap()
-                        withAnimation(.snappy) { per100 = v }
+                        withAnimation(Motion.quick) { per100 = v }
                     })) {
                         Text("Gesamt").tag(false)
                         Text("Pro 100 g").tag(true)
@@ -108,7 +108,7 @@ struct QuickAddView: View {
                     Button {
                         Haptics.tap()
                         focus = nil
-                        withAnimation(.snappy) { showMore.toggle() }
+                        withAnimation(Motion.quick) { showMore.toggle() }
                     } label: {
                         HStack {
                             Label("Alkohol & Mikronährstoffe", systemImage: "list.bullet.rectangle")

@@ -15,6 +15,7 @@
 - **Neuer Start:** Orangefarbener Startbildschirm in der Farbe des App-Icons. Eine cremefarbene Scheibe poppt auf, die Katze fällt hinein, ein Ring zeichnet sich darum, und die Buchstaben springen nacheinander ein. Danach hebt sich das Logo weg, das Orange blendet aus und die App setzt sich sanft darunter ein.
 - **Darstellung zum Anpassen:** Profil → Darstellung hat jetzt eine Live-Vorschau, deinen Namen (Begrüßung auf „Heute“), sechs Akzentfarben, Ecken (eckig, rund, extra rund), Kartenstil (Schatten, flach, Rand), Hintergrund (warm, neutral, schwarz) und Schrift (rund, Standard, Serif, Mono). Mit „Auf Standard zurücksetzen“.
 - **Lesbarere Zusatzleiste:** Beschriftung in Textfarbe, Akzent nur auf den Symbolen.
+- **Einheitliche Bewegung:** Alle Animationen nutzen jetzt fünf gemeinsame Federn (schnell, weich, verspielt, Füllen, Drücken) statt vieler einzelner Werte. Wasserglas, Katze, Ringe, Balken, Listen und Auswahl fühlen sich dadurch gleich an.
 - **Einheitliche Typografie und Abstände:** vier Schriftgrößen, zwei Schriftstärken, weiche getönte Schatten.
 
 ## 1.8.1 – 22. Oktober 2026
