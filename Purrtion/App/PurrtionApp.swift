@@ -81,6 +81,11 @@ struct RootView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
+    @State private var appBuilt = false
+    #if DEBUG
+    @State private var debugAppearance = false
+    #endif
+    @State private var splashExit = false
     @State private var tab = 0
     @ObservedObject private var router = NotificationRouter.shared
     @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
@@ -96,6 +101,8 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
+            // The tabs are built only once the splash has played, so their setup can't make the intro stutter.
+            if appBuilt {
             TabView(selection: $tab) {
                 Tab("Heute", systemImage: "pawprint.fill", value: 0) { TodayView().id(themeRevision) }
                 Tab("Verlauf", systemImage: "chart.bar.fill", value: 1) { StatsView().id(themeRevision) }
@@ -108,21 +115,29 @@ struct RootView: View {
             .tabBarMinimizeBehavior(.onScrollDown)
             .tabViewBottomAccessory(isEnabled: tab == 0) { QuickAddAccessory() }
             .opacity(showSplash ? 0 : 1)
+            .scaleEffect(showSplash ? 0.97 : 1)
+            }
 
             if showSplash {
-                SplashView()
-                    .transition(.opacity.combined(with: .scale(scale: 1.12)))
+                SplashView(exiting: splashExit)
+                    .transition(.opacity)
                     .zIndex(1)
             }
         }
         .task {
-            // Short, cute splash – just long enough for the food database to finish loading.
-            try? await Task.sleep(for: .milliseconds(1500))
-            withAnimation(.easeInOut(duration: 0.4)) { showSplash = false }
+            // Short, cute splash, long enough for the food database to finish loading.
+            try? await Task.sleep(for: .milliseconds(1000))
+            appBuilt = true
             try? await Task.sleep(for: .milliseconds(450))
+            // The logo lifts away first, then the orange fades while the app settles in underneath.
+            withAnimation(.easeIn(duration: 0.26)) { splashExit = true }
+            try? await Task.sleep(for: .milliseconds(160))
+            withAnimation(.smooth(duration: 0.6)) { showSplash = false }
+            try? await Task.sleep(for: .milliseconds(500))
             router.appReady = true
             #if DEBUG
             if let t = UserDefaults.standard.string(forKey: "debugTab").flatMap(Int.init) { tab = t }
+            if ProcessInfo.processInfo.arguments.contains("-debugAppearance") { debugAppearance = true }
             if ProcessInfo.processInfo.arguments.contains("-seedMeal") { seedDemoMeal() }
             if ProcessInfo.processInfo.arguments.contains("-demoData") { seedDemoData() }
             #endif
@@ -172,6 +187,9 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
             WidgetBridge.update(ctx, goals: goals)
         }
+        #if DEBUG
+        .sheet(isPresented: $debugAppearance) { NavigationStack { AppearanceSettingsView() } }
+        #endif
         .fullScreenCover(isPresented: Binding(get: { !goals.onboarded && !showSplash }, set: { _ in })) {
             OnboardingView()
         }
@@ -276,13 +294,12 @@ extension RootView {
 #endif
 
 struct SplashView: View {
+    var exiting = false
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
     @State private var discIn = false
     @State private var catIn = false
-    @State private var squash = false
     @State private var ring: CGFloat = 0
     @State private var lettersShown = 0
-    @State private var burst = false
 
     private let word = Array("PURRTION")
     /// Same orange as the system launch screen, so the app opens without a visible seam.
@@ -298,62 +315,42 @@ struct SplashView: View {
                     Circle().fill(cream)
                         .frame(width: 184, height: 184)
                         .scaleEffect(discIn ? 1 : 0.05)
-                        .shadow(color: Color(hex: 0xC4531C).opacity(0.25), radius: 18, y: 10)
+                        .shadow(color: Color(hex: 0xC4531C).opacity(0.22), radius: 18, y: 10)
                     Circle().trim(from: 0, to: ring)
                         .stroke(cream.opacity(0.9), style: StrokeStyle(lineWidth: 7, lineCap: .round))
                         .frame(width: 216, height: 216)
                         .rotationEffect(.degrees(-90))
                     AnimatedSprite(frames: catIn ? CatMood.happy.frames : [Sprites.sit], fps: 4, pixel: 7,
                                    palette: CatPalette.byID(paletteID))
-                        .scaleEffect(x: squash ? 1.14 : 1, y: squash ? 0.84 : 1, anchor: .bottom)
-                        .offset(y: catIn ? -4 : -230)
-                        .opacity(discIn ? 1 : 0)
-                    ForEach(0..<8, id: \.self) { i in
-                        let angle = Double(i) / 8 * 2 * .pi + 0.2
-                        Rectangle().fill(cream)
-                            .frame(width: 8, height: 8)
-                            .rotationEffect(.degrees(45))
-                            .offset(x: cos(angle) * (burst ? 140 : 104), y: sin(angle) * (burst ? 140 : 104))
-                            .scaleEffect(burst ? 0.2 : 1)
-                            .opacity(burst ? 0 : 0.001)
-                    }
+                        .offset(y: catIn ? -4 : -200)
+                        .opacity(catIn ? 1 : 0)
                 }
                 .frame(height: 224)
 
                 HStack(spacing: 5) {
                     ForEach(Array(word.enumerated()), id: \.offset) { i, ch in
                         PixelText(text: String(ch), pixel: 5, color: cream)
-                            .offset(y: i < lettersShown ? 0 : 30)
-                            .scaleEffect(i < lettersShown ? 1 : 0.2, anchor: .bottom)
+                            .offset(y: i < lettersShown ? 0 : 16)
                             .opacity(i < lettersShown ? 1 : 0)
                     }
                 }
             }
+            .scaleEffect(exiting ? 1.1 : 1)
+            .opacity(exiting ? 0 : 1)
         }
         .onAppear(perform: play)
     }
 
     private func play() {
-        // 1. the plate pops in
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.62)) { discIn = true }
-        // 2. the cat drops onto it and squashes a little
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            withAnimation(.interpolatingSpring(stiffness: 230, damping: 15)) { catIn = true }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            Haptics.tap()
-            withAnimation(.easeOut(duration: 0.08)) { squash = true }
-            withAnimation(.easeOut(duration: 0.7)) { burst = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.4)) { squash = false }
-            }
-        }
-        // 3. the ring draws around it while the letters bounce in
-        withAnimation(.easeInOut(duration: 1.0).delay(0.25)) { ring = 1 }
+        // 1. the plate eases in
+        withAnimation(.spring(duration: 0.5, bounce: 0.2)) { discIn = true }
+        // 2. the cat settles onto it
+        withAnimation(.spring(duration: 0.6, bounce: 0.28).delay(0.14)) { catIn = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { Haptics.tap() }
+        // 3. the ring draws around it while the letters rise in one after the other
+        withAnimation(.easeInOut(duration: 0.95).delay(0.3)) { ring = 1 }
         for i in 0..<word.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + Double(i) * 0.05) {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.55)) { lettersShown = i + 1 }
-            }
+            withAnimation(.easeOut(duration: 0.4).delay(0.45 + Double(i) * 0.045)) { lettersShown = i + 1 }
         }
     }
 }

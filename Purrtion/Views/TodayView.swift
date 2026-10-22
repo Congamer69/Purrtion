@@ -498,16 +498,18 @@ struct WeekStrip: View {
     var body: some View {
         let kcalByDay = Dictionary(grouping: week, by: \.day).mapValues { $0.reduce(0) { $0 + $1.kcal } }
         let frozen = Streak.frozenDays()
-        HStack(spacing: 6) {
+        HStack(spacing: 2) {
             ForEach(weekDays, id: \.self) { d in cell(d, kcal: kcalByDay[d] ?? 0, frozen: frozen.contains(d)) }
         }
         .buttonStyle(SquishButtonStyle())
     }
 
+    /// Weekday, date and a small status mark. The shown day sits on a filled accent pill, today's label is tinted.
     private func cell(_ d: Date, kcal: Double, frozen: Bool) -> some View {
         let future = d > Calendar.current.startOfDay(for: .now)
         let status = GoalStatus(kcal: kcal, goal: goals.target(for: d).kcal)
         let selected = Calendar.current.isDate(d, inSameDayAs: day)
+        let isToday = Calendar.current.isDateInToday(d)
         let showFreeze = frozen && kcal == 0
         let label = String(d.formatted(.dateTime.weekday(.abbreviated)).prefix(2))
         return Button {
@@ -515,28 +517,34 @@ struct WeekStrip: View {
             Haptics.tap()
             onSelect(d)
         } label: {
-            VStack(spacing: 4) {
-                Text(label).font(Theme.font(12, selected ? .bold : .regular))
-                    .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(showFreeze ? Theme.water.opacity(0.85) : status.color)
-                    .frame(height: 32)
-                    .overlay {
-                        if showFreeze {
-                            Image(systemName: "snowflake").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-                        } else {
-                            Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(12, .bold))
-                                .foregroundStyle(kcal > 0 ? Color.white : Theme.textSecondary)
-                        }
+            VStack(spacing: 5) {
+                Text(label).font(Theme.font(12, .medium))
+                    .foregroundStyle(selected ? Color.white.opacity(0.85) : (isToday ? Theme.accent : Theme.textSecondary))
+                Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(17, .bold))
+                    .foregroundStyle(selected ? Color.white : Theme.textPrimary)
+                ZStack {
+                    if showFreeze {
+                        Image(systemName: "snowflake").font(.system(size: 9, weight: .heavy))
+                            .foregroundStyle(selected ? Color.white : Theme.water)
+                    } else {
+                        Circle().fill(status == .none ? (selected ? Color.white.opacity(0.35) : Theme.line) : status.color)
+                            .frame(width: 7, height: 7)
+                            .overlay(Circle().stroke(Color.white.opacity(selected && status != .none ? 0.9 : 0), lineWidth: 1.5).padding(-1.5))
                     }
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(selected ? Theme.textPrimary : .clear, lineWidth: 2).padding(-3))
+                }
+                .frame(height: 9)
             }
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background {
+                if selected { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.accent) }
+            }
             .opacity(future ? 0.35 : 1)
+            .contentShape(Rectangle())
         }
         .disabled(future)
         .accessibilityLabel(d.formatted(.dateTime.weekday(.wide).day().month(.wide)) + (showFreeze ? ", Streak-Freeze" : ""))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

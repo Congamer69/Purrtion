@@ -115,7 +115,8 @@ enum Theme {
 
     /// Soft shadow tinted like the background (warm in light mode, none needed in dark mode).
     static var cardShadow: Color {
-        ThemeSetting.cards == .shadow ? Color(light: 0xE9C9AE, dark: 0x000000).opacity(0.35) : .clear
+        guard ThemeSetting.cards == .shadow else { return .clear }
+        return Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor.black.withAlphaComponent(0.55) : UIColor(red: 0.914, green: 0.788, blue: 0.682, alpha: 0.4) })
     }
 
     static var radius: CGFloat { ThemeSetting.corners.radius }
@@ -188,8 +189,15 @@ struct CardStyle: ViewModifier {
             .padding(padding)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             .overlay {
-                if ThemeSetting.cards == .outline {
+                switch ThemeSetting.cards {
+                case .outline:
                     RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).stroke(Theme.line, lineWidth: 1.5)
+                case .shadow:
+                    // Faint rim in dark mode, where a shadow alone is hard to see.
+                    RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                        .stroke(Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.06) : .clear }), lineWidth: 1)
+                case .flat:
+                    EmptyView()
                 }
             }
             .shadow(color: Theme.cardShadow, radius: 14, y: 6)
