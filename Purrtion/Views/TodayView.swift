@@ -463,6 +463,17 @@ struct DayHeader: View {
             refreshStreak(animate: false)
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-debugStreak") { showStreak = true }
+            if ProcessInfo.processInfo.arguments.contains("-debugPop") {
+                // Replays "first entry of the day" every few seconds so it can be watched in the simulator.
+                try? await Task.sleep(for: .seconds(3))
+                while !Task.isCancelled {
+                    streak.loggedToday = false
+                    try? await Task.sleep(for: .seconds(1.5))
+                    withAnimation(.snappy) { streak.loggedToday = true }
+                    pop += 1
+                    try? await Task.sleep(for: .seconds(2.5))
+                }
+            }
             #endif
         }
         .onChange(of: todayEntries.count) { _, _ in refreshStreak(animate: true) }
@@ -595,13 +606,13 @@ struct WeekPage: View {
     }
 }
 
-/// Flame + count in the Today header. Dim until the first entry of the day, then it lights up with a short burst.
+/// Flame + count in the Today header. Dim until the first entry of the day, then it lights up with a short pop.
 struct StreakChip: View {
     let streak: Streak.State
     let pop: Int
     let action: () -> Void
-    @State private var burst = false
-    @State private var scale: CGFloat = 1
+
+    private struct Flame { var scale: CGFloat = 1; var tilt: Double = 0 }
 
     private var lit: Bool { streak.loggedToday }
     /// A freeze covered yesterday and today is still empty: ice-blue instead of grey, so a missed day is visible.
@@ -617,7 +628,20 @@ struct StreakChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: iced ? "snowflake" : "flame.fill").font(.system(size: 12, weight: .bold)).scaleEffect(scale)
+                Image(systemName: iced ? "snowflake" : "flame.fill").font(.system(size: 12, weight: .bold))
+                    .keyframeAnimator(initialValue: Flame(), trigger: pop) { view, f in
+                        view.scaleEffect(f.scale).rotationEffect(.degrees(f.tilt))
+                    } keyframes: { _ in
+                        KeyframeTrack(\.scale) {
+                            SpringKeyframe(1.7, duration: 0.2, spring: .snappy)
+                            SpringKeyframe(1, duration: 0.5, spring: .bouncy)
+                        }
+                        KeyframeTrack(\.tilt) {
+                            LinearKeyframe(-12, duration: 0.09)
+                            LinearKeyframe(10, duration: 0.12)
+                            SpringKeyframe(0, duration: 0.35, spring: .smooth)
+                        }
+                    }
                 Text("\(streak.count)").font(Theme.font(14, .bold)).contentTransition(.numericText(value: Double(streak.count)))
                 if streak.freezes > 0, !iced {
                     Image(systemName: "snowflake").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.water)
@@ -627,36 +651,35 @@ struct StreakChip: View {
             .padding(.horizontal, 10).frame(height: 34)
             .background(iced ? Theme.water.opacity(0.16) : (lit ? Theme.accentSoft : Theme.cardAlt), in: Capsule())
         }
-        .overlay { SparkBurst(active: burst).allowsHitTesting(false) }
-        .onChange(of: pop) { _, _ in play() }
+        .overlay { SparkBurst(pop: pop).allowsHitTesting(false) }
         .accessibilityLabel("\(streak.count) Tage in Folge" + (iced ? ", gestern per Streak-Freeze gerettet" : (streak.freezes > 0 ? ", \(streak.freezes) Streak-Freeze" : "")))
         .accessibilityHint("Zeigt die Serie")
     }
-
-    private func play() {
-        burst = false
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.45)) { scale = 1.5 }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.18)) { scale = 1 }
-        withAnimation(.easeOut(duration: 0.9)) { burst = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { burst = false }
-    }
 }
 
-/// A few small sparks drifting up and fading; purely decorative.
+/// A few small sparks rising from the flame and fading out; purely decorative and never blocks touches.
 struct SparkBurst: View {
-    let active: Bool
-    private let offsets: [(CGFloat, CGFloat)] = [(-14, -20), (0, -26), (14, -20), (-22, -6), (22, -6)]
+    let pop: Int
+    private let targets: [(CGFloat, CGFloat)] = [(-20, -22), (-6, -30), (10, -28), (24, -18), (-28, -8)]
 
     var body: some View {
         ZStack {
-            ForEach(offsets.indices, id: \.self) { i in
-                Image(systemName: "sparkle").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.carbs)
-                    .offset(x: active ? offsets[i].0 : 0, y: active ? offsets[i].1 : 4)
-                    .scaleEffect(active ? 1 : 0.2)
-                    .opacity(active ? 0 : 0.001)
-                    .animation(.easeOut(duration: 0.9).delay(Double(i) * 0.03), value: active)
+            ForEach(targets.indices, id: \.self) { i in
+                Image(systemName: "sparkle").font(.system(size: i % 2 == 0 ? 9 : 7, weight: .bold)).foregroundStyle(Theme.carbs)
+                    .keyframeAnimator(initialValue: 0.0, trigger: pop) { view, p in
+                        view
+                            .offset(x: targets[i].0 * p, y: targets[i].1 * p)
+                            .scaleEffect(0.4 + 0.8 * sin(.pi * p))
+                            .opacity(sin(.pi * p))
+                    } keyframes: { _ in
+                        KeyframeTrack {
+                            LinearKeyframe(0, duration: 0.04 * Double(i))
+                            CubicKeyframe(1, duration: 0.75)
+                        }
+                    }
             }
         }
+        .offset(x: -10, y: 2)
     }
 }
 
