@@ -603,7 +603,7 @@ struct SparkBurst: View {
 final class DockState: ObservableObject {
     @Published var progress: CGFloat = 0
     private var goingDown = false
-    private let distance: CGFloat = 72
+    private let distance: CGFloat = 160
 
     func scrolled(by delta: CGFloat) {
         guard abs(delta) > 0.01 else { return }
@@ -613,7 +613,7 @@ final class DockState: ObservableObject {
 
     func settle() {
         guard progress > 0, progress < 1 else { return }
-        let target: CGFloat = goingDown ? (progress > 0.2 ? 1 : 0) : (progress < 0.8 ? 0 : 1)
+        let target: CGFloat = goingDown ? (progress > 0.35 ? 1 : 0) : (progress < 0.65 ? 0 : 1)
         withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) { progress = target }
     }
 
