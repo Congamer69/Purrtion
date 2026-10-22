@@ -597,6 +597,12 @@ struct SparkBurst: View {
 
 // MARK: - Day content
 
+/// Vertical scroll offset of the day list plus whether it sits at (or beyond) the bottom edge.
+private struct ScrollPosition: Equatable {
+    var y: CGFloat
+    var atBottom: Bool
+}
+
 struct DayContent: View {
     let day: Date
     @Binding var sheet: AddSheet?
@@ -814,13 +820,19 @@ struct DayContent: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        // Down folds the dock, up (or back at the top) unfolds it.
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { old, new in
+        // Down folds the dock, up (or back at the top) unfolds it. Ignored near the bottom edge so the rubber-band
+        // bounce there can't flip it back and forth.
+        .onScrollGeometryChange(for: ScrollPosition.self) { g in
+            let y = g.contentOffset.y + g.contentInsets.top
+            let maxY = g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom - g.containerSize.height
+            return ScrollPosition(y: y, atBottom: y >= maxY - 4)
+        } action: { old, new in
             guard selection == nil else { return }
             let folded: Bool
-            if new <= 12 { folded = false }
-            else if new - old > 6 { folded = true }
-            else if old - new > 6 { folded = false }
+            if new.y <= 12 { folded = false }
+            else if old.atBottom || new.atBottom { return }
+            else if new.y - old.y > 6 { folded = true }
+            else if old.y - new.y > 6 { folded = false }
             else { return }
             if folded != dockCollapsed { dockCollapsed = folded }
         }
@@ -1272,54 +1284,59 @@ struct EmptyDayView: View {
 // MARK: - Quick add dock
 
 /// The four ways to log food, always one tap away: a floating dock above the tab bar.
-/// While scrolling down it folds to a single search button; tapping that opens the search directly.
+/// While scrolling down the other three fold into the search button on the left; tapping it opens the search.
 struct QuickAddDock: View {
     @Binding var sheet: AddSheet?
     var collapsed = false
+    @State private var availableWidth: CGFloat = 0
+
+    private let inset = Theme.Space.xs
+    private let gap = Theme.Space.xs
+    private let collapsedCell: CGFloat = 124
+    /// Reserved height stays fixed so folding never changes the list's bottom inset (which would feed back into scrolling).
+    private let reserved: CGFloat = 58 + 8 + 16
+
+    private var cell: CGFloat { max((max(availableWidth, 320) - 32 - inset * 2 - gap * 3) / 4, 60) }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            if collapsed {
-                Button { Haptics.tap(); sheet = .search } label: {
-                    Label("Suchen", systemImage: "magnifyingglass").font(Theme.font(17, .bold))
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, Theme.Space.xl).frame(height: 48)
-                        .background(Theme.accent, in: Capsule())
-                        .shadow(color: Theme.accent.opacity(0.35), radius: 10, y: 4)
+        HStack(spacing: 0) {
+            HStack(spacing: collapsed ? 0 : gap) {
+                action("magnifyingglass", "Suchen", .search, primary: true)
+                    .frame(width: collapsed ? collapsedCell : cell)
+                ForEach([("barcode.viewfinder", "Barcode", AddSheet.barcode), ("camera.fill", "Foto", .photo), ("bolt.fill", "Schnell", .quick)], id: \.1) { item in
+                    action(item.0, item.1, item.2)
+                        .frame(width: collapsed ? 0 : cell)
+                        .opacity(collapsed ? 0 : 1)
+                        .clipped()
+                        .allowsHitTesting(!collapsed)
+                        .accessibilityHidden(collapsed)
                 }
-                .buttonStyle(SquishButtonStyle())
-                .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
-            } else {
-                HStack(spacing: Theme.Space.xs) {
-                    action("magnifyingglass", "Suchen", .search, primary: true)
-                    action("barcode.viewfinder", "Barcode", .barcode)
-                    action("camera.fill", "Foto", .photo)
-                    action("bolt.fill", "Schnell", .quick)
-                }
-                .padding(Theme.Space.xs)
-                // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
-                .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .shadow(color: Theme.cardShadow, radius: 14, y: 6)
-                .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
             }
+            .padding(inset)
+            // Mostly opaque so list rows scrolling underneath don't bleed through the labels.
+            .background(Theme.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .shadow(color: Theme.cardShadow, radius: 14, y: 6)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
         .padding(.horizontal, Theme.Space.l)
         .padding(.vertical, Theme.Space.s)
-        .animation(.snappy(duration: 0.3), value: collapsed)
+        .frame(height: reserved, alignment: .bottom)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+        .animation(.smooth(duration: 0.38), value: collapsed)
     }
 
     private func action(_ icon: String, _ title: String, _ s: AddSheet, primary: Bool = false) -> some View {
-        Button { Haptics.tap(); sheet = s } label: {
-            VStack(spacing: 3) {
+        let layout = (primary && collapsed) ? AnyLayout(HStackLayout(spacing: 6)) : AnyLayout(VStackLayout(spacing: 3))
+        return Button { Haptics.tap(); sheet = s } label: {
+            layout {
                 Image(systemName: icon).font(.system(size: 20, weight: .bold)).frame(height: 24)
-                Text(title).font(Theme.font(12, .bold))
+                Text(title).font(Theme.font(primary && collapsed ? 17 : 12, .bold)).lineLimit(1).fixedSize()
             }
             .foregroundStyle(primary ? Color.white : Theme.accent)
-            .frame(maxWidth: .infinity).frame(height: 58)
+            .frame(maxWidth: .infinity).frame(height: collapsed ? 48 : 58)
             .background {
-                if primary { RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Theme.accent) }
+                if primary { RoundedRectangle(cornerRadius: collapsed ? 22 : 24, style: .continuous).fill(Theme.accent) }
             }
             .contentShape(Rectangle())
         }
