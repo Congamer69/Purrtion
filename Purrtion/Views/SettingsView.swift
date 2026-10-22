@@ -26,9 +26,106 @@ struct SettingsView: View {
     @State private var exportURLs: [URL] = []
     @State private var exportError: String?
 
+    private func page<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
+        Form { content() }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .keyboardDoneButton()
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    NavigationLink { ProfileCalculator() } label: {
+                        HStack(spacing: 12) {
+                            CatMascot(mood: .happy, pixel: 2.4).frame(width: 44)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Dein Profil").font(Theme.font(16, .semibold))
+                                Text("\(goals.sex.label) · \(goals.age) Jahre · \(Int(goals.heightCM)) cm · \(goals.weightKG.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } footer: {
+                    Text("Geschlecht, Alter, Größe, Gewicht und Aktivität. Grundlage für Bedarf, echten Verbrauch und Promille.")
+                }
+                .listRowBackground(Theme.card)
+
+                Section {
+                    NavigationLink { GoalsEditor() } label: {
+                        LabeledContent("Kalorien & Makros", value: "\(goals.kcal.kcalString) kcal")
+                    }
+                } header: { Text("Ziele") }
+                .listRowBackground(Theme.card)
+
+                Section {
+                    NavigationLink { page("Darstellung") { appearanceSection } } label: {
+                        HStack {
+                            Label("Darstellung", systemImage: "paintpalette.fill")
+                        }
+                    }
+                    NavigationLink { page("Funktionen") { featuresSection } } label: {
+                        HStack {
+                            Label("Funktionen", systemImage: "slider.horizontal.3")
+                        }
+                    }
+                    NavigationLink { page("Apple Health") { healthSection } } label: {
+                        HStack {
+                            Label("Apple Health", systemImage: "heart.fill")
+                        }
+                    }
+                    NavigationLink { MyFoodsView() } label: {
+                        HStack {
+                            Label("Eigene Lebensmittel & Rezepte", systemImage: "fork.knife")
+                        }
+                    }
+                }
+                .listRowBackground(Theme.card)
+
+                Section {
+                    NavigationLink { page("Freunde") { FriendsSettingsSection() } } label: {
+                        HStack {
+                            Label("Freunde", systemImage: "person.2.fill")
+                        }
+                    }
+                    NavigationLink { dataPage } label: {
+                        HStack {
+                            Label("Daten & Backup", systemImage: "externaldrive.fill")
+                        }
+                    }
+                    NavigationLink { page("Datenquellen") { sourcesSection } } label: {
+                        HStack {
+                            Label("Datenquellen & KI", systemImage: "sparkles")
+                            Spacer()
+                            Text(aiSummary).font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        }
+                    }
+                }
+                .listRowBackground(Theme.card)
+
+                Section {
+                    VStack(spacing: 10) {
+                        WalkingCatLoader(pixel: 2, width: 160)
+                        PixelText(text: "PURRTION", pixel: 3, color: Theme.accent)
+                        Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · mit 🧡 und Pixeln").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+                .listRowBackground(Color.clear)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("Profil")
+            .keyboardDoneButton()
+        }
+    }
+
+    @ViewBuilder private var appearanceSection: some View {
                 Section {
                     HStack(spacing: 16) {
                         ForEach(CatPalette.all) { p in
@@ -54,33 +151,9 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 } header: { Text("Deine Katze & Look") }
                 .listRowBackground(Theme.card)
+    }
 
-                Section {
-                    NavigationLink { ProfileCalculator() } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "person.crop.circle.fill").font(.system(size: 30)).foregroundStyle(Theme.accent)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Profil bearbeiten").font(Theme.font(16, .semibold))
-                                Text("\(goals.sex.label) · \(goals.age) Jahre · \(Int(goals.heightCM)) cm · \(goals.weightKG.formatted(.number.precision(.fractionLength(0...1)))) kg")
-                                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                } header: { Text("Dein Profil") } footer: {
-                    Text("Geschlecht, Alter, Größe, Gewicht und Aktivität. Grundlage für Bedarf, echten Verbrauch und Promille.")
-                }
-                .listRowBackground(Theme.card)
-
-                Section {
-                    NavigationLink { GoalsEditor() } label: {
-                        LabeledContent("Kalorien & Makros", value: "\(goals.kcal.kcalString) kcal")
-                    }
-                } header: { Text("Ziele") }
-                .listRowBackground(Theme.card)
-
-                FriendsSettingsSection()
-
+    @ViewBuilder private var featuresSection: some View {
                 Section {
                     Toggle(isOn: $goals.waterEnabled.animation()) { Label("Wasser tracken", systemImage: "drop.fill") }
                     if goals.waterEnabled {
@@ -114,14 +187,9 @@ struct SettingsView: View {
                     Text("Der Health Score bewertet jeden Tag von 0–100 nach Empfehlungen von WHO und DGE. Bei der automatischen Analyse schließt die KI ab etwa 0:30 Uhr den Vortag ab (Anbieter unter „KI-Modelle“ → Tagesanalyse) und du bekommst eine Mitteilung. iOS bestimmt den genauen Zeitpunkt, meist nachts beim Laden – sonst passiert es beim nächsten Öffnen der App.")
                 }
                 .listRowBackground(Theme.card)
+    }
 
-                Section {
-                    NavigationLink { MyFoodsView() } label: {
-                        Label("Eigene Lebensmittel & Rezepte", systemImage: "fork.knife")
-                    }
-                }
-                .listRowBackground(Theme.card)
-
+    @ViewBuilder private var healthSection: some View {
                 Section {
                     Toggle(isOn: $healthSync) { Label("Gewicht mit Apple Health", systemImage: "heart.fill") }
                         .onChange(of: healthSync) { _, on in
@@ -162,9 +230,9 @@ struct SettingsView: View {
                     Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort. „Ernährung“ schreibt jeden Eintrag mit kcal, Makros und Mikronährstoffen sowie dein Wasser ins Ernährungsprotokoll von Health. Änderungen und Löschungen werden übernommen. „Neu schreiben“ löscht alles, was Purrtion in Health eingetragen hat, und schreibt jeden Tag einmal sauber neu. Daten anderer Apps bleiben unberührt.")
                 }
                 .listRowBackground(Theme.card)
+    }
 
-                BackupSection()
-
+    @ViewBuilder private var sourcesSection: some View {
                 Section {
                     ForEach(SearchSource.allCases) { SourceToggle(source: $0) }
                     DatabaseUpdateRow()
@@ -179,7 +247,11 @@ struct SettingsView: View {
                     Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)\n\n\(RestaurantDatabase.attribution)")
                 }
                 .listRowBackground(Theme.card)
+    }
 
+    private var dataPage: some View {
+        page("Daten & Backup") {
+                BackupSection()
                 Section {
                     Button { export() } label: { Label("Alle Daten als CSV exportieren", systemImage: "tablecells") }
                     Button(role: .destructive) { showDeleteAll = true } label: { Label("Alle Einträge löschen", systemImage: "trash") }
@@ -187,28 +259,13 @@ struct SettingsView: View {
                     if let exportError { Text(exportError).foregroundStyle(Theme.danger) }
                 }
                 .listRowBackground(Theme.card)
-
-                Section {
-                    VStack(spacing: 10) {
-                        WalkingCatLoader(pixel: 2, width: 160)
-                        PixelText(text: "PURRTION", pixel: 3, color: Theme.accent)
-                        Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · mit 🧡 und Pixeln").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                }
-                .listRowBackground(Color.clear)
-            }
-            .scrollContentBackground(.hidden)
-            .background(Theme.background.ignoresSafeArea())
-            .navigationTitle("Einstellungen")
-            .keyboardDoneButton()
-            .sheet(isPresented: $showDeleteAll) { DeleteAllSheet() }
-            .sheet(isPresented: Binding(get: { !exportURLs.isEmpty }, set: { if !$0 { exportURLs = [] } })) {
-                ShareSheet(items: exportURLs)
-            }
+        }
+        .sheet(isPresented: $showDeleteAll) { DeleteAllSheet() }
+        .sheet(isPresented: Binding(get: { !exportURLs.isEmpty }, set: { if !$0 { exportURLs = [] } })) {
+            ShareSheet(items: exportURLs)
         }
     }
+
 
     private func export() {
         do { exportURLs = try CSVExport.files(ctx); exportError = nil } catch { exportError = error.localizedDescription }
@@ -862,7 +919,11 @@ struct ProfileCalculator: View {
 
 struct OnboardingView: View {
     @EnvironmentObject private var goals: Goals
+    #if DEBUG
+    @State private var page = UserDefaults.standard.string(forKey: "debugStep") == nil ? 0 : 1
+    #else
     @State private var page = 0
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -891,7 +952,7 @@ struct OnboardingView: View {
                     .frame(maxWidth: .infinity)
                     .background(Theme.background.ignoresSafeArea())
                 } else {
-                    ProfileCalculator { goals.onboarded = true }
+                    OnboardingSetup { goals.onboarded = true }
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button("Überspringen") { goals.onboarded = true }

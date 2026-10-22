@@ -47,6 +47,7 @@ struct TodayView: View {
     @State private var todayAnchor = Calendar.current.startOfDay(for: .now)
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var router = NotificationRouter.shared
+    @ObservedObject private var addRouter = AddRouter.shared
     @State private var sheet: AddSheet?
     /// Non-nil while selecting entries (multi-delete, copy, save as recipe).
     @State private var selection: Set<UUID>?
@@ -66,10 +67,9 @@ struct TodayView: View {
                 .id(day)
                 .background(Theme.background.ignoresSafeArea())
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    DayHeader(day: $day) {
-                        if Calendar.current.isDateInToday(day) { sheet = .calendar }
-                        else { withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) } }
-                    }
+                    DayHeader(day: $day, onCalendar: { sheet = .calendar }, onToday: {
+                        withAnimation(.snappy) { day = Calendar.current.startOfDay(for: .now) }
+                    })
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if let selection {
@@ -79,8 +79,6 @@ struct TodayView: View {
                                      onRecipe: { recipeFromSelection = true; recipeName = "Meine Mahlzeit"; askRecipeName = true },
                                      onDone: { withAnimation(.snappy) { self.selection = nil } })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
-                    } else {
-                        QuickAddBar(sheet: $sheet)
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -93,6 +91,12 @@ struct TodayView: View {
                     withAnimation(.snappy) { day = next }
                 })
                 .onChange(of: day) { _, _ in selection = nil }
+                // The "+" in the tab bar.
+                .onChange(of: addRouter.request) { _, _ in
+                    guard router.appReady else { return }
+                    selection = nil
+                    sheet = .search
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
                     followMidnight()
                 }
@@ -377,9 +381,24 @@ struct CheckCircle: View {
 
 struct DayHeader: View {
     @Binding var day: Date
-    /// Today: open the calendar. Another day: jump back to today.
-    var onTitleTap: () -> Void = {}
+    var onCalendar: () -> Void = {}
+    var onToday: () -> Void = {}
+    @EnvironmentObject private var goals: Goals
+    @Environment(\.modelContext) private var ctx
+    @Query private var week: [FoodEntry]
+    @State private var streak = 0
+    private let cal = Calendar.mondayFirst
     private var isToday: Bool { Calendar.current.isDateInToday(day) }
+
+    init(day: Binding<Date>, onCalendar: @escaping () -> Void = {}, onToday: @escaping () -> Void = {}) {
+        _day = day
+        self.onCalendar = onCalendar
+        self.onToday = onToday
+        let c = Calendar.mondayFirst
+        let monday = c.dateInterval(of: .weekOfYear, for: day.wrappedValue)!.start
+        let sunday = c.date(byAdding: .day, value: 6, to: monday)!
+        _week = Query(filter: #Predicate<FoodEntry> { $0.day >= monday && $0.day <= sunday })
+    }
 
     var title: String {
         if isToday { return "Heute" }
@@ -387,48 +406,99 @@ struct DayHeader: View {
         return day.formatted(.dateTime.weekday(.wide))
     }
 
-    var body: some View {
-        HStack {
-            Button { shift(-1) } label: { Image(systemName: "chevron.left") }
-            Spacer()
-            Button(action: onTitleTap) {
-                VStack(spacing: 2) {
-                    Text(title).font(Theme.font(20, .bold)).foregroundStyle(Theme.textPrimary)
-                    HStack(spacing: 4) {
-                        Text(day.formatted(.dateTime.day().month(.wide).year()))
-                        if isToday {
-                            Image(systemName: "calendar").font(.system(size: 11, weight: .semibold))
-                        }
-                    }
-                    .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
-                    if !isToday {
-                        Label("Zu Heute", systemImage: "arrow.uturn.forward")
-                            .font(Theme.font(11, .bold))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.horizontal, 8).padding(.vertical, 2)
-                            .background(Theme.accentSoft, in: Capsule())
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .contentTransition(.numericText())
-            }
-            Spacer()
-            Button { shift(1) } label: { Image(systemName: "chevron.right") }
-                .opacity(isToday ? 0.25 : 1)
-                .disabled(isToday)
-        }
-        .font(.system(size: 17, weight: .bold))
-        .foregroundStyle(Theme.textPrimary)
-        .buttonStyle(SquishButtonStyle())
-        .padding(.horizontal, 24)
-        .padding(.vertical, 10)
-        .background(Theme.background)
-        .animation(.snappy, value: isToday)
+    private var weekDays: [Date] {
+        let monday = cal.dateInterval(of: .weekOfYear, for: day)!.start
+        return (0..<7).map { cal.date(byAdding: .day, value: $0, to: monday)! }
     }
 
-    private func shift(_ d: Int) {
-        Haptics.tap()
-        withAnimation(.snappy) { day = Calendar.current.date(byAdding: .day, value: d, to: day)! }
+    var body: some View {
+        VStack(spacing: Theme.Space.m) {
+            HStack(alignment: .center, spacing: Theme.Space.s) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title).font(Theme.font(22, .bold)).foregroundStyle(Theme.textPrimary)
+                    Text(day.formatted(.dateTime.day().month(.wide).year())).font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                }
+                .contentTransition(.numericText())
+                Spacer(minLength: 0)
+                if !isToday {
+                    Button(action: onToday) {
+                        Label("Zu Heute", systemImage: "arrow.uturn.forward").font(Theme.font(12, .bold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 10).frame(height: 34)
+                            .background(Theme.accentSoft, in: Capsule())
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+                if streak > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold))
+                        Text("\(streak)").font(Theme.font(13, .bold)).contentTransition(.numericText(value: Double(streak)))
+                    }
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 10).frame(height: 34)
+                    .background(Theme.accentSoft, in: Capsule())
+                    .accessibilityLabel("\(streak) Tage in Folge")
+                }
+                Button(action: onCalendar) {
+                    Image(systemName: "calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                        .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
+                }
+                .accessibilityLabel("Kalender")
+            }
+            HStack(spacing: 6) {
+                let kcalByDay = Dictionary(grouping: week, by: \.day).mapValues { $0.reduce(0) { $0 + $1.kcal } }
+                ForEach(weekDays, id: \.self) { d in cell(d, kcal: kcalByDay[d] ?? 0) }
+            }
+        }
+        .buttonStyle(SquishButtonStyle())
+        .padding(.horizontal, Theme.Space.l)
+        .padding(.top, Theme.Space.s)
+        .padding(.bottom, Theme.Space.s)
+        .background(Theme.background)
+        .animation(.snappy, value: isToday)
+        .task { refreshStreak() }
+        .onChange(of: week.count) { _, _ in refreshStreak() }
+    }
+
+    private func cell(_ d: Date, kcal: Double) -> some View {
+        let future = d > Calendar.current.startOfDay(for: .now)
+        let status = GoalStatus(kcal: kcal, goal: goals.target(for: d).kcal)
+        let selected = Calendar.current.isDate(d, inSameDayAs: day)
+        let label = String(d.formatted(.dateTime.weekday(.abbreviated)).prefix(2))
+        return Button {
+            guard !future else { return }
+            Haptics.tap()
+            withAnimation(.snappy) { day = d }
+        } label: {
+            VStack(spacing: 4) {
+                Text(label).font(Theme.font(12, selected ? .bold : .regular))
+                    .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(status.color)
+                    .frame(height: 32)
+                    .overlay(Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(12, .bold))
+                        .foregroundStyle(kcal > 0 ? Color.white : Theme.textSecondary))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(selected ? Theme.textPrimary : .clear, lineWidth: 2).padding(-3))
+            }
+            .frame(maxWidth: .infinity)
+            .opacity(future ? 0.35 : 1)
+        }
+        .disabled(future)
+        .accessibilityLabel(d.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+    }
+
+    /// Consecutive logged days up to today (or yesterday while today is still empty).
+    private func refreshStreak() {
+        let today = Calendar.current.startOfDay(for: .now)
+        let from = Calendar.current.date(byAdding: .day, value: -400, to: today)!
+        var fetch = FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day >= from })
+        fetch.propertiesToFetch = [\.day]
+        let days = Set((try? ctx.fetch(fetch))?.map(\.day) ?? [])
+        var d = days.contains(today) ? today : Calendar.current.date(byAdding: .day, value: -1, to: today)!
+        var n = 0
+        while days.contains(d) { n += 1; d = Calendar.current.date(byAdding: .day, value: -1, to: d)! }
+        if n != streak { withAnimation(.snappy) { streak = n } }
     }
 }
 
@@ -515,20 +585,30 @@ struct DayContent: View {
     var body: some View {
         List {
             Group {
-                Button { sheet = .overview } label: { SummaryCard(total: total, mood: mood, burst: burst, target: target) }
-                    .buttonStyle(SquishButtonStyle())
-                Button { sheet = .nutrients(total) } label: { MacroCard(total: total, target: target) }
-                    .buttonStyle(SquishButtonStyle())
-                if goals.healthScoreEnabled, !entries.isEmpty {
-                    let score = HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein)
-                    let baseline = aiBaseline(score)
-                    Button { sheet = .score(score, baseline: baseline) } label: { HealthScoreCard(score: score, baseline: baseline) }
+                VStack(spacing: Theme.Space.l) {
+                    Button { sheet = .overview } label: { SummaryCard(total: total, mood: mood, burst: burst, target: target) }
+                        .buttonStyle(SquishButtonStyle())
+                    Divider().overlay(Theme.line)
+                    Button { sheet = .nutrients(total) } label: { MacroRow(total: total, target: target) }
                         .buttonStyle(SquishButtonStyle())
                 }
-                if let review = reviews.first, !entries.isEmpty {
-                    Button { sheet = .review(review) } label: { DayReviewCard(review: review, outdated: reviewOutdated) }
-                        .buttonStyle(SquishButtonStyle())
-                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+                .card(padding: 18)
+                let score: HealthScore? = goals.healthScoreEnabled && !entries.isEmpty
+                    ? HealthScore(entries: entries, goalKcal: target.kcal, goalProtein: target.protein) : nil
+                let review = entries.isEmpty ? nil : reviews.first
+                if score != nil || review != nil {
+                    HStack(spacing: Theme.Space.m) {
+                        if let score {
+                            let baseline = aiBaseline(score)
+                            Button { sheet = .score(score, baseline: baseline) } label: { HealthScoreChip(score: score, baseline: baseline) }
+                                .buttonStyle(SquishButtonStyle())
+                        }
+                        if let review {
+                            Button { sheet = .review(review) } label: { ReviewChip(review: review, outdated: reviewOutdated) }
+                                .buttonStyle(SquishButtonStyle())
+                                .transition(.scale(scale: 0.95).combined(with: .opacity))
+                        }
+                    }
                 }
                 if goals.waterEnabled {
                     WaterCard(day: day, logs: water)
@@ -540,7 +620,7 @@ struct DayContent: View {
 
             Section {
                 if entries.isEmpty {
-                    EmptyDayView()
+                    EmptyDayView(sheet: $sheet)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 } else {
@@ -633,7 +713,7 @@ struct DayContent: View {
                     }
                 }
                 .textCase(nil)
-                .padding(.top, 8)
+                .padding(.top, 0)
             }
             .listSectionSeparator(.hidden)
 
@@ -808,7 +888,6 @@ struct SummaryCard: View {
             }
             Spacer(minLength: 0)
         }
-        .card(padding: 18)
     }
 
     private func stat(_ title: String, _ value: Double) -> some View {
@@ -846,7 +925,8 @@ struct CalorieRing: View {
     }
 }
 
-struct MacroCard: View {
+/// Protein / carbs / fat bars; lives inside the hero card on Today.
+struct MacroRow: View {
     let total: Nutrients
     let target: DayTarget
 
@@ -856,7 +936,55 @@ struct MacroCard: View {
             MacroBar(name: "Kohlenh.", value: total.carbs, goal: target.carbs, color: Theme.carbs)
             MacroBar(name: "Fett", value: total.fat, goal: target.fat, color: Theme.fat)
         }
-        .card()
+    }
+}
+
+/// Compact Health Score tile next to the Tagesfazit.
+struct HealthScoreChip: View {
+    let score: HealthScore
+    var baseline: HealthScore? = nil
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ScoreRing(value: Double(score.score) / 100, color: score.color, lineWidth: 5,
+                      baseline: baseline.map { Double($0.score) / 100 }) {
+                Text("\(score.score)").font(Theme.font(14, .bold)).foregroundStyle(Theme.textPrimary)
+                    .contentTransition(.numericText(value: Double(score.score)))
+            }
+            .frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Health Score").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(score.isPreliminary ? "vorläufig" : score.rating).font(Theme.font(14, .bold))
+                    .foregroundStyle(score.isPreliminary ? Theme.textSecondary : score.color).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Space.m)
+        .frame(maxWidth: .infinity)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius - 4, style: .continuous))
+        .shadow(color: Theme.cardShadow, radius: 10, y: 4)
+    }
+}
+
+/// Compact Tagesfazit tile.
+struct ReviewChip: View {
+    let review: DayReview
+    let outdated: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles").font(.system(size: 15, weight: .bold)).foregroundStyle(review.color)
+                .frame(width: 40, height: 40).background(review.color.opacity(0.16), in: Circle())
+            VStack(alignment: .leading, spacing: 0) {
+                Text(outdated ? "Tagesfazit · veraltet" : "Tagesfazit").font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(review.rating).font(Theme.font(14, .bold)).foregroundStyle(review.color).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Space.m)
+        .frame(maxWidth: .infinity)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius - 4, style: .continuous))
+        .shadow(color: Theme.cardShadow, radius: 10, y: 4)
     }
 }
 
@@ -899,31 +1027,33 @@ struct WaterCard: View {
     var body: some View {
         let glasses = max(1, goals.waterML / max(goals.waterStep, 1))
         let filled = ml / max(goals.waterStep, 1)
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Wasser").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Text("\(Double(ml) / 1000, format: .number.precision(.fractionLength(0...2))) / \(Double(goals.waterML) / 1000, format: .number.precision(.fractionLength(0...1))) l")
-                    .font(Theme.font(14, .semibold)).foregroundStyle(Theme.water)
-                    .contentTransition(.numericText(value: Double(ml)))
-            }
-            HStack(spacing: 6) {
-                ForEach(0..<min(glasses, 12), id: \.self) { i in
-                    Button {
-                        Haptics.tap()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            if i < filled { add(-goals.waterStep) } else { add(goals.waterStep) }
-                        }
-                    } label: {
-                        PixelSpriteView(sprite: i < filled ? Sprites.glassFull : Sprites.glassEmpty, pixel: 3.4)
-                            .scaleEffect(i < filled ? 1 : 0.92)
+        let total = Text("\(Double(ml) / 1000, format: .number.precision(.fractionLength(0...2))) / \(Double(goals.waterML) / 1000, format: .number.precision(.fractionLength(0...1))) l")
+        let label = VStack(alignment: .leading, spacing: 0) {
+            Text("Wasser").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+            total.font(Theme.font(14, .bold)).foregroundStyle(Theme.water)
+                .contentTransition(.numericText(value: Double(ml)))
+        }
+        .fixedSize()
+        let glassRow = HStack(spacing: 4) {
+            ForEach(0..<min(glasses, 12), id: \.self) { i in
+                Button {
+                    Haptics.tap()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        if i < filled { add(-goals.waterStep) } else { add(goals.waterStep) }
                     }
-                    .buttonStyle(SquishButtonStyle())
+                } label: {
+                    PixelSpriteView(sprite: i < filled ? Sprites.glassFull : Sprites.glassEmpty, pixel: 2.6)
+                        .scaleEffect(i < filled ? 1 : 0.92)
                 }
-                Spacer(minLength: 0)
+                .buttonStyle(SquishButtonStyle())
             }
         }
-        .card()
+        // One row when it fits, otherwise the glasses wrap below the label.
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Space.m) { label; Spacer(minLength: 0); glassRow }
+            VStack(alignment: .leading, spacing: Theme.Space.s) { label; glassRow }
+        }
+        .card(padding: 14)
     }
 
     private func add(_ amount: Int) {
@@ -955,6 +1085,8 @@ struct EntryRow: View {
                         Text("·")
                     }
                     Text(entry.amountText).lineLimit(1)
+                    Text("·")
+                    Text(entry.createdAt.formatted(date: .omitted, time: .shortened)).lineLimit(1)
                 }
                 .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
                 HStack(spacing: 8) {
@@ -1071,69 +1203,33 @@ struct MacroDot: View {
 }
 
 struct EmptyDayView: View {
-    var body: some View {
-        VStack(spacing: 10) {
-            AnimatedSprite(frames: [Sprites.bowl], pixel: 4)
-            Text("Der Napf ist noch leer").font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
-            Text("Tippe unten auf eine Option, um dein erstes Essen einzutragen.")
-                .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-    }
-}
-
-// MARK: - Quick add bar
-
-struct QuickAddBar: View {
     @Binding var sheet: AddSheet?
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button { open(.search) } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Essen suchen")
-                }
-                .font(Theme.font(16, .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(Theme.accent, in: Capsule())
+        VStack(spacing: Theme.Space.m) {
+            AnimatedSprite(frames: [Sprites.bowl], pixel: 4)
+            Text("Der Napf ist noch leer").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+            Text("Womit startest du?").font(Theme.font(14)).foregroundStyle(Theme.textSecondary)
+            HStack(spacing: Theme.Space.s) {
+                option("magnifyingglass", "Suchen", .search)
+                option("barcode.viewfinder", "Barcode", .barcode)
+                option("camera.fill", "Foto", .photo)
+                option("bolt.fill", "Schnell", .quick)
             }
-            round("barcode.viewfinder", .barcode)
-            round("camera.fill", .photo)
-            round("bolt.fill", .quick)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Space.xl)
+    }
+
+    private func option(_ icon: String, _ title: String, _ s: AddSheet) -> some View {
+        Button { Haptics.tap(); sheet = s } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent).frame(height: 22)
+                Text(title).font(Theme.font(12, .bold)).foregroundStyle(Theme.textPrimary)
+            }
+            .frame(maxWidth: .infinity).frame(height: 64)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(SquishButtonStyle())
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
-        .background(Theme.background.opacity(0.96))
-    }
-
-    private func round(_ icon: String, _ s: AddSheet) -> some View {
-        Button { open(s) } label: {
-            Image(systemName: icon)
-                .font(.system(size: 19, weight: .bold))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 54, height: 54)
-                .background(Theme.accentSoft, in: Circle())
-        }
-        .accessibilityLabel(label(for: s))
-    }
-
-    private func label(for s: AddSheet) -> String {
-        switch s {
-        case .barcode: "Barcode scannen"
-        case .photo: "Gericht fotografieren"
-        case .quick: "Schnell eintragen"
-        default: "Suchen"
-        }
-    }
-
-    private func open(_ s: AddSheet) {
-        Haptics.tap()
-        sheet = s
     }
 }

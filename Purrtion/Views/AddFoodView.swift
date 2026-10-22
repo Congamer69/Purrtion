@@ -15,6 +15,8 @@ struct AddFoodView: View {
     @State private var newFood = false
     @State private var path: [FoodItem] = []
     @State private var showBarcode = false
+    @State private var showPhoto = false
+    @State private var showQuick = false
     @State private var addedName: String?
     /// The last logged drink went to the night before (logged after midnight).
     @State private var addedToNight = false
@@ -54,9 +56,6 @@ struct AddFoodView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showBarcode = true } label: { Image(systemName: "barcode.viewfinder") }
-                }
             }
             .navigationDestination(for: FoodItem.self) { food in
                 FoodDetailView(food: food, mode: .add(day: day)) { name in
@@ -70,6 +69,13 @@ struct AddFoodView: View {
             .sheet(isPresented: $showBarcode) {
                 BarcodeFlowView(day: day)
             }
+            .sheet(isPresented: $showPhoto) {
+                MealPhotoView(day: day) { name in
+                    showPhoto = false
+                    flashAdded(name)
+                }
+            }
+            .sheet(isPresented: $showQuick) { QuickAddView(day: day) }
             .sheet(item: $aiQuery) { q in
                 MealPhotoView(day: day, textQuery: q.text) { name in
                     aiQuery = nil
@@ -176,8 +182,31 @@ struct AddFoodView: View {
         switch t { case .recent: recents.count; case .favorites: favorites.count; case .mine: customFoods.count }
     }
 
+    private func methodTile(_ icon: String, _ title: String, _ action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            focused = false
+            action()
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.accent).frame(height: 28)
+                Text(title).font(Theme.font(12, .bold)).foregroundStyle(Theme.textPrimary)
+            }
+            .frame(maxWidth: .infinity).frame(height: 76)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(SquishButtonStyle())
+    }
+
     @ViewBuilder
     private var emptyQueryContent: some View {
+        HStack(spacing: Theme.Space.m) {
+            methodTile("barcode.viewfinder", "Barcode") { showBarcode = true }
+            methodTile("camera.fill", "Foto") { showPhoto = true }
+            methodTile("bolt.fill", "Schnell") { showQuick = true }
+        }
+        .plainRow()
+        .listRowSeparator(.hidden)
         Button {
             focused = false
             showSuggestions = true

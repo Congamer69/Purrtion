@@ -20,6 +20,7 @@ struct StatsView: View {
     @State private var scrubWeekday: String?
     @State private var scrubWeight: Date?
     @State private var showExpenditure = false
+    @State private var showMore = false
 
     /// Measured daily expenditure from intake and weight trend (always the last weeks, independent of the range).
     private var expenditure: ExpenditureEstimate {
@@ -115,24 +116,34 @@ struct StatsView: View {
                 VStack(spacing: 14) {
                     Picker("Zeitraum", selection: $range) {
                         Text("Woche").tag(7)
-                        Text("30 Tage").tag(30)
-                        Text("90 Tage").tag(90)
+                        Text("Monat").tag(30)
+                        Text("3 Monate").tag(90)
                     }
                     .pickerStyle(.segmented)
 
-                    overviewCard(logged)
-                    goalCard(all)
+                    // One hero chart first, then the short answers, then the long tail.
                     kcalCard(all, logged)
-                    if all.contains(where: { $0.active > 0 }) { activityCard(all) }
+                    overviewCard(logged)
                     Button { showExpenditure = true } label: { ExpenditureCard(estimate: expenditure) }
                         .buttonStyle(SquishButtonStyle())
+                    goalCard(all)
                     if goals.healthScoreEnabled { scoreCard(logged) }
-                    macroCard(logged)
-                    // Per-weekday averages only make sense over several weeks.
-                    if range > 7 { weekdayCard(logged) }
-                    topFoodsCard(logged)
-                    microCard(logged)
                     weightCard
+                    DisclosureGroup(isExpanded: $showMore) {
+                        VStack(spacing: 14) {
+                            if all.contains(where: { $0.active > 0 }) { activityCard(all) }
+                            macroCard(logged)
+                            // Per-weekday averages only make sense over several weeks.
+                            if range > 7 { weekdayCard(logged) }
+                            topFoodsCard(logged)
+                            microCard(logged)
+                        }
+                        .padding(.top, Theme.Space.m)
+                    } label: {
+                        Text("Weitere Auswertungen").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                    }
+                    .tint(Theme.accent)
+                    .padding(.horizontal, Theme.Space.s)
                 }
                 .padding(16)
             }

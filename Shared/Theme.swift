@@ -28,11 +28,38 @@ enum Theme {
     static let water = Color(hex: 0x6EC6FF)
     static let danger = Color(hex: 0xFF5A5F)
 
+    /// Soft shadow tinted like the background (warm in light mode, none needed in dark mode).
+    static let cardShadow = Color(light: 0xE9C9AE, dark: 0x000000).opacity(0.35)
+
     static let radius: CGFloat = 22
     static let radiusSmall: CGFloat = 14
 
+    /// 8-pt spacing scale (use for paddings and gaps).
+    enum Space {
+        static let xs: CGFloat = 4, s: CGFloat = 8, m: CGFloat = 12, l: CGFloat = 16, xl: CGFloat = 24, xxl: CGFloat = 32
+    }
+
+    /// Type scale of 2.0: caption 12, body 14, title 17, heading 22, display from 28 up (big numbers).
+    /// Call sites keep passing their old sizes; they snap to the nearest step so the whole app stays on four sizes.
+    static func snap(_ size: CGFloat) -> CGFloat {
+        switch size {
+        case ..<13: 12
+        case ..<16: 14
+        case ..<20: 17
+        case ..<26: 22
+        default: size
+        }
+    }
+
+    /// Two weights for text (medium, bold); display numbers (>= 26) may stay heavy.
     static func font(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+        let w: Font.Weight
+        switch weight {
+        case .ultraLight, .thin, .light, .regular, .medium: w = .medium
+        case .heavy, .black: w = size >= 26 ? .heavy : .bold
+        default: w = .bold
+        }
+        return .system(size: snap(size), weight: w, design: .rounded)
     }
 }
 
@@ -73,6 +100,7 @@ struct CardStyle: ViewModifier {
         content
             .padding(padding)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            .shadow(color: Theme.cardShadow, radius: 14, y: 6)
     }
 }
 
