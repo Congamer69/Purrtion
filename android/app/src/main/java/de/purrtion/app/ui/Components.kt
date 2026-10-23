@@ -603,3 +603,16 @@ fun ScrollColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
 }
 
+
+/** Soft fade for content that scrolls under the floating bars: transparent far above, never a hard band. */
+@Composable
+fun bottomFade(): androidx.compose.ui.graphics.Brush {
+    val bg = C.background
+    return androidx.compose.ui.graphics.Brush.verticalGradient(
+        0f to Color.Transparent,
+        0.30f to bg.copy(alpha = 0.18f),
+        0.60f to bg.copy(alpha = 0.60f),
+        0.85f to bg.copy(alpha = 0.86f),
+        1f to bg.copy(alpha = 0.94f),
+    )
+}

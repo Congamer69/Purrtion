@@ -205,9 +205,8 @@ fun TodayScreen(activity: MainActivity) {
         }
     }
     // The bars float over the list: no hard band, the content just fades out behind them.
-    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, C.background.copy(alpha = 0.94f), C.background)))
-        .padding(top = 30.dp)) {
+    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().background(de.purrtion.app.ui.bottomFade()).padding(top = 64.dp)) {
         if (selection != null) {
             SelectionBar(selection!!.size,
                 onDelete = { scope.launch { h.warning(); Store.deleteIds(selection!!, day); selection = null } },
@@ -225,7 +224,8 @@ fun TodayScreen(activity: MainActivity) {
         } else {
             QuickAddBar(day)
         }
-        // Room for the floating tab bar.
+        }
+        // Room for the floating tab bar (its own fade is drawn by the root screen).
         Spacer(Modifier.navigationBarsPadding().height(80.dp))
     }
     }

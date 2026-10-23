@@ -105,8 +105,8 @@ fun RootScreen(activity: MainActivity) {
         }
         // Soft fade behind the floating tab bar instead of a hard band.
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp)
-            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, C.background.copy(alpha = 0.92f), C.background))))
+            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 130.dp)
+            .background(bottomFade()))
         TabBar(tabs, tab, Modifier.align(Alignment.BottomCenter)) { tab = it }
         Nav.Host()
         if (!App.goals.onboarded && !splash) OnboardingScreen()
