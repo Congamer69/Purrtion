@@ -45,35 +45,33 @@ struct StreakSheet: View {
     private var active: Bool { state.loggedToday }
 
     private var hero: some View {
-        VStack(spacing: Theme.Space.s) {
-            ZStack {
-                // Soft glow that breathes while today's streak is safe.
-                TimelineView(.animation(paused: !active)) { ctx in
-                    let t = ctx.date.timeIntervalSinceReferenceDate
-                    let pulse = active ? (sin(t * 2.2) + 1) / 2 : 0
-                    Circle()
-                        .fill(RadialGradient(colors: [Theme.accent.opacity(active ? 0.38 : 0.12), .clear], center: .center, startRadius: 4, endRadius: 120))
-                        .frame(width: 240, height: 240)
-                        .scaleEffect(1 + pulse * 0.08)
-                }
-                VStack(spacing: 2) {
-                    CatMascot(mood: state.loggedToday ? .proud : (state.count > 0 ? .idle : .sleeping), pixel: 5)
+        VStack(spacing: Theme.Space.m) {
+            CatMascot(mood: state.loggedToday ? .proud : (state.count > 0 ? .idle : .sleeping), pixel: 5)
+            // Flame and count side by side; the glow is a small soft halo behind the flame only.
+            HStack(spacing: 10) {
+                ZStack {
+                    TimelineView(.animation(paused: !active)) { ctx in
+                        let t = ctx.date.timeIntervalSinceReferenceDate
+                        let pulse = active ? (sin(t * 2.2) + 1) / 2 : 0
+                        Circle()
+                            .fill(RadialGradient(colors: [Theme.accent.opacity(active ? 0.30 : 0), .clear], center: .center, startRadius: 2, endRadius: 34))
+                            .frame(width: 68, height: 68)
+                            .scaleEffect(1 + pulse * 0.12)
+                    }
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 46, weight: .bold))
+                        .font(.system(size: 40, weight: .bold))
                         .foregroundStyle(active ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0xFFC145), Theme.accent], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Theme.textSecondary.opacity(0.5)))
                         .symbolEffect(.pulse, isActive: active)
-                        .shadow(color: Theme.accent.opacity(active ? 0.5 : 0), radius: 12, y: 2)
                 }
+                .frame(width: 56, height: 68)
+                Text("\(state.count)").font(Theme.font(56, .heavy)).foregroundStyle(Theme.textPrimary)
+                    .contentTransition(.numericText(value: Double(state.count)))
             }
-            .frame(height: 190)
-            Text("\(state.count)").font(Theme.font(56, .heavy)).foregroundStyle(Theme.textPrimary)
-                .contentTransition(.numericText(value: Double(state.count)))
-                .offset(y: -18)
-            Text(state.count == 1 ? "Tag in Folge" : "Tage in Folge").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
-                .offset(y: -18)
-            Text(state.loggedToday ? "Heute ist erledigt." : (state.count > 0 ? "Trag heute etwas ein, um die Serie zu halten." : "Trag etwas ein, um eine neue Serie zu starten."))
-                .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
-                .offset(y: -14)
+            VStack(spacing: 4) {
+                Text(state.count == 1 ? "Tag in Folge" : "Tage in Folge").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                Text(state.loggedToday ? "Heute ist erledigt." : (state.count > 0 ? "Trag heute etwas ein, um die Serie zu halten." : "Trag etwas ein, um eine neue Serie zu starten."))
+                    .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
+            }
             nextFreezeBar
         }
         .frame(maxWidth: .infinity)
