@@ -108,7 +108,7 @@ struct DayOverviewSheet: View {
             HStack {
                 Label("Aktivität", systemImage: "flame.fill").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Text("\((target.healthKcal + manual).kcalString) kcal").font(Theme.font(17, .heavy)).foregroundStyle(Theme.accent)
+                Text("\((target.healthKcal + manual).kcalString) kcal").font(Theme.font(17, .heavy)).foregroundStyle(Theme.accentText)
             }
             if goals.activityEnabled {
                 HStack {
@@ -129,7 +129,7 @@ struct DayOverviewSheet: View {
                     ForEach([50.0, 100, 250, 500], id: \.self) { step in
                         Button { change(step) } label: {
                             Text("+\(Int(step))").font(Theme.font(14, .bold)).frame(maxWidth: .infinity).frame(height: 36)
-                                .foregroundStyle(Theme.accent).background(Theme.accentSoft, in: Capsule())
+                                .foregroundStyle(Theme.accentText).background(Theme.accentSoft, in: Capsule())
                         }
                         .buttonStyle(SquishButtonStyle())
                     }
@@ -213,7 +213,7 @@ struct DayOverviewSheet: View {
             SuggestionsList(day: day)
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "wand.and.stars").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: "wand.and.stars").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 40, height: 40).background(Theme.accentSoft, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Was passt noch?").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
@@ -235,7 +235,7 @@ struct DayOverviewSheet: View {
             HStack {
                 Text("Teilen").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Text(ShareStyle.allCases[shareIndex].title).font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+                Text(ShareStyle.allCases[shareIndex].title).font(Theme.font(13, .semibold)).foregroundStyle(Theme.accentText)
             }
             if shareImages.count == ShareStyle.allCases.count {
                 TabView(selection: $shareIndex) {
@@ -379,12 +379,12 @@ struct DayShareCard: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("PURRTION").font(.system(size: 15, weight: .black, design: .rounded)).foregroundStyle(Theme.accent).tracking(2)
+                Text("PURRTION").font(.system(size: 15, weight: .black, design: .rounded)).foregroundStyle(Theme.accentText).tracking(2)
                 Text(data.day.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(f(13, .medium)).foregroundStyle(Self.muted)
             }
             Spacer()
             if data.streak > 1 {
-                Text("🔥 \(data.streak) Tage").font(f(13, .bold)).foregroundStyle(Theme.accent)
+                Text("🔥 \(data.streak) Tage").font(f(13, .bold)).foregroundStyle(Theme.accentText)
                     .padding(.horizontal, 10).padding(.vertical, 5).background(Theme.accent.opacity(0.15), in: Capsule())
             }
         }
@@ -563,7 +563,7 @@ struct DayShareCard: View {
         .frame(height: 12)
         .padding(.horizontal, 20)
         if let rating = data.rating {
-            Text("„\(rating)“").font(f(24, .heavy)).foregroundStyle(Theme.accent)
+            Text("„\(rating)“").font(f(24, .heavy)).foregroundStyle(Theme.accentText)
         }
         if let point = data.ratingPoints.first {
             Text(point).font(f(14, .medium)).foregroundStyle(Self.muted).multilineTextAlignment(.center).padding(.horizontal, 10)

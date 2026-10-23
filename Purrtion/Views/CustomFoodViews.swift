@@ -200,7 +200,7 @@ struct RecipeEditor: View {
                         HStack {
                             Text("Portionen")
                             Spacer()
-                            Text("\(portions)").font(Theme.font(18, .bold)).foregroundStyle(Theme.accent)
+                            Text("\(portions)").font(Theme.font(18, .bold)).foregroundStyle(Theme.accentText)
                         }
                     }
                 }

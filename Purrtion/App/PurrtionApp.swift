@@ -31,7 +31,7 @@ struct PurrtionApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(goals)
-                .tint(Theme.accent)
+                .tint(Theme.accentText)
                 .preferredColorScheme(appearance.colorScheme)
         }
         .modelContainer(Self.container)
@@ -64,7 +64,7 @@ struct QuickAddAccessory: View {
         } label: {
             // Primary-colour text on the glass reads best; the accent stays on the icon.
             HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accentText)
                 Text(title).font(Theme.font(14, .bold)).foregroundStyle(Theme.textPrimary)
             }
             .lineLimit(1)

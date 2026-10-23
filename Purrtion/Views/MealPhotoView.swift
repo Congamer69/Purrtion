@@ -105,7 +105,7 @@ struct MealPhotoView: View {
 
     private func textCard(_ text: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "sparkles").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent)
+            Image(systemName: "sparkles").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accentText)
                 .frame(width: 44, height: 44).background(Theme.accentSoft, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text("„\(text)“").font(Theme.font(17, .semibold)).foregroundStyle(Theme.textPrimary)
@@ -276,7 +276,7 @@ struct MealPhotoView: View {
                         Text(item.isAIEstimate
                              ? "KI-Schätzung · \(item.food.per100.kcal.kcalString) kcal / 100 \(item.food.unit)"
                              : "\(item.food.source.label) · \(item.food.per100.kcal.kcalString) kcal / 100 \(item.food.unit)")
-                            .font(Theme.font(12, .medium)).foregroundStyle(Theme.accent).lineLimit(1)
+                            .font(Theme.font(12, .medium)).foregroundStyle(Theme.accentText).lineLimit(1)
                         Text("Sicherheit: \(item.confidence)").font(Theme.font(11)).foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
@@ -291,7 +291,7 @@ struct MealPhotoView: View {
                             .font(Theme.font(13, .semibold))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                     HStack(spacing: 10) {
                         Button { item.grams = max(0, item.grams - 10) } label: { Image(systemName: "minus") }
                         Slider(value: Binding(get: { min(item.grams, item.sliderMax) },

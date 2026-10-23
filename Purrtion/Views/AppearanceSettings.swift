@@ -10,6 +10,7 @@ struct AppearanceSettingsView: View {
     @AppStorage(ThemeSetting.cardsKey) private var cardStyle = ThemeCards.shadow
     @AppStorage(ThemeSetting.backgroundKey) private var backgroundTone = ThemeBackground.warm
     @AppStorage(ThemeSetting.fontKey) private var fontStyle = ThemeFont.rounded
+    @Environment(\.colorScheme) private var scheme
     @AppStorage("startTab") private var startTab = 0
     @AppStorage(Haptics.enabledKey) private var haptics = true
 
@@ -45,7 +46,7 @@ struct AppearanceSettingsView: View {
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 8) {
-                    Label("12", systemImage: "flame.fill").font(Theme.font(12, .bold)).foregroundStyle(Theme.accent)
+                    Label("12", systemImage: "flame.fill").font(Theme.font(12, .bold)).foregroundStyle(Theme.accentText)
                         .padding(.horizontal, 10).padding(.vertical, 6).background(Theme.accentSoft, in: Capsule())
                     Spacer(minLength: 0)
                     Text("Suchen").font(Theme.font(14, .bold)).foregroundStyle(.white)
@@ -110,7 +111,9 @@ struct AppearanceSettingsView: View {
         Section {
             Picker("Ecken", selection: $corners) { ForEach(ThemeCorners.allCases) { Text($0.name).tag($0) } }
             Picker("Karten", selection: $cardStyle) { ForEach(ThemeCards.allCases) { Text($0.name).tag($0) } }
-            Picker("Hintergrund", selection: $backgroundTone) { ForEach(ThemeBackground.allCases) { Text($0.name).tag($0) } }
+            Picker("Hintergrund", selection: $backgroundTone) {
+                ForEach(ThemeBackground.allCases) { Text($0 == .black ? (scheme == .dark ? "Schwarz" : "Weiß") : $0.name).tag($0) }
+            }
             Picker("Schrift", selection: $fontStyle) { ForEach(ThemeFont.allCases) { Text($0.name).tag($0) } }
             Button("Auf Standard zurücksetzen") {
                 accent = .orange; corners = .normal; cardStyle = .shadow; backgroundTone = .warm; fontStyle = .rounded

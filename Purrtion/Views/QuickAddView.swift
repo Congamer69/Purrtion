@@ -169,7 +169,7 @@ struct QuickAddView: View {
                 Spacer()
                 if alcohol > 0 {
                     Text("\(alcohol.formatted(.number.precision(.fractionLength(0...1)))) g · \((alcohol * 7).kcalString) kcal")
-                        .font(Theme.font(12, .semibold)).foregroundStyle(Theme.accent)
+                        .font(Theme.font(12, .semibold)).foregroundStyle(Theme.accentText)
                 }
             }
             .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 2)
@@ -210,7 +210,7 @@ struct QuickAddView: View {
                         if per100 { amount = p.1.clean }
                         if name.isEmpty { name = p.0 }
                     } label: {
-                        Text(p.0).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accent)
+                        Text(p.0).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accentText)
                             .padding(.horizontal, 10).frame(height: 30).background(Theme.accentSoft, in: Capsule())
                     }
                     .buttonStyle(SquishButtonStyle())
@@ -235,7 +235,7 @@ struct QuickAddView: View {
                     .focused($focus, equals: .amount)
                     .multilineTextAlignment(.trailing)
                     .font(Theme.font(28, .heavy))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                     .fixedSize()
                 Text("g / ml").font(Theme.font(15, .medium)).foregroundStyle(Theme.textSecondary)
             }

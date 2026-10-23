@@ -70,7 +70,7 @@ struct AlcoholCard: View {
                         Spacer()
                         Image(systemName: "chevron.down").rotationEffect(.degrees(editing ? 180 : 0))
                     }
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                 }
                 .buttonStyle(.plain)
                 if editing {
@@ -111,7 +111,7 @@ struct AlcoholCard: View {
                                                         startPoint: .top, endPoint: .bottom))
                         .interpolationMethod(.monotone)
                     LineMark(x: .value("Zeit", p.time), y: .value("‰", p.promille))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentText)
                         .interpolationMethod(.monotone)
                 }
                 RuleMark(y: .value("0,5 ‰", 0.5))
@@ -120,7 +120,7 @@ struct AlcoholCard: View {
                 if isToday, now > first.time, now < last.time {
                     RuleMark(x: .value("Jetzt", now)).foregroundStyle(Theme.textSecondary.opacity(0.6))
                     PointMark(x: .value("Jetzt", now), y: .value("‰", m.value(at: now)))
-                        .foregroundStyle(Theme.accent).symbolSize(60)
+                        .foregroundStyle(Theme.accentText).symbolSize(60)
                 }
                 ForEach(m.drinks) { d in
                     PointMark(x: .value("Getränk", d.time), y: .value("‰", 0))

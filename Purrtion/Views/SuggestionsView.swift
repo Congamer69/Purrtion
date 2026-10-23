@@ -148,7 +148,7 @@ struct SuggestionsList: View {
                 Text(s.food.displayName).font(Theme.font(15, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 Text(s.amountText).font(Theme.font(12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 HStack(spacing: 6) {
-                    Text(s.reason).font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
+                    Text(s.reason).font(Theme.font(11, .bold)).foregroundStyle(Theme.accentText)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Theme.accentSoft, in: Capsule())
                     Label(s.kind.label, systemImage: s.kind.icon).font(Theme.font(11, .medium)).foregroundStyle(Theme.textSecondary)

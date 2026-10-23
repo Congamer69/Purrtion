@@ -189,7 +189,7 @@ struct AddFoodView: View {
             action()
         } label: {
             VStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.accent).frame(height: 28)
+                Image(systemName: icon).font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.accentText).frame(height: 28)
                 Text(title).font(Theme.font(12, .bold)).foregroundStyle(Theme.textPrimary)
             }
             .frame(maxWidth: .infinity).frame(height: 76)
@@ -212,7 +212,7 @@ struct AddFoodView: View {
             showSuggestions = true
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "wand.and.stars").font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: "wand.and.stars").font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Was passt noch?").font(Theme.font(15, .bold)).foregroundStyle(Theme.textPrimary)
@@ -273,7 +273,7 @@ struct AddFoodView: View {
     private var aiRow: some View {
         Button { aiQuery = AIQuery(text: trimmedQuery) } label: {
             HStack(spacing: 12) {
-                Image(systemName: "sparkles").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: "sparkles").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 44, height: 44).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("„\(trimmedQuery)“ mit KI schätzen").font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(2)
@@ -281,7 +281,7 @@ struct AddFoodView: View {
                         .font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.accentText)
             }
             .padding(.vertical, 4)
         }

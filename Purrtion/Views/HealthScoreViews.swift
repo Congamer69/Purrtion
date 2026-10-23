@@ -96,7 +96,7 @@ struct AIDeltaBadge: View {
             Image(systemName: "sparkles").font(.system(size: 8, weight: .bold))
             Text("\(delta >= 0 ? "+" : "−")\(abs(delta)) KI").font(Theme.font(10, .bold))
         }
-        .foregroundStyle(Theme.accent)
+        .foregroundStyle(Theme.accentText)
         .padding(.horizontal, 6).padding(.vertical, 2)
         .background(Theme.accentSoft, in: Capsule())
         .fixedSize()
@@ -230,7 +230,7 @@ struct HealthScoreView: View {
                 if expanded {
                     Text(c.explanation).font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                     if let tip = c.tip {
-                        Label(tip, systemImage: "lightbulb.fill").font(Theme.font(12, .medium)).foregroundStyle(Theme.accent)
+                        Label(tip, systemImage: "lightbulb.fill").font(Theme.font(12, .medium)).foregroundStyle(Theme.accentText)
                     }
                 }
             }

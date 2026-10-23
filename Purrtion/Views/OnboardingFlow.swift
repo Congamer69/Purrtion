@@ -138,7 +138,7 @@ struct OnboardingSetup: View {
         VStack(spacing: Theme.Space.xl) {
             header(.eating, "Dein Tagesziel", "Startwert aus deinen Angaben. Du kannst ihn jederzeit unter Profil anpassen.")
             VStack(spacing: 2) {
-                Text(goals.suggestedKcal.kcalString).font(Theme.font(44, .heavy)).foregroundStyle(Theme.accent)
+                Text(goals.suggestedKcal.kcalString).font(Theme.font(44, .heavy)).foregroundStyle(Theme.accentText)
                 Text("kcal pro Tag").font(Theme.font(14)).foregroundStyle(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity).padding(.vertical, Theme.Space.l)

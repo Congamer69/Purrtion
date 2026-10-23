@@ -74,7 +74,7 @@ struct DayCloseRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.accent)
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.accentText)
                 }
                 .padding(14)
                 .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: Theme.radiusSmall + 4, style: .continuous))

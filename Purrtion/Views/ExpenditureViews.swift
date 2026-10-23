@@ -145,7 +145,7 @@ struct ExpenditureSheet: View {
                         }
                         if !e.missing.isEmpty {
                             Text("Noch nötig: \(e.missing.joined(separator: ", ")).")
-                                .font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+                                .font(Theme.font(13, .semibold)).foregroundStyle(Theme.accentText)
                         }
                     }
                     .card()

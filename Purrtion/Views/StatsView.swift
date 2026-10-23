@@ -224,7 +224,7 @@ struct StatsView: View {
                 Spacer()
                 Button { showMonth = true } label: {
                     Label("Monat", systemImage: "calendar")
-                        .font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+                        .font(Theme.font(13, .semibold)).foregroundStyle(Theme.accentText)
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(Theme.accentSoft, in: Capsule())
                 }
@@ -241,7 +241,7 @@ struct StatsView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Kalorien").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Text("Ø \(avg(logged, \.kcal).kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
+                Text("Ø \(avg(logged, \.kcal).kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accentText)
             }
             .opacity(scrubKcal == nil ? 1 : 0)
             .overlay(alignment: .top) {
@@ -326,7 +326,7 @@ struct StatsView: View {
             HStack(alignment: .firstTextBaseline) {
                 Label("Aktivität", systemImage: "flame.fill").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Text("Ø \(avgActive.kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
+                Text("Ø \(avgActive.kcalString) kcal").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accentText)
             }
             .opacity(scrubActivity == nil ? 1 : 0)
             .overlay(alignment: .top) {
@@ -351,7 +351,7 @@ struct StatsView: View {
                     if d.bonus > 0 {
                         RectangleMark(x: .value("Tag", d.day, unit: .day), yStart: .value("0", 0),
                                       yEnd: .value("angerechnet", min(d.bonus, d.active)), width: .ratio(0.6))
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(Theme.accentText)
                             .cornerRadius(range > 30 ? 1 : 4)
                             .opacity(scrubActivity == nil || scrubActivity == d.day ? 1 : 0.35)
                     }
@@ -497,7 +497,7 @@ struct StatsView: View {
                     Text("Ø nach Wochentag").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     if let top, top.1 > 0 {
-                        Text("Am meisten: \(top.0)").font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+                        Text("Am meisten: \(top.0)").font(Theme.font(13, .semibold)).foregroundStyle(Theme.accentText)
                     }
                 }
                 Text("Durchschnitt aller Montage, Dienstage … im gewählten Zeitraum – zeigt, an welchen Tagen du typischerweise mehr isst.")
@@ -543,7 +543,7 @@ struct StatsView: View {
             }
             ForEach(Array(top.enumerated()), id: \.offset) { i, item in
                 HStack(spacing: 10) {
-                    Text("\(i + 1)").font(Theme.font(13, .heavy)).foregroundStyle(Theme.accent).frame(width: 18)
+                    Text("\(i + 1)").font(Theme.font(13, .heavy)).foregroundStyle(Theme.accentText).frame(width: 18)
                     VStack(alignment: .leading, spacing: 3) {
                         HStack {
                             Text(item.0).font(Theme.font(14, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
@@ -610,7 +610,7 @@ struct StatsView: View {
                 Spacer()
                 if let last = weights.last {
                     Text("\(last.kg, format: .number.precision(.fractionLength(1))) kg")
-                        .font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
+                        .font(Theme.font(15, .semibold)).foregroundStyle(Theme.accentText)
                 }
                 Button { showWeight = true } label: {
                     Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
@@ -623,7 +623,7 @@ struct StatsView: View {
                 let lo = (shown.map(\.kg).min() ?? 0) - 1, hi = (shown.map(\.kg).max() ?? 0) + 1
                 Chart(shown) { w in
                     LineMark(x: .value("Datum", w.date), y: .value("kg", w.kg))
-                        .interpolationMethod(.catmullRom).foregroundStyle(Theme.accent).lineStyle(StrokeStyle(lineWidth: 3))
+                        .interpolationMethod(.catmullRom).foregroundStyle(Theme.accentText).lineStyle(StrokeStyle(lineWidth: 3))
                     PointMark(x: .value("Datum", w.date), y: .value("kg", w.kg)).foregroundStyle(Theme.accent)
                         .symbolSize(scrubWeight == w.date ? 120 : 30)
                     if scrubWeight == w.date {

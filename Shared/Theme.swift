@@ -69,7 +69,13 @@ enum Theme {
     /// Soft tint of the accent for chips and icon backgrounds.
     static var accentSoft: Color {
         let h = ThemeSetting.accent.hex
-        return Color(light: mix(h, 0xFFFFFF, 0.20), dark: mix(0x24212A, h, 0.16))
+        return Color(light: mix(h, 0xFFFFFF, 0.84), dark: mix(0x24212A, h, 0.16))
+    }
+
+    /// The accent for text and thin icons: darker on light backgrounds, where the vivid fill colour is too pale to read.
+    static var accentText: Color {
+        let h = ThemeSetting.accent.hex
+        return Color(light: mix(h, 0x000000, 0.34), dark: h)
     }
 
     private static func mix(_ a: UInt32, _ b: UInt32, _ t: Double) -> UInt32 {
@@ -102,7 +108,7 @@ enum Theme {
         }
     }
     static let textPrimary = Color(light: 0x2B2530, dark: 0xF6F0EA)
-    static let textSecondary = Color(light: 0x8A8190, dark: 0x9E96A6)
+    static let textSecondary = Color(light: 0x655D6D, dark: 0x9E96A6)
     static var line: Color {
         switch ThemeSetting.background {
         case .warm: Color(light: 0xEFE5DB, dark: 0x38333F)
@@ -120,12 +126,12 @@ enum Theme {
         })
     }
 
-    static let protein = Color(hex: 0xFF6B8B)
-    static let carbs = Color(hex: 0xFFC145)
-    static let fat = Color(hex: 0x5BB8F0)
-    static let fiber = Color(hex: 0x6BCB77)
-    static let water = Color(hex: 0x6EC6FF)
-    static let danger = Color(hex: 0xFF5A5F)
+    static let protein = Color(light: 0xD93A66, dark: 0xFF6B8B)
+    static let carbs = Color(light: 0xC98500, dark: 0xFFC145)
+    static let fat = Color(light: 0x1F86C8, dark: 0x5BB8F0)
+    static let fiber = Color(light: 0x2A9347, dark: 0x6BCB77)
+    static let water = Color(light: 0x1C84C4, dark: 0x6EC6FF)
+    static let danger = Color(light: 0xD92E34, dark: 0xFF5A5F)
 
     /// Soft shadow tinted like the background (warm in light mode, none needed in dark mode).
     static var cardShadow: Color {

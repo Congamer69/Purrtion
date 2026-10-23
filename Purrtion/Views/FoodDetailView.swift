@@ -239,7 +239,7 @@ struct FoodDetailView: View {
 
     private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
         Button { Haptics.tap(); action() } label: {
-            Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent)
+            Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accentText)
                 .frame(width: 52, height: 56)
                 .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -361,7 +361,7 @@ struct MealEntryDetailView: View {
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(Theme.accent)
+                                .foregroundStyle(Theme.accentText)
                                 .frame(width: 34, height: 34)
                                 .background(Theme.accentSoft, in: Circle())
                         }

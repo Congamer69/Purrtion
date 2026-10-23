@@ -288,14 +288,14 @@ private struct DatabaseUpdateRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Datenbanken aktualisieren").font(Theme.font(15, .semibold))
                     Text("BLS \(updater.version(.bls)) · Schweiz \(updater.version(.swiss)) · Ketten \(updater.version(.restaurants))\(updater.lastCheck.map { " · geprüft \($0.formatted(.relative(presentation: .named)))" } ?? "")")
                         .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                     if let status = updater.status {
-                        Text(status).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accent)
+                        Text(status).font(Theme.font(12, .semibold)).foregroundStyle(Theme.accentText)
                     }
                 }
                 Spacer(minLength: 0)
@@ -326,7 +326,7 @@ private struct SourceToggle: View {
     var body: some View {
         Toggle(isOn: $on) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: source.icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: source.icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(source.title).font(Theme.font(15, .semibold))
@@ -378,7 +378,7 @@ struct BackupSection: View {
                 if let last = Backup.lastBackup {
                     Text("Letzte Sicherung: \(last.formatted(date: .abbreviated, time: .shortened))")
                 }
-                if let status { Text(status).foregroundStyle(Theme.accent) }
+                if let status { Text(status).foregroundStyle(Theme.accentText) }
             }
             .id(refresh)
         }
@@ -545,7 +545,7 @@ private struct TaskSection: View {
             withAnimation(Motion.quick) { action() }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 32, height: 32).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(Theme.font(16, .semibold)).foregroundStyle(Theme.textPrimary)
@@ -755,7 +755,7 @@ private struct ActivityGoalSection: View {
                 SliderField(title: "Aufs Ziel anrechnen", value: $goals.activityPercent, range: 0...100, step: 5, unit: "%")
                 if goals.activityPercent > 0 {
                     LabeledContent("Heute dazu", value: "+\((todayActive * goals.activityPercent / 100).kcalString) kcal")
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentText)
                 }
                 if failed {
                     Text("Kein Zugriff auf Apple Health – in der Health-App unter Teilen → Apps → Purrtion erlauben.")
@@ -974,7 +974,7 @@ struct OnboardingView: View {
 
     private func feature(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accent)
+            Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.accentText)
                 .frame(width: 36, height: 36).background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 10))
             Text(text).font(Theme.font(16, .medium)).foregroundStyle(Theme.textPrimary)
         }

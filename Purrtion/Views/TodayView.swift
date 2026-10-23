@@ -440,7 +440,7 @@ struct DayHeader: View {
             if !isToday {
                 Button(action: onToday) {
                     Label("Zu Heute", systemImage: "arrow.uturn.forward").font(Theme.font(12, .bold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentText)
                         .padding(.horizontal, 10).frame(height: 34)
                         .background(Theme.accentSoft, in: Capsule())
                 }
@@ -448,7 +448,7 @@ struct DayHeader: View {
             }
             StreakChip(streak: streak, pop: pop) { showStreak = true }
             Button(action: onCalendar) {
-                Image(systemName: "calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                Image(systemName: "calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accentText)
                     .frame(width: 34, height: 34).background(Theme.accentSoft, in: Circle())
             }
             .accessibilityLabel("Kalender")
@@ -633,7 +633,7 @@ struct StreakChip: View {
         #endif
         return !lit && streak.frozen.contains(y)
     }
-    private var tint: Color { iced ? Theme.water : (lit ? Theme.accent : Theme.textSecondary) }
+    private var tint: Color { iced ? Theme.water : (lit ? Theme.accentText : Theme.textSecondary) }
 
     var body: some View {
         Button(action: action) { chip }
@@ -906,7 +906,7 @@ struct DayContent: View {
                             withAnimation(Motion.quick) { selection = allSelected ? [] : Set(entries.map(\.id)) }
                         }
                         .font(Theme.font(14, .semibold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentText)
                     } else {
                         UndoButton()
                         optionsMenu
@@ -966,7 +966,7 @@ struct DayContent: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentText)
                 .frame(width: 34, height: 34)
                 .background(Theme.accentSoft, in: Circle())
         }
@@ -1057,7 +1057,7 @@ struct SummaryCard: View {
                                 Image(systemName: "flame.fill").font(.system(size: 9, weight: .bold))
                                 Text("+\(target.activityBonus.kcalString) durch Aktivität").font(Theme.font(11, .bold))
                             }
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(Theme.accentText)
                             .padding(.horizontal, 7).padding(.vertical, 3)
                             .background(Theme.accentSoft, in: Capsule())
                             .lineLimit(1).fixedSize()
@@ -1070,14 +1070,14 @@ struct SummaryCard: View {
                     if goals.activityEnabled || target.manualKcal > 0 {
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 2) {
-                                Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent)
+                                Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accentText)
                                 Text(target.activeKcal.kcalString).font(Theme.font(16, .bold)).foregroundStyle(Theme.textPrimary)
                                     .contentTransition(.numericText(value: target.activeKcal))
                             }
                             HStack(spacing: 3) {
                                 Text("Aktiv").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                                 if target.activityPercent > 0, target.activeKcal > 0 {
-                                    Text("\(Int(target.activityPercent)) %").font(Theme.font(11, .bold)).foregroundStyle(Theme.accent)
+                                    Text("\(Int(target.activityPercent)) %").font(Theme.font(11, .bold)).foregroundStyle(Theme.accentText)
                                 }
                             }
                         }
@@ -1277,7 +1277,7 @@ struct AIBadge: View {
             Image(systemName: "sparkles").font(.system(size: 9, weight: .bold))
             Text("KI").font(Theme.font(10, .bold))
         }
-        .foregroundStyle(Theme.accent)
+        .foregroundStyle(Theme.accentText)
         .padding(.horizontal, 6).padding(.vertical, 3)
         .background(Theme.accentSoft, in: Capsule())
         .fixedSize()
@@ -1296,7 +1296,7 @@ struct IngredientRow: View {
                     Text(ingredient.food.displayName).font(Theme.font(compact ? 15 : 16, .semibold))
                         .foregroundStyle(Theme.textPrimary).lineLimit(1)
                     if ingredient.food.source == .ai {
-                        Image(systemName: "sparkles").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent)
+                        Image(systemName: "sparkles").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accentText)
                     }
                 }
                 Text(ingredient.amountText).font(Theme.font(compact ? 12 : 13)).foregroundStyle(Theme.textSecondary).lineLimit(1)

@@ -115,7 +115,7 @@ struct FriendsView: View {
                         Text(store.me?.code ?? "–").font(.system(size: 14, weight: .bold, design: .monospaced))
                         Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 11, weight: .bold))
                     }
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Theme.accentSoft, in: Capsule())
                 }
@@ -180,7 +180,7 @@ struct FriendsView: View {
                     Text("wartet auf Bestätigung").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Button("Zurückziehen") { Task { await store.remove(o.id, ctx: ctx, goals: goals) } }
-                        .font(Theme.font(13, .semibold)).foregroundStyle(Theme.accent)
+                        .font(Theme.font(13, .semibold)).foregroundStyle(Theme.accentText)
                 }
             }
         }
