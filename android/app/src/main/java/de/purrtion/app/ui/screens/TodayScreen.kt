@@ -205,8 +205,9 @@ fun TodayScreen(activity: MainActivity) {
         }
     }
     // The bars float over the list: no hard band, the content just fades out behind them.
-    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().background(de.purrtion.app.ui.bottomFade()).padding(top = 64.dp)) {
+    // One continuous fade from above the add pill down behind the tab bar (the root screen skips its own fade on this tab).
+    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(de.purrtion.app.ui.bottomFade()).padding(top = 110.dp)) {
+        Column(Modifier.fillMaxWidth()) {
         if (selection != null) {
             SelectionBar(selection!!.size,
                 onDelete = { scope.launch { h.warning(); Store.deleteIds(selection!!, day); selection = null } },
@@ -225,7 +226,7 @@ fun TodayScreen(activity: MainActivity) {
             QuickAddBar(day)
         }
         }
-        // Room for the floating tab bar (its own fade is drawn by the root screen).
+        // Room for the floating tab bar.
         Spacer(Modifier.navigationBarsPadding().height(80.dp))
     }
     }

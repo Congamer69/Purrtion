@@ -104,7 +104,7 @@ fun RootScreen(activity: MainActivity) {
             else -> SettingsScreen()
         }
         // Soft fade behind the floating tab bar instead of a hard band.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+        if (tab != 0) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
             .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 130.dp)
             .background(bottomFade()))
         TabBar(tabs, tab, Modifier.align(Alignment.BottomCenter)) { tab = it }
