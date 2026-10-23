@@ -74,10 +74,10 @@ struct SuggestionsList: View {
 
             if saved.isEmpty && custom.isEmpty {
                 empty("Noch keine Favoriten oder Rezepte",
-                      "Markiere Lebensmittel mit dem Stern als Favorit oder lege Rezepte an – dann schlägt die Katze hier vor, was noch passt.")
+                      "Markiere Lebensmittel mit dem Stern als Favorit oder lege Rezepte an – dann schlägt \(Pet.the) hier vor, was noch passt.")
             } else if list.isEmpty {
                 empty(g.kcal <= 0 ? "Tagesziel erreicht" : "Nichts passt mehr ganz",
-                      g.kcal <= 0 ? "Für heute ist das Kalorienziel erreicht. Alles Weitere wäre drüber, deshalb schlägt die Katze nichts mehr vor."
+                      g.kcal <= 0 ? "Für heute ist das Kalorienziel erreicht. Alles Weitere wäre drüber, deshalb schlägt \(Pet.the) nichts mehr vor."
                                   : "Alle Favoriten und Rezepte wären selbst in kleiner Menge zu viel.")
             } else {
                 Section {

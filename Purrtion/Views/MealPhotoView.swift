@@ -58,7 +58,7 @@ struct MealPhotoView: View {
                     switch phase {
                     case .idle: idleContent
                     case .analyzing:
-                        WalkingCatLoader(pixel: 3, width: 220, text: "Deine Katze schnuppert am Essen …").padding(.vertical, 20)
+                        WalkingCatLoader(pixel: 3, width: 220, text: "\(Pet.yourUpper) schnuppert am Essen …").padding(.vertical, 20)
                     case .failed(let msg):
                         VStack(spacing: 10) {
                             CatMascot(mood: .full, pixel: 4)

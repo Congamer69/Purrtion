@@ -114,6 +114,14 @@ final class FoodEntry {
         update(quantity: quantity, serving: serving, food: food)
     }
 
+    /// Detached copy (same id) used to restore a deleted entry.
+    init(copying e: FoodEntry) {
+        id = e.id; day = e.day; createdAt = e.createdAt; name = e.name; brand = e.brand
+        quantity = e.quantity; servingName = e.servingName; servingGrams = e.servingGrams
+        kcal = e.kcal; protein = e.protein; carbs = e.carbs; fat = e.fat
+        foodData = e.foodData; ingredientsData = e.ingredientsData
+    }
+
     /// Logs one scanned meal as one entry while retaining all of its editable ingredients.
     init(mealName: String, ingredients: [RecipeIngredient], source: FoodSource, day: Date) {
         let total = ingredients.reduce(Nutrients()) { $0 + $1.nutrients }

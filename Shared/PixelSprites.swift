@@ -24,8 +24,12 @@ struct CatPalette: Hashable, Identifiable {
     static let black = CatPalette(id: "black", name: "Mitternacht", fur: Color(hex: 0x4A4453), furLight: Color(hex: 0x6E6779), stripe: Color(hex: 0x3A3542))
     static let cream = CatPalette(id: "cream", name: "Keks", fur: Color(hex: 0xF3DDBE), furLight: Color(hex: 0xFFF6EA), stripe: Color(hex: 0xD9B88E))
 
+    /// The secret dog. Not part of `all`: it is unlocked by tapping the logo in the settings.
+    static let dog = CatPalette(id: "dog", name: "Buddy", fur: Color(hex: 0xC98B4F), furLight: Color(hex: 0xF4E0BE), stripe: Color(hex: 0x8B5A33))
+
     static let all: [CatPalette] = [.ginger, .grey, .black, .cream]
-    static func byID(_ id: String) -> CatPalette { all.first { $0.id == id } ?? .ginger }
+    static func byID(_ id: String) -> CatPalette { (all + [dog]).first { $0.id == id } ?? .ginger }
+    var isDog: Bool { id == "dog" }
 
     func color(for c: Character) -> Color? {
         switch c {
@@ -599,4 +603,16 @@ extension Sprites {
         "owcwwwpwwwcwob..",
         "owwwwowowwwwo...",
     ] + body)
+}
+
+/// Wording for the chosen companion, so texts say "Hund" while the dog is active.
+enum Pet {
+    static let storageKey = "catPalette"
+    static var isDog: Bool { UserDefaults.standard.string(forKey: storageKey) == CatPalette.dog.id }
+    /// "die Katze" / "der Hund" (nominative).
+    static var the: String { isDog ? "der Hund" : "die Katze" }
+    /// "deine Katze" / "dein Hund".
+    static var your: String { isDog ? "dein Hund" : "deine Katze" }
+    static var yourUpper: String { isDog ? "Dein Hund" : "Deine Katze" }
+    static var noun: String { isDog ? "Hund" : "Katze" }
 }

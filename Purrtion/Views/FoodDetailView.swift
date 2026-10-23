@@ -401,8 +401,7 @@ struct MealEntryDetailView: View {
     }
 
     private func removeEntry() {
-        ctx.delete(entry)
-        try? ctx.save()
+        ctx.deleteTracked([entry])
         dismiss()
     }
 }
@@ -491,7 +490,8 @@ private struct IngredientActions: ViewModifier {
 
     private func delete() {
         Haptics.warning()
-        if entry.removeIngredient(id) { try? ctx.save() } else { onLastRemoved() }
+        UndoStore.shared.recordIngredientRemoval(of: entry)
+        if entry.removeIngredient(id) { try? ctx.save() } else { UndoStore.shared.clear(); onLastRemoved() }
     }
 }
 

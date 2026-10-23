@@ -87,6 +87,7 @@ struct RootView: View {
     #endif
     @State private var splashExit = false
     @State private var tab = 0
+    @AppStorage("startTab") private var startTab = 0
     @ObservedObject private var router = NotificationRouter.shared
     @AppStorage(FriendsStore.enabledKey) private var friendsEnabled = true
     // Look & feel (Profil → Darstellung): screens are re-created with the new theme when one of these changes.
@@ -114,8 +115,9 @@ struct RootView: View {
             // System behaviour: the tab bar shrinks while scrolling down and the accessory folds in next to it.
             .tabBarMinimizeBehavior(.onScrollDown)
             .tabViewBottomAccessory(isEnabled: tab == 0) { QuickAddAccessory() }
+            // No scaleEffect: scaling the UIKit tab bar while it is still laying out made it jump into place.
             .opacity(showSplash ? 0 : 1)
-            .scaleEffect(showSplash ? 0.97 : 1)
+            .allowsHitTesting(!showSplash)
             }
 
             if showSplash {
@@ -126,9 +128,11 @@ struct RootView: View {
         }
         .task {
             // Short, cute splash, long enough for the food database to finish loading.
-            try? await Task.sleep(for: .milliseconds(1000))
+            try? await Task.sleep(for: .milliseconds(700))
+            tab = startTab
             appBuilt = true
-            try? await Task.sleep(for: .milliseconds(450))
+            // Hidden under the splash while the tab bar, accessory and first screen lay out, so nothing moves after the reveal.
+            try? await Task.sleep(for: .milliseconds(800))
             // The logo lifts away first, then the orange fades while the app settles in underneath.
             withAnimation(.easeIn(duration: 0.26)) { splashExit = true }
             try? await Task.sleep(for: .milliseconds(160))
@@ -296,15 +300,24 @@ extension RootView {
 struct SplashView: View {
     var exiting = false
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
+    @AppStorage(ThemeSetting.accentKey) private var accentID = ""
+    @Environment(\.colorScheme) private var scheme
+    /// The system launch screen is always the default orange (or dark); the splash eases from it into the accent.
+    @State private var tinted = false
     @State private var discIn = false
     @State private var catIn = false
     @State private var ring: CGFloat = 0
     @State private var lettersShown = 0
 
     private let word = Array("PURRTION")
-    /// Same orange as the system launch screen, so the app opens without a visible seam.
-    private let brand = Color(hex: 0xFF8A4A)
-    private let cream = Color(hex: 0xFFF3E4)
+    private var dark: Bool { scheme == .dark }
+    /// Light: the accent fills the screen. Dark: the app's background setting (warm, neutral or black) with the accent on the details.
+    private var launchColor: Color { dark ? Color(hex: 0x17151B) : Color(hex: 0xFF8A4A) }
+    private var brand: Color { tinted ? (dark ? Theme.background : Theme.accent) : launchColor }
+    /// Plate, ring and lettering.
+    private var cream: Color { dark ? Theme.accent : Color(hex: 0xFFF3E4) }
+    private var plate: Color { dark ? Theme.card : Color(hex: 0xFFF3E4) }
+    private var ink: Color { dark ? Theme.accent : Color(hex: 0xFFF3E4) }
 
     var body: some View {
         ZStack {
@@ -312,10 +325,10 @@ struct SplashView: View {
 
             VStack(spacing: 40) {
                 ZStack {
-                    Circle().fill(cream)
+                    Circle().fill(plate)
                         .frame(width: 184, height: 184)
                         .scaleEffect(discIn ? 1 : 0.05)
-                        .shadow(color: Color(hex: 0xC4531C).opacity(0.22), radius: 18, y: 10)
+                        .shadow(color: (dark ? Color.black : Color(hex: 0xC4531C)).opacity(dark ? 0.5 : 0.22), radius: 18, y: 10)
                     Circle().trim(from: 0, to: ring)
                         .stroke(cream.opacity(0.9), style: StrokeStyle(lineWidth: 7, lineCap: .round))
                         .frame(width: 216, height: 216)
@@ -329,7 +342,7 @@ struct SplashView: View {
 
                 HStack(spacing: 5) {
                     ForEach(Array(word.enumerated()), id: \.offset) { i, ch in
-                        PixelText(text: String(ch), pixel: 5, color: cream)
+                        PixelText(text: String(ch), pixel: 5, color: ink)
                             .offset(y: i < lettersShown ? 0 : 16)
                             .opacity(i < lettersShown ? 1 : 0)
                     }
@@ -338,7 +351,10 @@ struct SplashView: View {
             .scaleEffect(exiting ? 1.1 : 1)
             .opacity(exiting ? 0 : 1)
         }
-        .onAppear(perform: play)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.3)) { tinted = true }
+            play()
+        }
     }
 
     private func play() {

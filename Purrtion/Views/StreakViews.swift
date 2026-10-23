@@ -24,6 +24,8 @@ struct StreakSheet: View {
             ScrollView {
                 VStack(spacing: Theme.Space.l) {
                     hero
+                    statsRow
+                    milestonesCard
                     freezeCard
                     calendarCard
                     Text("Eine Serie zählt jeden Tag, an dem du etwas einträgst. Fehlt ein Tag, rettet ein Streak-Freeze deine Serie automatisch. Der Tag zählt dann nicht mit, bricht sie aber nicht ab. Nach jeweils 7 Tagen in Folge bekommst du einen neuen Freeze, du kannst höchstens \(Streak.maxFreezes) sammeln.")
@@ -40,24 +42,129 @@ struct StreakSheet: View {
         }
     }
 
+    private var active: Bool { state.loggedToday }
+
     private var hero: some View {
         VStack(spacing: Theme.Space.s) {
-            CatMascot(mood: state.loggedToday ? .proud : (state.count > 0 ? .idle : .sleeping), pixel: 5)
-            HStack(spacing: 6) {
-                Image(systemName: "flame.fill").font(.system(size: 30, weight: .bold))
-                Text("\(state.count)").font(Theme.font(44, .heavy)).contentTransition(.numericText(value: Double(state.count)))
+            ZStack {
+                // Soft glow that breathes while today's streak is safe.
+                TimelineView(.animation(paused: !active)) { ctx in
+                    let t = ctx.date.timeIntervalSinceReferenceDate
+                    let pulse = active ? (sin(t * 2.2) + 1) / 2 : 0
+                    Circle()
+                        .fill(RadialGradient(colors: [Theme.accent.opacity(active ? 0.38 : 0.12), .clear], center: .center, startRadius: 4, endRadius: 120))
+                        .frame(width: 240, height: 240)
+                        .scaleEffect(1 + pulse * 0.08)
+                }
+                VStack(spacing: 2) {
+                    CatMascot(mood: state.loggedToday ? .proud : (state.count > 0 ? .idle : .sleeping), pixel: 5)
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 46, weight: .bold))
+                        .foregroundStyle(active ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0xFFC145), Theme.accent], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Theme.textSecondary.opacity(0.5)))
+                        .symbolEffect(.pulse, isActive: active)
+                        .shadow(color: Theme.accent.opacity(active ? 0.5 : 0), radius: 12, y: 2)
+                }
             }
-            .foregroundStyle(state.loggedToday ? Theme.accent : Theme.textSecondary)
+            .frame(height: 190)
+            Text("\(state.count)").font(Theme.font(56, .heavy)).foregroundStyle(Theme.textPrimary)
+                .contentTransition(.numericText(value: Double(state.count)))
+                .offset(y: -18)
             Text(state.count == 1 ? "Tag in Folge" : "Tage in Folge").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                .offset(y: -18)
             Text(state.loggedToday ? "Heute ist erledigt." : (state.count > 0 ? "Trag heute etwas ein, um die Serie zu halten." : "Trag etwas ein, um eine neue Serie zu starten."))
                 .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
-            if state.best > state.count {
-                Text("Rekord: \(state.best) Tage").font(Theme.font(12, .bold)).foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 10).padding(.vertical, 4).background(Theme.accentSoft, in: Capsule())
-            }
+                .offset(y: -14)
+            nextFreezeBar
         }
         .frame(maxWidth: .infinity)
         .card(padding: Theme.Space.xl)
+    }
+
+    /// Progress to the next freeze: the current run modulo 7.
+    private var nextFreezeBar: some View {
+        let full = state.freezes >= Streak.maxFreezes
+        let into = state.count % Streak.daysPerFreeze
+        let progress = full ? 1 : Double(into) / Double(Streak.daysPerFreeze)
+        return VStack(spacing: 6) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.track(Theme.water))
+                    Capsule().fill(LinearGradient(colors: [Theme.water, Theme.accent], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: max(10, geo.size.width * progress))
+                }
+            }
+            .frame(height: 10)
+            HStack(spacing: 4) {
+                Image(systemName: "snowflake").font(.system(size: 11, weight: .bold))
+                Text(full ? "Alle Freezes gefüllt" : "Noch \(Streak.daysPerFreeze - into) \(Streak.daysPerFreeze - into == 1 ? "Tag" : "Tage") bis zum nächsten Freeze")
+            }
+            .font(Theme.font(12, .bold)).foregroundStyle(Theme.water)
+        }
+        .padding(.top, Theme.Space.xs)
+    }
+
+    private var statsRow: some View {
+        let logged = Set(entries.map(\.day))
+        let activeDays = logged.filter { $0 <= today }.count
+        return HStack(spacing: Theme.Space.m) {
+            statTile("trophy.fill", "\(max(state.best, state.count))", "Rekord", Color(hex: 0xFFC145))
+            statTile("calendar", "\(activeDays)", "Tage in 5 Wochen", Theme.accent)
+            statTile("snowflake", "\(state.frozen.count)", "Freezes genutzt", Theme.water)
+        }
+    }
+
+    private func statTile(_ icon: String, _ value: String, _ label: String, _ tint: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(tint)
+                .frame(width: 34, height: 34).background(tint.opacity(0.16), in: Circle())
+            Text(value).font(Theme.font(22, .bold)).foregroundStyle(Theme.textPrimary).contentTransition(.numericText())
+            Text(label).font(Theme.font(12)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).lineLimit(2)
+        }
+        .frame(maxWidth: .infinity)
+        .card(padding: Theme.Space.m)
+    }
+
+    private static let milestones = [3, 7, 14, 30, 60, 100, 200, 365]
+
+    /// Badges for streak lengths: reached ones glow in the accent, the next one shows how far you are.
+    private var milestonesCard: some View {
+        let reached = max(state.best, state.count)
+        let next = Self.milestones.first { $0 > state.count }
+        return VStack(alignment: .leading, spacing: Theme.Space.m) {
+            Text("Meilensteine").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+            // Two rows of four so every badge stays inside the card.
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Theme.Space.s), count: 4), spacing: Theme.Space.m) {
+                ForEach(Self.milestones, id: \.self) { m in
+                    let done = reached >= m
+                    let isNext = m == next
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle().fill(done ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0xFFC145), Theme.accent], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Theme.cardAlt))
+                            if isNext {
+                                Circle().trim(from: 0, to: Double(state.count) / Double(m))
+                                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                                    .rotationEffect(.degrees(-90))
+                                    .padding(-4)
+                            }
+                            Image(systemName: done ? "flame.fill" : "lock.fill")
+                                .font(.system(size: done ? 22 : 15, weight: .bold))
+                                .foregroundStyle(done ? Color.white : Theme.textSecondary.opacity(0.6))
+                        }
+                        .frame(width: 52, height: 52)
+                        .padding(4)
+                        Text("\(m)").font(Theme.font(14, .bold)).foregroundStyle(done ? Theme.textPrimary : Theme.textSecondary)
+                    }
+                }
+            }
+            if let next {
+                Text("Noch \(next - state.count) \(next - state.count == 1 ? "Tag" : "Tage") bis \(next) in Folge.")
+                    .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+            } else {
+                Text("Alle Meilensteine erreicht.").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
     }
 
     private var freezeCard: some View {
@@ -80,6 +187,7 @@ struct StreakSheet: View {
         .card()
     }
 
+    /// Last five weeks as a chain: neighbouring logged days are joined, so a streak reads as one run.
     private var calendarCard: some View {
         let logged = Set(entries.map(\.day))
         return VStack(spacing: Theme.Space.s) {
@@ -89,10 +197,15 @@ struct StreakSheet: View {
                 }
             }
             ForEach(0..<5, id: \.self) { w in
-                HStack(spacing: 6) {
+                HStack(spacing: 0) {
                     ForEach(0..<7, id: \.self) { i in
                         let d = cal.date(byAdding: .day, value: w * 7 + i, to: gridStart)!
-                        cell(d, logged: logged.contains(d))
+                        let prev = cal.date(byAdding: .day, value: -1, to: d)!
+                        let next = cal.date(byAdding: .day, value: 1, to: d)!
+                        let on = counts(d, logged)
+                        cell(d, logged: logged.contains(d),
+                             joinLeft: i > 0 && on && counts(prev, logged),
+                             joinRight: i < 6 && on && counts(next, logged))
                     }
                 }
             }
@@ -106,29 +219,42 @@ struct StreakSheet: View {
         .card()
     }
 
-    private func cell(_ d: Date, logged: Bool) -> some View {
-        let frozen = state.frozen.contains(d)
+    private func counts(_ d: Date, _ logged: Set<Date>) -> Bool { logged.contains(d) || state.frozen.contains(d) }
+
+    private func cell(_ d: Date, logged: Bool, joinLeft: Bool, joinRight: Bool) -> some View {
+        let frozen = state.frozen.contains(d) && !logged
         let future = d > today
         let isToday = d == today
-        return RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(logged ? Theme.accent : (frozen ? Theme.water.opacity(0.85) : Theme.cardAlt))
-            .frame(height: 38)
-            .overlay {
-                if frozen && !logged {
-                    Image(systemName: "snowflake").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                } else {
-                    Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(12, .bold))
-                        .foregroundStyle(logged ? Color.white : Theme.textSecondary)
-                }
+        let tint = frozen ? Theme.water : Theme.accent
+        return ZStack {
+            // Bridge to the neighbouring days of the run.
+            HStack(spacing: 0) {
+                Rectangle().fill(tint.opacity(0.32)).opacity(joinLeft ? 1 : 0)
+                Rectangle().fill(tint.opacity(0.32)).opacity(joinRight ? 1 : 0)
             }
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(isToday ? Theme.textPrimary : .clear, lineWidth: 2))
-            .opacity(future ? 0.3 : 1)
-            .frame(maxWidth: .infinity)
+            .frame(height: 22)
+            Circle()
+                .fill(logged || frozen ? tint : Theme.cardAlt)
+                .frame(width: 36, height: 36)
+                .overlay {
+                    if frozen {
+                        Image(systemName: "snowflake").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
+                    } else if logged && isToday {
+                        Image(systemName: "flame.fill").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                    } else {
+                        Text("\(Calendar.current.component(.day, from: d))").font(Theme.font(12, .bold))
+                            .foregroundStyle(logged ? Color.white : Theme.textSecondary)
+                    }
+                }
+                .overlay(Circle().stroke(isToday ? Theme.textPrimary : .clear, lineWidth: 2).padding(-3))
+        }
+        .opacity(future ? 0.3 : 1)
+        .frame(maxWidth: .infinity, minHeight: 42)
     }
 
     private func legend(_ color: Color, _ text: String) -> some View {
         HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
+            Circle().fill(color).frame(width: 12, height: 12)
             Text(text)
         }
     }

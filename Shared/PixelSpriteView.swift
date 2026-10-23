@@ -10,7 +10,8 @@ struct PixelSpriteView: View {
     var mono = false
 
     var body: some View {
-        Canvas { ctx, _ in
+        let sprite = palette.isDog ? DogSprites.convert(self.sprite) : self.sprite
+        return Canvas { ctx, _ in
             if mono {
                 // Translucent pixels must not overlap, or the seams show up as a grid: draw each run of equal pixels once.
                 for (y, row) in sprite.rows.enumerated() {

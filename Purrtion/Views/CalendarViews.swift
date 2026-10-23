@@ -214,8 +214,7 @@ struct DaySummarySheet: View {
                         }
                     }
                     .onDelete { idx in
-                        idx.map { entries[$0] }.forEach(ctx.delete)
-                        try? ctx.save()
+                        ctx.deleteTracked(idx.map { entries[$0] })
                     }
                     if entries.isEmpty { Text("Keine Einträge").foregroundStyle(Theme.textSecondary) }
                 }

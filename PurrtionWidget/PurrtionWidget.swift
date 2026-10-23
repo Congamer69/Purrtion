@@ -48,7 +48,7 @@ struct TodayWidget: Widget {
                 .containerBackground(Theme.card, for: .widget)
         }
         .configurationDisplayName("Heute")
-        .description("Deine Kalorien, Makros und deine Katze auf einen Blick.")
+        .description("Deine Kalorien, Makros und dein Maskottchen auf einen Blick.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

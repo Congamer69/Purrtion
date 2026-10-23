@@ -17,6 +17,14 @@
 - **Lesbarere Zusatzleiste:** Beschriftung in Textfarbe, Akzent nur auf den Symbolen.
 - **Einheitliche Bewegung:** Alle Animationen nutzen jetzt fünf gemeinsame Federn (schnell, weich, verspielt, Füllen, Drücken) statt vieler einzelner Werte. Wasserglas, Katze, Ringe, Balken, Listen und Auswahl fühlen sich dadurch gleich an.
 - **Einheitliche Typografie und Abstände:** vier Schriftgrößen, zwei Schriftstärken, weiche getönte Schatten.
+- **Serien-Ansicht neu:** leuchtende Flamme, Fortschritt bis zum nächsten Freeze, Kacheln für Rekord, aktive Tage und genutzte Freezes, Meilensteine (3 bis 365 Tage) und die letzten fünf Wochen als Kette, in der aufeinanderfolgende Tage verbunden sind.
+- **Rückgängig statt Schreck:** Nach dem Löschen eines Eintrags, mehrerer Einträge oder einer Zutat erscheint zehn Sekunden lang ein „zurück“-Button neben dem „…“-Menü auf „Heute“.
+- **Dunkler Startbildschirm:** folgt dem Akzent und der Hintergrund-Einstellung (auch komplett schwarz).
+- **Verlauf anpassen:** Karten per Ziehen umsortieren und ein- oder ausblenden. Seltenere Auswertungen sind standardmäßig ausgeblendet.
+- **Freunde neu geordnet:** ein Menü oben rechts (hinzufügen, einladen, verwalten), kompaktes Profil mit Code zum Kopieren, Wochenvergleich mit Punkten.
+- **Daten und KI getrennt:** „Datenquellen“ und „KI-Modelle“ sind eigene Einträge im Profil.
+- **Mehr Anpassung:** Startseite (Heute oder Verlauf) und haptisches Feedback lassen sich einstellen.
+- **Geheimnis:** Fünfmal schnell auf das Logo im Profil tippen. Ein Hund zieht ein, mit allen Stimmungen der Katze. Die Freischaltung bleibt, zurück zu den Katzen geht in der Darstellung, den Hund gibt es per erneutem Fünffachtippen.
 
 ## 1.8.1 – 22. Oktober 2026
 

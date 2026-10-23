@@ -204,8 +204,7 @@ struct TodayView: View {
         let list = selectedEntries()
         guard !list.isEmpty else { return }
         Haptics.warning()
-        withAnimation { list.forEach(ctx.delete) }
-        try? ctx.save()
+        withAnimation { ctx.deleteTracked(list) }
         selection = nil
     }
 
@@ -909,6 +908,7 @@ struct DayContent: View {
                         .font(Theme.font(14, .semibold))
                         .foregroundStyle(Theme.accent)
                     } else {
+                        UndoButton()
                         optionsMenu
                     }
                 }
@@ -998,8 +998,7 @@ struct DayContent: View {
 
     private func delete(_ e: FoodEntry) {
         Haptics.warning()
-        ctx.delete(e)
-        try? ctx.save()
+        ctx.deleteTracked([e])
     }
 
     private func favoriteAll() {

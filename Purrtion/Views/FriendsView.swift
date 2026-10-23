@@ -11,6 +11,7 @@ struct FriendsView: View {
     @AppStorage("friends.metric") private var metric: FriendMetric = .streak
     @State private var showCode = false
     @State private var showManage = false
+    @State private var copied = false
     @State private var detail: FriendsStore.Person?
     /// Today's breakdown of a person (tapped in the "Heute" card).
     @State private var todayOf: FriendsStore.Person?
@@ -44,13 +45,19 @@ struct FriendsView: View {
             .navigationTitle("Freunde")
             .toolbar {
                 if store.isSetUp {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button { showManage = true } label: { Image(systemName: "person.2.badge.gearshape") }
-                            .accessibilityLabel("Freunde verwalten")
-                    }
                     ToolbarItem(placement: .primaryAction) {
-                        Button { showCode = true } label: { Image(systemName: "person.badge.plus") }
-                            .accessibilityLabel("Code eingeben")
+                        Menu {
+                            Button { showCode = true } label: { Label("Freund hinzufügen", systemImage: "person.badge.plus") }
+                            if let link = store.inviteLink {
+                                ShareLink(item: link, subject: Text("Purrtion"),
+                                          message: Text("Lass uns auf Purrtion vergleichen! 🐾 Mein Code: \(store.me?.code ?? "")")) {
+                                    Label("Einladungslink teilen", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                            Divider()
+                            Button { showManage = true } label: { Label("Freunde verwalten", systemImage: "person.2.badge.gearshape") }
+                        } label: { Image(systemName: "ellipsis.circle") }
+                            .accessibilityLabel("Mehr")
                     }
                 }
             }
@@ -88,32 +95,41 @@ struct FriendsView: View {
 
     // MARK: Cards
 
+    /// Compact profile strip: who you are, your code (tap to copy) and the invite button.
     private var meCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                CatMascot(mood: .happy, pixel: 3.4)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name).font(Theme.font(20, .bold)).foregroundStyle(Theme.textPrimary)
-                    HStack(spacing: 6) {
-                        Text("Dein Code").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
-                        Text(store.me?.code ?? "–").font(.system(size: 15, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Theme.accent).textSelection(.enabled)
-                    }
-                }
-                Spacer(minLength: 0)
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().fill(Theme.accentSoft)
+                CatMascot(mood: .happy, pixel: 2.4)
             }
-            HStack(spacing: 10) {
-                if let link = store.inviteLink {
-                    ShareLink(item: link, subject: Text("Purrtion"),
-                              message: Text("Lass uns auf Purrtion vergleichen! 🐾 Mein Code: \(store.me?.code ?? "")")) {
-                        Label("Einladen", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
+            .frame(width: 64, height: 64)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(name).font(Theme.font(20, .bold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Button {
+                    UIPasteboard.general.string = store.me?.code
+                    Haptics.success()
+                    withAnimation(Motion.quick) { copied = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { withAnimation(Motion.quick) { copied = false } }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(store.me?.code ?? "–").font(.system(size: 14, weight: .bold, design: .monospaced))
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 11, weight: .bold))
                     }
-                    .buttonStyle(PillButtonStyle())
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Theme.accentSoft, in: Capsule())
                 }
-                Button { showCode = true } label: {
-                    Label("Code", systemImage: "keyboard").frame(maxWidth: .infinity)
+                .buttonStyle(SquishButtonStyle())
+                .accessibilityLabel("Dein Code \(store.me?.code ?? ""), kopieren")
+            }
+            Spacer(minLength: 0)
+            if let link = store.inviteLink {
+                ShareLink(item: link, subject: Text("Purrtion"),
+                          message: Text("Lass uns auf Purrtion vergleichen! 🐾 Mein Code: \(store.me?.code ?? "")")) {
+                    Image(systemName: "square.and.arrow.up").font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 46, height: 46).background(Theme.accent, in: Circle())
                 }
-                .buttonStyle(PillButtonStyle(filled: false))
+                .accessibilityLabel("Einladen")
             }
         }
         .card()
@@ -300,7 +316,7 @@ struct FriendsView: View {
                     Text(r.0).font(Theme.font(14, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1).frame(width: 90, alignment: .leading)
                     ForEach(0..<7, id: \.self) { i in
                         let v = i < r.1.count ? r.1[i] : 0
-                        RoundedRectangle(cornerRadius: 5).fill(color(v)).frame(width: 22, height: 22).frame(maxWidth: .infinity)
+                        Circle().fill(color(v)).frame(width: 20, height: 20).frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -336,11 +352,6 @@ struct FriendsView: View {
 
     private var footer: some View {
         VStack(spacing: 4) {
-            Button { showManage = true } label: {
-                Label("Freunde verwalten", systemImage: "person.2.badge.gearshape").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PillButtonStyle(filled: false))
-            .padding(.bottom, 8)
             if store.busy { ProgressView().controlSize(.small) }
             if let r = store.lastRefresh {
                 Text("Aktualisiert \(r.formatted(.relative(presentation: .named))) · zum Aktualisieren ziehen")

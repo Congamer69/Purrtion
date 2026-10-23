@@ -10,6 +10,8 @@ struct AppearanceSettingsView: View {
     @AppStorage(ThemeSetting.cardsKey) private var cardStyle = ThemeCards.shadow
     @AppStorage(ThemeSetting.backgroundKey) private var backgroundTone = ThemeBackground.warm
     @AppStorage(ThemeSetting.fontKey) private var fontStyle = ThemeFont.rounded
+    @AppStorage("startTab") private var startTab = 0
+    @AppStorage(Haptics.enabledKey) private var haptics = true
 
     var body: some View {
         Form { appearanceSection }
@@ -116,8 +118,20 @@ struct AppearanceSettingsView: View {
         } header: { Text("Stil") }
         .listRowBackground(Theme.card)
 
+        Section {
+            Picker("Startseite", selection: $startTab) {
+                Text("Heute").tag(0)
+                Text("Verlauf").tag(1)
+            }
+            Toggle("Haptisches Feedback", isOn: $haptics)
+        } header: { Text("Verhalten") } footer: {
+            Text("Die Startseite gilt beim nächsten Öffnen der App.")
+        }
+        .listRowBackground(Theme.card)
+
                 Section {
                     HStack(spacing: 16) {
+                        // The dog is a secret and never listed; while it is active no cat is selected.
                         ForEach(CatPalette.all) { p in
                             Button {
                                 Haptics.tap()
@@ -139,7 +153,7 @@ struct AppearanceSettingsView: View {
                         ForEach(Appearance.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented)
-                } header: { Text("Deine Katze & Look") }
+                } header: { Text(paletteID == CatPalette.dog.id ? "Dein Hund & Look" : "Deine Katze & Look") }
                 .listRowBackground(Theme.card)
     }
 }

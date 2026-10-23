@@ -8,6 +8,11 @@ struct SettingsView: View {
     @AppStorage("profile.name") private var profileName = ""
     @AppStorage(VisionProvider.storageKey) private var visionProvider = VisionProvider.apple.rawValue
     @AppStorage(AITask.day.providerKey) private var dayProvider = ""
+    @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
+    @AppStorage("dogUnlocked") private var dogUnlocked = false
+    @State private var logoTaps = 0
+    @State private var lastLogoTap = Date.distantPast
+    @State private var petToast: String?
 
     /// "Gemini" or "Gemini · Claude" when photo and day analysis differ.
     private var aiSummary: String {
@@ -97,8 +102,11 @@ struct SettingsView: View {
                         }
                     }
                     NavigationLink { page("Datenquellen") { sourcesSection } } label: {
+                        Label("Datenquellen", systemImage: "books.vertical.fill")
+                    }
+                    NavigationLink { VisionSettingsView() } label: {
                         HStack {
-                            Label("Datenquellen & KI", systemImage: "sparkles")
+                            Label("KI-Modelle", systemImage: "sparkles")
                             Spacer()
                             Text(aiSummary).font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                         }
@@ -114,14 +122,50 @@ struct SettingsView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                    // Secret: five quick taps on the logo bring the dog.
+                    .onTapGesture(perform: logoTapped)
                 }
                 .listRowBackground(Color.clear)
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background.ignoresSafeArea())
+            // Above the list so the row can't clip it.
+            .overlay(alignment: .bottom) {
+                if let petToast {
+                    Text(petToast).font(Theme.font(14, .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(Theme.accent, in: Capsule())
+                        .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+                        .padding(.bottom, 110)
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                }
+            }
             .navigationTitle("Profil")
             .keyboardDoneButton()
         }
+    }
+
+    /// Five taps in a row (each within 1.5 s of the last) switch to the dog; the unlock stays for good.
+    private func logoTapped() {
+        let now = Date()
+        logoTaps = now.timeIntervalSince(lastLogoTap) < 1.5 ? logoTaps + 1 : 1
+        lastLogoTap = now
+        guard logoTaps >= 5 else { return }
+        logoTaps = 0
+        if paletteID == CatPalette.dog.id {
+            showToast("\(CatPalette.dog.name) ist schon bei dir 🐶")
+            return
+        }
+        Haptics.success()
+        dogUnlocked = true
+        withAnimation(Motion.playful) { paletteID = CatPalette.dog.id }
+        showToast("\(CatPalette.dog.name) ist eingezogen 🐶")
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation(Motion.quick) { petToast = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { withAnimation(Motion.quick) { petToast = nil } }
     }
 
     @ViewBuilder private var featuresSection: some View {
@@ -207,13 +251,6 @@ struct SettingsView: View {
                 Section {
                     ForEach(SearchSource.allCases) { SourceToggle(source: $0) }
                     DatabaseUpdateRow()
-                    NavigationLink { VisionSettingsView() } label: {
-                        HStack {
-                            Label("KI-Modelle", systemImage: "sparkles")
-                            Spacer()
-                            Text(aiSummary).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                        }
-                    }
                 } header: { Text("Datenquellen") } footer: {
                     Text("Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n\(BLSDatabase.attribution)\n\n\(SwissDatabase.attribution)\n\n\(RestaurantDatabase.attribution)")
                 }
@@ -904,7 +941,7 @@ struct OnboardingView: View {
                         Spacer()
                         CatMascot(mood: .happy, pixel: 9)
                         PixelText(text: "PURRTION", pixel: 6, color: Theme.accent)
-                        Text("Kalorien zählen – schnell, einfach und mit einer Katze, die sich mit dir freut.")
+                        Text("Kalorien zählen – schnell, einfach und mit \(Pet.isDog ? "einem Hund" : "einer Katze"), \(Pet.isDog ? "der" : "die") sich mit dir freut.")
                             .font(Theme.font(18, .medium)).foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center).padding(.horizontal, 32)
                         VStack(alignment: .leading, spacing: 12) {

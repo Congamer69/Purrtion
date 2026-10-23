@@ -20,7 +20,13 @@ struct StatsView: View {
     @State private var scrubWeekday: String?
     @State private var scrubWeight: Date?
     @State private var showExpenditure = false
-    @State private var showMore = false
+    @AppStorage(StatsLayout.storageKey) private var layoutJSON = ""
+    @State private var showLayout = false
+
+    private var layout: StatsLayout {
+        get { StatsLayout(json: layoutJSON) }
+        nonmutating set { layoutJSON = newValue.json }
+    }
 
     /// Measured daily expenditure from intake and weight trend (always the last weeks, independent of the range).
     private var expenditure: ExpenditureEstimate {
@@ -121,34 +127,27 @@ struct StatsView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    // One hero chart first, then the short answers, then the long tail.
-                    kcalCard(all, logged)
-                    overviewCard(logged)
-                    Button { showExpenditure = true } label: { ExpenditureCard(estimate: expenditure) }
-                        .buttonStyle(SquishButtonStyle())
-                    goalCard(all)
-                    if goals.healthScoreEnabled { scoreCard(logged) }
-                    weightCard
-                    DisclosureGroup(isExpanded: $showMore) {
-                        VStack(spacing: 14) {
-                            if all.contains(where: { $0.active > 0 }) { activityCard(all) }
-                            macroCard(logged)
-                            // Per-weekday averages only make sense over several weeks.
-                            if range > 7 { weekdayCard(logged) }
-                            topFoodsCard(logged)
-                            microCard(logged)
-                        }
-                        .padding(.top, Theme.Space.m)
-                    } label: {
-                        Text("Weitere Auswertungen").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                    ForEach(layout.visible) { card in
+                        cardView(card, all, logged)
+                            .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     }
-                    .tint(Theme.accent)
-                    .padding(.horizontal, Theme.Space.s)
+                    if layout.visible.isEmpty {
+                        Text("Alle Karten sind ausgeblendet. Über „Anpassen“ holst du sie zurück.")
+                            .font(Theme.font(14)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
+                            .padding(.vertical, Theme.Space.xl)
+                    }
                 }
                 .padding(16)
             }
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Verlauf")
+            .animation(Motion.smooth, value: layout)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showLayout = true } label: { Label("Anpassen", systemImage: "slider.horizontal.3") }
+                }
+            }
+            .sheet(isPresented: $showLayout) { StatsLayoutEditor(layout: Binding(get: { layout }, set: { layout = $0 })) }
             .sheet(isPresented: $showWeight) { WeightSheet() }
             .sheet(isPresented: $showExpenditure) { ExpenditureSheet(estimate: expenditure) }
             .sheet(isPresented: $showWeightList) { WeightListView() }
@@ -173,6 +172,25 @@ struct StatsView: View {
     }
 
     // MARK: Cards
+
+    @ViewBuilder private func cardView(_ card: StatsCardID, _ all: [DayStat], _ logged: [DayStat]) -> some View {
+        switch card {
+        case .kcal: kcalCard(all, logged)
+        case .overview: overviewCard(logged)
+        case .expenditure:
+            Button { showExpenditure = true } label: { ExpenditureCard(estimate: expenditure) }
+                .buttonStyle(SquishButtonStyle())
+        case .goal: goalCard(all)
+        case .score: if goals.healthScoreEnabled { scoreCard(logged) }
+        case .weight: weightCard
+        case .activity: if all.contains(where: { $0.active > 0 }) { activityCard(all) }
+        case .macro: macroCard(logged)
+        // Per-weekday averages only make sense over several weeks.
+        case .weekday: if range > 7 { weekdayCard(logged) }
+        case .topFoods: topFoodsCard(logged)
+        case .micro: microCard(logged)
+        }
+    }
 
     private func overviewCard(_ logged: [DayStat]) -> some View {
         let within = logged.filter { $0.kcal <= $0.goal }.count
