@@ -30,6 +30,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
@@ -132,11 +134,21 @@ fun FriendsScreen() {
             Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Freunde", style = font(34, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.weight(1f))
                 if (store.isSetUp) {
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(C.card).squishClick { Nav.sheet { FriendsManageSheet() } },
-                        contentAlignment = Alignment.Center) { Icon(Icons.Rounded.ManageAccounts, "Freunde verwalten", tint = Palette.accent) }
-                    Spacer(Modifier.width(10.dp))
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(C.card).squishClick { Nav.sheet { CodeEntrySheet() } },
-                        contentAlignment = Alignment.Center) { Icon(Icons.Rounded.PersonAdd, "Code eingeben", tint = Palette.accent) }
+                    val context = LocalContext.current
+                    var open by remember { mutableStateOf(false) }
+                    Box {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(C.card).squishClick { open = true },
+                            contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MoreHoriz, "Mehr", tint = Palette.accentText) }
+                        androidx.compose.material3.DropdownMenu(open, { open = false }, containerColor = C.card) {
+                            androidx.compose.material3.DropdownMenuItem({ Text("Freund hinzufügen") }, { open = false; Nav.sheet { CodeEntrySheet() } },
+                                leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
+                            if (store.inviteLink != null) androidx.compose.material3.DropdownMenuItem({ Text("Einladungslink teilen") }, { open = false; shareInvite(context) },
+                                leadingIcon = { Icon(Icons.Rounded.Share, null) })
+                            androidx.compose.material3.HorizontalDivider(color = C.line)
+                            androidx.compose.material3.DropdownMenuItem({ Text("Freunde verwalten") }, { open = false; Nav.sheet { FriendsManageSheet() } },
+                                leadingIcon = { Icon(Icons.Rounded.ManageAccounts, null) })
+                        }
+                    }
                 }
             }
             when {
@@ -152,9 +164,8 @@ fun FriendsScreen() {
                         Leaderboard(myStats)
                         WeekCard(myStats)
                     }
-                    PillButton("Freunde verwalten", icon = Icons.Rounded.ManageAccounts, filled = false) { Nav.sheet { FriendsManageSheet() } }
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (store.busy) CircularProgressIndicator(Modifier.size(18.dp), color = Palette.accent, strokeWidth = 2.dp)
+                        if (store.busy) CircularProgressIndicator(Modifier.size(18.dp), color = Palette.accentText, strokeWidth = 2.dp)
                         store.lastRefresh?.let { Text("Aktualisiert ${relative(it)} · zum Aktualisieren ziehen", style = font(11), color = C.textSecondary) }
                     }
                 }
@@ -196,35 +207,44 @@ private fun CardLabel(icon: androidx.compose.ui.graphics.vector.ImageVector, tex
     }
 }
 
+private fun shareInvite(context: android.content.Context) {
+    val store = FriendsStore
+    val link = store.inviteLink ?: return
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "Purrtion")
+        putExtra(Intent.EXTRA_TEXT, "Lass uns auf Purrtion vergleichen! 🐾 Mein Code: ${store.me?.code ?: ""}\n$link")
+    }
+    context.startActivity(Intent.createChooser(send, "Einladen"))
+}
+
+/** Compact profile strip: who you are, your code (tap to copy) and the invite button. */
 @Composable
 private fun MeCard() {
     val store = FriendsStore
     val context = LocalContext.current
-    Column(Modifier.fillMaxWidth().card(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CatMascot(CatMood.happy, 3.4.dp)
-            Spacer(Modifier.width(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(store.name, style = font(20, FontWeight.Bold), color = C.textPrimary)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Dein Code", style = font(12), color = C.textSecondary)
-                    Spacer(Modifier.width(6.dp))
-                    Text(store.me?.code ?: "–", style = font(15, FontWeight.Bold).copy(fontFamily = FontFamily.Monospace), color = Palette.accent)
-                }
+    val h = rememberHaptics()
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(1600); copied = false } }
+    Row(Modifier.fillMaxWidth().card(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(64.dp).clip(CircleShape).background(C.accentSoft), contentAlignment = Alignment.Center) { CatMascot(CatMood.happy, 2.4.dp) }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(store.name, style = font(20, FontWeight.Bold), color = C.textPrimary, maxLines = 1)
+            Row(Modifier.clip(CircleShape).background(C.accentSoft).squishClick {
+                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("Purrtion-Code", store.me?.code ?: ""))
+                h.success(); copied = true
+            }.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(store.me?.code ?: "–", style = font(14, FontWeight.Bold).copy(fontFamily = FontFamily.Monospace), color = Palette.accentText)
+                Spacer(Modifier.width(6.dp))
+                Icon(if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy, "Code kopieren", Modifier.size(12.dp), tint = Palette.accentText)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            store.inviteLink?.let { link ->
-                PillButton("Einladen", Modifier.weight(1f), icon = Icons.Rounded.Share) {
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_SUBJECT, "Purrtion")
-                        putExtra(Intent.EXTRA_TEXT, "Lass uns auf Purrtion vergleichen! 🐾 Mein Code: ${store.me?.code ?: ""}\n$link")
-                    }
-                    context.startActivity(Intent.createChooser(send, "Einladen"))
-                }
+        if (store.inviteLink != null) {
+            Box(Modifier.size(46.dp).clip(CircleShape).background(Palette.accent).squishClick { shareInvite(context) }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Share, "Einladen", Modifier.size(20.dp), tint = Color.White)
             }
-            PillButton("Code", Modifier.weight(1f), icon = Icons.Rounded.Keyboard, filled = false) { Nav.sheet { CodeEntrySheet() } }
         }
     }
 }
@@ -264,7 +284,7 @@ private fun OutgoingCard() {
                 Text(label, style = font(15), color = C.textPrimary, maxLines = 1)
                 Text("wartet auf Bestätigung", style = font(12), color = C.textSecondary)
             }
-            TextButton({ scope.launch { FriendsStore.remove(id) } }) { Text("Zurückziehen", style = font(13, FontWeight.SemiBold), color = Palette.accent) }
+            TextButton({ scope.launch { FriendsStore.remove(id) } }) { Text("Zurückziehen", style = font(13, FontWeight.SemiBold), color = Palette.accentText) }
         }
     }
 }
@@ -357,7 +377,7 @@ private fun WeekCard(myStats: FriendStats) {
         for ((name, week) in rows) Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, style = font(14, FontWeight.SemiBold), color = C.textPrimary, maxLines = 1, modifier = Modifier.width(90.dp))
             for (i in 0 until 7) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(22.dp).clip(RoundedCornerShape(5.dp)).background(color(week.getOrElse(i) { 0.0 })))
+                Box(Modifier.size(20.dp).clip(CircleShape).background(color(week.getOrElse(i) { 0.0 })))
             }
         }
         GoalLegend()
@@ -593,7 +613,7 @@ fun FriendsManageSheet() {
                         if (i > 0) Divider()
                         ManageRow(p, null) {
                             TextButton({ scope.launch { store.decline(p.id) } }) { Text("Ablehnen", style = font(14), color = C.textSecondary) }
-                            TextButton({ h.success(); scope.launch { store.accept(p.id) } }) { Text("Annehmen", style = font(14, FontWeight.Bold), color = Palette.accent) }
+                            TextButton({ h.success(); scope.launch { store.accept(p.id) } }) { Text("Annehmen", style = font(14, FontWeight.Bold), color = Palette.accentText) }
                         }
                     }
                 }
@@ -604,7 +624,7 @@ fun FriendsManageSheet() {
                             Icon(Icons.Rounded.HourglassEmpty, null, Modifier.size(18.dp), tint = C.textSecondary)
                             Spacer(Modifier.width(8.dp))
                             Text(label, style = font(16), color = C.textPrimary, maxLines = 1, modifier = Modifier.weight(1f))
-                            TextButton({ scope.launch { store.remove(id) } }) { Text("Zurückziehen", style = font(14, FontWeight.SemiBold), color = Palette.accent) }
+                            TextButton({ scope.launch { store.remove(id) } }) { Text("Zurückziehen", style = font(14, FontWeight.SemiBold), color = Palette.accentText) }
                         }
                     }
                 }
@@ -612,7 +632,7 @@ fun FriendsManageSheet() {
                     store.declined.forEachIndexed { i, p ->
                         if (i > 0) Divider()
                         ManageRow(p, null) {
-                            TextButton({ scope.launch { store.accept(p.id) } }) { Text("Annehmen", style = font(14, FontWeight.SemiBold), color = Palette.accent) }
+                            TextButton({ scope.launch { store.accept(p.id) } }) { Text("Annehmen", style = font(14, FontWeight.SemiBold), color = Palette.accentText) }
                         }
                     }
                 }
@@ -721,7 +741,7 @@ private fun ServerConnectSection() {
         "Seit dieser Version ist der Freunde-Server nicht mehr fest in der App. Füge den Server-Code einmal ein. Deine Freunde, dein Code und alle Einträge bleiben erhalten."
     else "Für die Freunde-Seite brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Freunde → Server-Code teilen).") {
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Group, null, Modifier.size(20.dp), tint = Palette.accent)
+            Icon(Icons.Rounded.Group, null, Modifier.size(20.dp), tint = Palette.accentText)
             Spacer(Modifier.width(12.dp))
             Text("Freunde-Server verbinden", style = font(16, FontWeight.SemiBold), color = C.textPrimary)
         }
@@ -732,7 +752,7 @@ private fun ServerConnectSection() {
             // The code is checked with the server first, so a wrong code never looks connected.
             checking || connected -> Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (connected) Icon(Icons.Rounded.CheckCircle, null, Modifier.size(22.dp), tint = Palette.fiber)
-                else CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accent, strokeWidth = 2.dp)
+                else CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accentText, strokeWidth = 2.dp)
                 Spacer(Modifier.width(12.dp))
                 Text(if (connected) "Verbunden" else "Verbinde mit dem Server …", style = font(16, if (connected) FontWeight.Bold else FontWeight.Normal),
                     color = if (connected) Palette.fiber else C.textSecondary)

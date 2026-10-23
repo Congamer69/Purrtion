@@ -34,7 +34,7 @@ object Backup {
     const val AUTO_KEY = "backup.auto"
     private const val FOLDER_KEY = "backup.folderUri"
     private const val LAST_KEY = "backup.lastMillis"
-    private val settingPrefixes = listOf("goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "appearance", "onboarded", "health.", "friends.")
+    private val settingPrefixes = listOf("goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "dogUnlocked", "theme.", "startTab", "haptics", "stats.layout", "profile.", "appearance", "onboarded", "health.", "friends.")
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false; prettyPrint = false }
 

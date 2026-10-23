@@ -145,9 +145,9 @@ private fun ComponentRow(c: HealthScore.Component, color: Color, before: HealthS
                 Text(c.explanation, style = font(12), color = C.textSecondary)
                 c.tip?.let {
                     Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.Lightbulb, null, Modifier.size(14.dp), tint = Palette.accent)
+                        Icon(Icons.Rounded.Lightbulb, null, Modifier.size(14.dp), tint = Palette.accentText)
                         Spacer(Modifier.width(4.dp))
-                        Text(it, style = font(12, FontWeight.Medium), color = Palette.accent)
+                        Text(it, style = font(12, FontWeight.Medium), color = Palette.accentText)
                     }
                 }
             }
@@ -224,7 +224,7 @@ fun DayReviewSheet(initial: DayReview) {
         }
     }
     error?.let {
-        AlertDialog({ error = null }, confirmButton = { TextButton({ error = null }) { Text("OK", color = Palette.accent) } },
+        AlertDialog({ error = null }, confirmButton = { TextButton({ error = null }) { Text("OK", color = Palette.accentText) } },
             title = { Text("Bewertung fehlgeschlagen") }, text = { Text(it) })
     }
 }

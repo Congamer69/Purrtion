@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Add
@@ -170,20 +171,32 @@ fun StatsScreen() {
 
     Column(Modifier.fillMaxSize().background(C.background).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Verlauf", style = font(34, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.padding(top = 12.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Verlauf", style = font(34, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.weight(1f))
+            de.purrtion.app.ui.RoundIconButton(androidx.compose.material.icons.Icons.Rounded.Tune, size = 40.dp, description = "Anpassen") { Nav.sheet { StatsLayoutEditor() } }
+        }
         Segmented(listOf(7, 30, 90), range, { when (it) { 7 -> "Woche"; 30 -> "30 Tage"; else -> "90 Tage" } }) { range = it }
-        OverviewCard(logged, streak)
-        GoalCard(days, range)
-        KcalCard(days, logged, range)
-        if (days.any { it.active > 0 }) ActivityCard(days, range)
-        Box(Modifier.squishClick { Nav.sheet { ExpenditureSheet(expenditure) } }) { ExpenditureCard(expenditure) }
-        if (goals.healthScoreEnabled) ScoreCard(days, logged, range)
-        MacroCard(logged)
-        // Per-weekday averages only make sense over several weeks.
-        if (range > 7) WeekdayCard(logged)
-        TopFoodsCard(logged)
-        MicroCard(logged)
-        WeightCard(weights, range)
+        val layout = StatsLayout.load()
+        for (card in layout.visible) {
+            when (card) {
+                StatsCardId.kcal -> KcalCard(days, logged, range)
+                StatsCardId.overview -> OverviewCard(logged, streak)
+                StatsCardId.expenditure -> Box(Modifier.squishClick { Nav.sheet { ExpenditureSheet(expenditure) } }) { ExpenditureCard(expenditure) }
+                StatsCardId.goal -> GoalCard(days, range)
+                StatsCardId.score -> if (goals.healthScoreEnabled) ScoreCard(days, logged, range)
+                StatsCardId.weight -> WeightCard(weights, range)
+                StatsCardId.activity -> if (days.any { it.active > 0 }) ActivityCard(days, range)
+                StatsCardId.macro -> MacroCard(logged)
+                // Per-weekday averages only make sense over several weeks.
+                StatsCardId.weekday -> if (range > 7) WeekdayCard(logged)
+                StatsCardId.topFoods -> TopFoodsCard(logged)
+                StatsCardId.micro -> MicroCard(logged)
+            }
+        }
+        if (layout.visible.isEmpty()) {
+            Text("Alle Karten sind ausgeblendet. Über „Anpassen“ holst du sie zurück.", style = font(14), color = C.textSecondary,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
         Spacer(Modifier.navigationBarsPadding().height(88.dp))
     }
 }
@@ -282,9 +295,9 @@ private fun GoalCard(days: List<DayStat>, range: Int) {
             Row(Modifier.clip(CircleShape).background(C.accentSoft).squishClick {
                 Nav.sheet { CalendarSheet("Monatsübersicht") { picked -> Nav.sheet { DaySummarySheet(picked) } } }
             }.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(15.dp), tint = Palette.accent)
+                Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(15.dp), tint = Palette.accentText)
                 Spacer(Modifier.width(4.dp))
-                Text("Monat", style = font(13, FontWeight.SemiBold), color = Palette.accent)
+                Text("Monat", style = font(13, FontWeight.SemiBold), color = Palette.accentText)
             }
         }
         RangeGoalGrid(days, range) { Nav.sheet { DaySummarySheet(it) } }
@@ -602,7 +615,7 @@ private fun WeekdayCard(logged: List<DayStat>) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row {
                     CardTitle("Ø nach Wochentag", Modifier.weight(1f))
-                    if (top != null && top.second > 0) Text("Am meisten: ${short(top.first)}", style = font(13, FontWeight.SemiBold), color = Palette.accent)
+                    if (top != null && top.second > 0) Text("Am meisten: ${short(top.first)}", style = font(13, FontWeight.SemiBold), color = Palette.accentText)
                 }
                 Text("Durchschnitt aller Montage, Dienstage usw. im gewählten Zeitraum. Zeigt, an welchen Tagen du typischerweise mehr isst.", style = font(12), color = C.textSecondary)
             }
@@ -634,7 +647,7 @@ private fun TopFoodsCard(logged: List<DayStat>) {
         if (top.isEmpty()) Text("Noch keine Einträge im Zeitraum.", style = font(13), color = C.textSecondary)
         top.forEachIndexed { i, (name, kcal, count) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${i + 1}", style = font(13, FontWeight.Black), color = Palette.accent, modifier = Modifier.width(18.dp))
+                Text("${i + 1}", style = font(13, FontWeight.Black), color = Palette.accentText, modifier = Modifier.width(18.dp))
                 Spacer(Modifier.width(10.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row {
@@ -784,7 +797,7 @@ fun WeightSheet() {
             }.show()
         }, verticalAlignment = Alignment.CenterVertically) {
             Text("Datum", style = font(16), color = C.textPrimary, modifier = Modifier.weight(1f))
-            Text(if (date == LocalDate.now()) "Heute" else date.fullTitle(), style = font(16, FontWeight.SemiBold), color = Palette.accent)
+            Text(if (date == LocalDate.now()) "Heute" else date.fullTitle(), style = font(16, FontWeight.SemiBold), color = Palette.accentText)
         }
     }
 }
@@ -887,7 +900,7 @@ fun ExpenditureSheet(e: ExpenditureEstimate) {
                 Fact("Vorab-Schätzung", "${e.prior.kcalString} kcal")
                 Fact("Gewicht der Messung", "${(e.measuredWeight * 100).roundToInt()} %")
             }
-            if (e.missing.isNotEmpty()) Text("Noch nötig: ${e.missing.joinToString(", ")}.", style = font(13, FontWeight.SemiBold), color = Palette.accent)
+            if (e.missing.isNotEmpty()) Text("Noch nötig: ${e.missing.joinToString(", ")}.", style = font(13, FontWeight.SemiBold), color = Palette.accentText)
         }
         Column(Modifier.fillMaxWidth().card(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             CardTitle("So wird gerechnet")

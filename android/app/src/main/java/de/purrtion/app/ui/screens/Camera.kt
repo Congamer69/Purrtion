@@ -178,7 +178,7 @@ fun BarcodeSheet(day: LocalDate, back: Boolean = false,
 
     Screen("Barcode scannen", back = back, leading = if (back) null else "Schließen", trailing = {
         IconButton(onClick = { torch = !torch }, enabled = granted) {
-            Icon(if (torch) Icons.Rounded.FlashOn else Icons.Rounded.FlashOff, if (torch) "Blitz ausschalten" else "Blitz einschalten", tint = Palette.accent)
+            Icon(if (torch) Icons.Rounded.FlashOn else Icons.Rounded.FlashOff, if (torch) "Blitz ausschalten" else "Blitz einschalten", tint = Palette.accentText)
         }
     }) {
         Box(Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(Radius)).background(Color.Black)) {
@@ -206,12 +206,12 @@ fun BarcodeSheet(day: LocalDate, back: Boolean = false,
                 PixelSpriteView(Sprites.fish, 3.dp)
                 Text("Produkt ${s.substringAfter(":")} nicht gefunden", style = font(15, FontWeight.SemiBold), color = C.textPrimary)
                 Text("Du kannst es über ⚡ Schnell-Eintrag manuell erfassen.", style = font(13), color = C.textSecondary)
-                Text("Nochmal scannen", style = font(15, FontWeight.SemiBold), color = Palette.accent,
+                Text("Nochmal scannen", style = font(15, FontWeight.SemiBold), color = Palette.accentText,
                     modifier = Modifier.padding(8.dp).squishClick { state = null; lastCode = null })
             }
             else -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Keine Verbindung zu Open Food Facts.", style = font(14), color = Palette.danger)
-                Text("Nochmal versuchen", style = font(15, FontWeight.SemiBold), color = Palette.accent,
+                Text("Nochmal versuchen", style = font(15, FontWeight.SemiBold), color = Palette.accentText,
                     modifier = Modifier.padding(8.dp).squishClick { state = null; lastCode = null })
             }
         }
@@ -355,7 +355,7 @@ fun MealPhotoSheet(day: LocalDate, textQuery: String? = null, back: Boolean = fa
         if (textQuery != null) {
             Row(Modifier.fillMaxWidth().card(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(44.dp).clip(CircleShape).background(C.accentSoft), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = Palette.accent)
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = Palette.accentText)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
@@ -411,9 +411,9 @@ fun MealPhotoSheet(day: LocalDate, textQuery: String? = null, back: Boolean = fa
                 Text("Die KI-Nährwerte sind Schätzungen. Über „Ersetzen durch“ kannst du jeden Eintrag aus den Lebensmitteldatenbanken auswählen; die Menge bleibt erhalten.",
                     style = font(12), color = C.textSecondary)
                 if (textQuery == null) Row(Modifier.squishClick { phase = "idle"; image = null; items.clear() }, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Refresh, null, tint = Palette.accent)
+                    Icon(Icons.Rounded.Refresh, null, tint = Palette.accentText)
                     Spacer(Modifier.width(6.dp))
-                    Text("Neues Foto", style = font(15, FontWeight.SemiBold), color = Palette.accent)
+                    Text("Neues Foto", style = font(15, FontWeight.SemiBold), color = Palette.accentText)
                 }
             }
         }
@@ -432,7 +432,7 @@ private fun ItemEditor(item: EditableItem, onReplace: () -> Unit) {
                 Text(item.recognized, style = font(16, FontWeight.SemiBold), color = C.textPrimary)
                 Text(if (item.isAI) "KI-Schätzung · ${item.food.per100.kcal.kcalString} kcal / 100 ${item.food.unit}"
                     else "${item.food.source.label} · ${item.food.per100.kcal.kcalString} kcal / 100 ${item.food.unit}",
-                    style = font(12, FontWeight.Medium), color = Palette.accent, maxLines = 1)
+                    style = font(12, FontWeight.Medium), color = Palette.accentText, maxLines = 1)
                 Text("Sicherheit: ${item.confidence}", style = font(11), color = C.textSecondary)
             }
             Text("${n.kcal.kcalString} kcal", style = font(16, FontWeight.Bold), color = C.textPrimary)
@@ -441,19 +441,19 @@ private fun ItemEditor(item: EditableItem, onReplace: () -> Unit) {
             Text("${item.grams.clean} ${item.food.unit} · über Lebensmittelsuche hinzugefügt", style = font(13, FontWeight.Medium), color = C.textSecondary)
         } else {
             Row(Modifier.squishClick(onClick = onReplace), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Search, null, Modifier.size(15.dp), tint = Palette.accent)
+                Icon(Icons.Rounded.Search, null, Modifier.size(15.dp), tint = Palette.accentText)
                 Spacer(Modifier.width(4.dp))
-                Text("Ersetzen durch", style = font(13, FontWeight.SemiBold), color = Palette.accent)
+                Text("Ersetzen durch", style = font(13, FontWeight.SemiBold), color = Palette.accentText)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Remove, "Weniger", Modifier.squishClick { item.grams = max(0.0, item.grams - 10) }, tint = Palette.accent)
+                Icon(Icons.Rounded.Remove, "Weniger", Modifier.squishClick { item.grams = max(0.0, item.grams - 10) }, tint = Palette.accentText)
                 Slider(min(item.grams, item.sliderMax).toFloat(), { item.grams = Math.round(it / 5.0) * 5.0 }, Modifier.weight(1f).padding(horizontal = 6.dp),
                     valueRange = 0f..max(item.sliderMax, 10.0).toFloat(),
                     colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Palette.accent, inactiveTrackColor = C.cardAlt))
                 Icon(Icons.Rounded.Add, "Mehr", Modifier.squishClick {
                     item.grams = min(item.grams + 10, 5000.0)
                     if (item.grams > item.sliderMax) item.sliderMax = min(5000.0, item.sliderMax * 2)
-                }, tint = Palette.accent)
+                }, tint = Palette.accentText)
                 Text("${item.grams.clean} ${item.food.unit}", style = font(14, FontWeight.SemiBold), color = C.textPrimary,
                     modifier = Modifier.width(70.dp), textAlign = TextAlign.End)
             }

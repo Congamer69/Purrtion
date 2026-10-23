@@ -57,11 +57,13 @@ object Store {
     }
 
     suspend fun delete(entry: FoodEntry) {
+        UndoStore.recordDeletion(listOf(entry))
         db.entries().delete(entry)
         changed(entry.date)
     }
 
     suspend fun deleteIds(ids: Collection<String>, day: LocalDate) {
+        UndoStore.recordDeletion(db.entries().day(day.toEpochDay()).filter { it.id in ids })
         db.entries().deleteIds(ids.toList())
         changed(day)
     }

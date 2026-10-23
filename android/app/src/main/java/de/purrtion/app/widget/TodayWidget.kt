@@ -109,8 +109,8 @@ class TodayWidget : GlanceAppWidget() {
         }
         val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND; this.color = color.toArgb() }
         c.drawArc(rect, -90f, 360f * min(progress, 1.0).toFloat(), false, arc)
-        val sprite = catSprite(s)
         val palette = CatPalette.byId(s.paletteID)
+        val sprite = catSprite(s).let { if (palette.isDog) de.purrtion.app.ui.pixel.DogSprites.convert(it) else it }
         val px = 9f
         val ox = (size - sprite.width * px) / 2
         val oy = (size - sprite.height * px) / 2 + 6

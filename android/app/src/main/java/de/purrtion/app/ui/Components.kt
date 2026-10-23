@@ -86,6 +86,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import de.purrtion.app.App
 import de.purrtion.app.domain.GoalStatus
 import de.purrtion.app.domain.SwissDatabase
 import de.purrtion.app.model.FoodItem
@@ -100,6 +101,8 @@ import de.purrtion.app.ui.theme.C
 import de.purrtion.app.ui.theme.Palette
 import de.purrtion.app.ui.theme.Radius
 import de.purrtion.app.ui.theme.RadiusSmall
+import de.purrtion.app.ui.theme.ThemeCards
+import de.purrtion.app.ui.theme.ThemeSetting
 import de.purrtion.app.ui.theme.font
 import kotlin.math.max
 import kotlin.math.min
@@ -107,10 +110,11 @@ import kotlin.math.min
 // MARK: Haptics
 
 class Haptics(private val view: android.view.View) {
-    fun tap() = view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-    fun select() = view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
-    fun success() = view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-    fun warning() = view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+    private val on: Boolean get() = App.prefs.bool("haptics", true)
+    fun tap() { if (on) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+    fun select() { if (on) view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK) }
+    fun success() { if (on) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
+    fun warning() { if (on) view.performHapticFeedback(HapticFeedbackConstants.REJECT) }
 }
 
 @Composable
@@ -123,7 +127,22 @@ fun Modifier.card(padding: Dp = 16.dp, color: Color? = null): Modifier = this.th
 )
 
 private fun Modifier.composedCard(padding: Dp, color: Color?): Modifier = composed {
-    this.clip(RoundedCornerShape(Radius)).background(color ?: C.card).padding(padding)
+    val shape = RoundedCornerShape(Radius)
+    val colors = C
+    var m: Modifier = this
+    // Card style from the settings: soft shadow, flat or outlined (like iOS).
+    when (ThemeSetting.cards) {
+        ThemeCards.shadow -> m = if (colors.dark) m else m.shadow(7.dp, shape, clip = false,
+            ambientColor = Color(0x66E9C9AE), spotColor = Color(0x66E9C9AE))
+        else -> {}
+    }
+    m = m.clip(shape).background(color ?: colors.card)
+    when (ThemeSetting.cards) {
+        ThemeCards.outline -> m = m.border(1.5.dp, colors.line, shape)
+        ThemeCards.shadow -> if (colors.dark) m = m.border(1.dp, Color.White.copy(alpha = 0.06f), shape)
+        ThemeCards.flat -> {}
+    }
+    m.padding(padding)
 }
 
 /** Clickable that squishes a bit when pressed (iOS SquishButtonStyle). */
@@ -212,7 +231,7 @@ fun Screen(
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = C.textPrimary)
                     }
                 } else if (leading != null && onLeading != null) {
-                    TextButton(onClick = onLeading) { Text(leading, style = font(16, FontWeight.Medium), color = Palette.accent) }
+                    TextButton(onClick = onLeading) { Text(leading, style = font(16, FontWeight.Medium), color = Palette.accentText) }
                 }
             }
             Text(title, style = font(17, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.align(Alignment.Center).padding(horizontal = 100.dp),
@@ -259,9 +278,9 @@ fun MacroDot(color: Color, value: Double) {
 @Composable
 fun AIBadge() {
     Row(Modifier.clip(CircleShape).background(C.accentSoft).padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(10.dp), tint = Palette.accent)
+        Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(10.dp), tint = Palette.accentText)
         Spacer(Modifier.width(3.dp))
-        Text("KI", style = font(10, FontWeight.Bold), color = Palette.accent)
+        Text("KI", style = font(10, FontWeight.Bold), color = Palette.accentText)
     }
 }
 
@@ -555,7 +574,7 @@ fun FormRow(title: String, modifier: Modifier = Modifier, icon: ImageVector? = n
             titleColor: Color = C.textPrimary, onClick: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = Palette.accent); Spacer(Modifier.width(12.dp)) }
+        if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = Palette.accentText); Spacer(Modifier.width(12.dp)) }
         Text(title, style = font(16), color = titleColor, modifier = Modifier.weight(1f))
         if (value != null) Text(value, style = font(15), color = C.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 8.dp))
@@ -568,7 +587,7 @@ fun FormRow(title: String, modifier: Modifier = Modifier, icon: ImageVector? = n
 @Composable
 fun FormToggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit, icon: ImageVector? = null, subtitle: String? = null) {
     Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = Palette.accent); Spacer(Modifier.width(12.dp)) }
+        if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = Palette.accentText); Spacer(Modifier.width(12.dp)) }
         Column(Modifier.weight(1f)) {
             Text(title, style = font(16), color = C.textPrimary)
             if (subtitle != null) Text(subtitle, style = font(12), color = Palette.danger)

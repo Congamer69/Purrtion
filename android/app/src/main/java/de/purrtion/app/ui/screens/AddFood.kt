@@ -104,7 +104,7 @@ fun SearchBar(search: FoodSearch, placeholder: String, focus: FocusRequester? = 
         TextInput(search.query, { search.update(it) }, placeholder, Modifier.weight(1f).then(if (focus != null) Modifier.focusRequester(focus) else Modifier),
             keyboard = KeyboardOptions(imeAction = ImeAction.Search), onSubmit = onSubmit)
         if (search.isLoading) {
-            androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), color = Palette.accent, strokeWidth = 2.dp)
+            androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), color = Palette.accentText, strokeWidth = 2.dp)
         } else if (search.query.isNotEmpty()) {
             Icon(Icons.Rounded.Cancel, "Leeren", Modifier.clickable { search.update("") }, tint = C.textSecondary)
         }
@@ -143,7 +143,7 @@ fun AddFoodSheet(day: LocalDate) {
 
     Box(Modifier.fillMaxSize()) {
         Screen("Essen hinzufügen", leading = "Fertig", scroll = false, contentPadding = PaddingValues(0.dp),
-            trailing = { IconButton(onClick = { Nav.push { BarcodeSheet(day, back = true) } }) { Icon(Icons.Rounded.QrCodeScanner, "Barcode", tint = Palette.accent) } }) {
+            trailing = { IconButton(onClick = { Nav.push { BarcodeSheet(day, back = true) } }) { Icon(Icons.Rounded.QrCodeScanner, "Barcode", tint = Palette.accentText) } }) {
             SearchBar(search, if (aiEnabled) "z. B. Skyr oder „2 Eier und ein Toast“" else "z. B. Apfel, Skyr, Pizza …", focus) {
                 if (aiEnabled && q.length >= 2 && (sentence || search.isEmpty)) Nav.push { MealPhotoSheet(day, textQuery = q, back = true) { n -> Nav.pop(); flash(n) } }
             }
@@ -154,7 +154,7 @@ fun AddFoodSheet(day: LocalDate) {
                             .squishClick { Nav.push { SuggestionsList(day, back = true) { n -> Nav.pop(); flash(n) } } }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(34.dp).clip(CircleShape).background(C.accentSoft), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(16.dp), tint = Palette.accent)
+                                Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(16.dp), tint = Palette.accentText)
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
@@ -267,7 +267,7 @@ fun SectionTitle(title: String, icon: ImageVector) {
 private fun AIRow(q: String, sentence: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(C.accentSoft), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.AutoAwesome, null, tint = Palette.accent)
+            Icon(Icons.Rounded.AutoAwesome, null, tint = Palette.accentText)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -275,7 +275,7 @@ private fun AIRow(q: String, sentence: Boolean, onClick: () -> Unit) {
             Text(if (sentence) "Erkennt alle genannten Lebensmittel und Mengen" else "Für Restaurant- und Imbissgerichte ohne Datenbankeintrag",
                 style = font(13), color = C.textSecondary, maxLines = 1)
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Palette.accent)
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Palette.accentText)
     }
 }
 

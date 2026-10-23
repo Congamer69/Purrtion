@@ -95,6 +95,8 @@ import de.purrtion.app.data.CustomFood
 import de.purrtion.app.data.DayReview
 import de.purrtion.app.data.FoodEntry
 import de.purrtion.app.data.Store
+import de.purrtion.app.data.UndoStore
+import de.purrtion.app.domain.Streak
 import de.purrtion.app.data.WaterLog
 import de.purrtion.app.domain.BloodAlcohol
 import de.purrtion.app.domain.DayCloser
@@ -144,6 +146,24 @@ fun TodayScreen(activity: MainActivity) {
     var askRecipe by remember { mutableStateOf<Boolean?>(null) }   // true = from selection
     val scope = rememberCoroutineScope()
     val h = rememberHaptics()
+    // Which week the strip shows (0 = this week). Kept here because the day list below is rebuilt for every day.
+    val weekPager = androidx.compose.foundation.pager.rememberPagerState(initialPage = weekPage(0)) { 104 }
+    var streak by remember { mutableStateOf(Streak.State()) }
+    var pop by remember { mutableIntStateOf(0) }
+    var streakLoaded by remember { mutableStateOf(false) }
+    val todayEntries by remember { App.db.entries().observeDay(LocalDate.now().toEpochDay()) }.collectAsState(emptyList())
+    // Streak: refresh when today's entries change; the first entry of the day lights the flame (and hops the chip).
+    LaunchedEffect(todayEntries.size, day) {
+        val new = Streak.refresh()
+        if (streakLoaded && new.loggedToday && !streak.loggedToday && day == LocalDate.now()) { pop++; h.tap() }
+        streak = new
+        streakLoaded = true
+    }
+    // Another way of changing the day (calendar, swipe, "Zu Heute"): bring that week into view.
+    LaunchedEffect(day) {
+        val page = weekPage(weekOffset(day))
+        if (weekPager.currentPage != page) weekPager.animateScrollToPage(page)
+    }
 
     // Midnight: "Heute" moves on to the new day (unless another day is looked at on purpose).
     LaunchedEffect(Unit) {
@@ -163,12 +183,10 @@ fun TodayScreen(activity: MainActivity) {
     }
 
     Column(Modifier.fillMaxSize().background(C.background).statusBarsPadding()) {
-        DayHeader(day, onShift = { delta ->
-            val next = day.plusDays(delta.toLong())
-            if (!next.isAfter(LocalDate.now())) { h.tap(); day = next; selection = null }
-        }, onTitle = {
-            if (day == LocalDate.now()) Nav.sheet { CalendarSheet("Tag wählen") { day = it } } else day = LocalDate.now()
-        })
+        DayHeader(day, streak, pop,
+            onCalendar = { Nav.sheet { CalendarSheet("Tag wählen") { day = it; selection = null } } },
+            onToday = { h.tap(); day = LocalDate.now(); selection = null },
+            onStreak = { Nav.sheet { StreakSheet() } })
         Box(Modifier.weight(1f).pointerInput(selection) {
             var total = 0f
             detectHorizontalDragGestures(onDragStart = { total = 0f }, onDragEnd = {
@@ -179,7 +197,8 @@ fun TodayScreen(activity: MainActivity) {
             }) { _, d -> total += d }
         }) {
             AnimatedContent(day, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "day") { d ->
-                DayContent(d, selection, { selection = it }, onSaveRecipe = { askRecipe = it })
+                DayContent(d, selection, { selection = it }, onSaveRecipe = { askRecipe = it }, weekPager = weekPager,
+                    onSelectDay = { h.tap(); day = it; selection = null })
             }
         }
         if (selection != null) {
@@ -227,17 +246,18 @@ fun TodayScreen(activity: MainActivity) {
                         }
                         selection = null
                     }
-                }) { Text("Speichern", color = Palette.accent) }
+                }) { Text("Speichern", color = Palette.accentText) }
             },
-            dismissButton = { TextButton(onClick = { askRecipe = null }) { Text("Abbrechen", color = Palette.accent) } },
+            dismissButton = { TextButton(onClick = { askRecipe = null }) { Text("Abbrechen", color = Palette.accentText) } },
         )
     }
 }
 
 // MARK: Header
 
+/** Title row: day, "Zu Heute", streak and calendar. The week strip lives in the list so it scrolls away. */
 @Composable
-private fun DayHeader(day: LocalDate, onShift: (Int) -> Unit, onTitle: () -> Unit) {
+private fun DayHeader(day: LocalDate, streak: Streak.State, pop: Int, onCalendar: () -> Unit, onToday: () -> Unit, onStreak: () -> Unit) {
     val today = LocalDate.now()
     val isToday = day == today
     val title = when (day) {
@@ -245,32 +265,40 @@ private fun DayHeader(day: LocalDate, onShift: (Int) -> Unit, onTitle: () -> Uni
         today.minusDays(1) -> "Gestern"
         else -> day.weekdayName()
     }
+    val name = App.prefs.string("profile.name", "").trim()
+    val subtitle = when {
+        !isToday -> "Rückblick · ${day.dayMonth()}"
+        name.isEmpty() -> day.dayMonthYear()
+        else -> {
+            val hour = java.time.LocalTime.now().hour
+            val greeting = if (hour < 5) "Gute Nacht" else if (hour < 11) "Guten Morgen" else if (hour < 17) "Hallo" else if (hour < 22) "Guten Abend" else "Gute Nacht"
+            "$greeting, $name · ${day.dayMonth()}"
+        }
+    }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Vortag", Modifier.size(34.dp).clip(CircleShape).clickable { onShift(-1) }, tint = C.textPrimary)
-        Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(onClick = onTitle), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = font(20, FontWeight.Bold), color = C.textPrimary)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(day.dayMonthYear(), style = font(13), color = C.textSecondary)
-                if (isToday) { Spacer(Modifier.width(4.dp)); Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(13.dp), tint = C.textSecondary) }
-            }
-            AnimatedVisibility(!isToday) {
-                Row(Modifier.padding(top = 2.dp).clip(CircleShape).background(C.accentSoft).padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Undo, null, Modifier.size(11.dp), tint = Palette.accent)
-                    Spacer(Modifier.width(3.dp))
-                    Text("Zu Heute", style = font(11, FontWeight.Bold), color = Palette.accent)
-                }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = font(22, FontWeight.Bold), color = C.textPrimary)
+            Text(subtitle, style = font(13), color = C.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        AnimatedVisibility(!isToday) {
+            Row(Modifier.padding(end = 8.dp).height(34.dp).clip(CircleShape).background(C.accentSoft).squishClick(onClick = onToday).padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Undo, null, Modifier.size(13.dp), tint = Palette.accentText)
+                Spacer(Modifier.width(4.dp))
+                Text("Zu Heute", style = font(12, FontWeight.Bold), color = Palette.accentText)
             }
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Nächster Tag",
-            Modifier.size(34.dp).clip(CircleShape).clickable(enabled = !isToday) { onShift(1) }, tint = C.textPrimary.copy(alpha = if (isToday) 0.25f else 1f))
+        StreakChip(streak, pop, onStreak)
+        Spacer(Modifier.width(8.dp))
+        de.purrtion.app.ui.RoundIconButton(Icons.Rounded.CalendarMonth, description = "Kalender", onClick = onCalendar)
     }
 }
 
 // MARK: Day content
 
 @Composable
-private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (Set<String>?) -> Unit, onSaveRecipe: (Boolean) -> Unit) {
+private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (Set<String>?) -> Unit, onSaveRecipe: (Boolean) -> Unit,
+                       weekPager: androidx.compose.foundation.pager.PagerState, onSelectDay: (LocalDate) -> Unit) {
     val goals = App.goals
     val entries by remember(day) { App.db.entries().observeDay(day.toEpochDay()) }.collectAsState(emptyList())
     val water by remember(day) { App.db.water().observeDay(day.toEpochDay()) }.collectAsState(emptyList())
@@ -304,6 +332,7 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
     val outdated = review?.let { it.signature != DayReview.signature(entries) } ?: false
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item(key = "week") { WeekStrip(day, weekPager, onSelectDay) }
         item(key = "summary") {
             SummaryCard(total, mood, burst, target, Modifier.squishClick { Nav.sheet { DayOverviewSheet(day) } })
         }
@@ -335,9 +364,10 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
                 Spacer(Modifier.weight(1f))
                 if (selecting) {
                     val all = entries.isNotEmpty() && selection?.size == entries.size
-                    Text(if (all) "Keine" else "Alle", style = font(14, FontWeight.SemiBold), color = Palette.accent,
+                    Text(if (all) "Keine" else "Alle", style = font(14, FontWeight.SemiBold), color = Palette.accentText,
                         modifier = Modifier.clickable { h.tap(); setSelection(if (all) emptySet() else entries.map { it.id }.toSet()) })
                 } else {
+                    UndoButton()
                     OptionsMenu(day, entries, total, setSelection, onSaveRecipe)
                 }
             }
@@ -386,7 +416,7 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
                                             onDelete = { scope.launch {
                                                 h.warning()
                                                 val updated = entry.removingIngredient(ing.id)
-                                                if (updated == null) Store.delete(entry) else Store.update(updated)
+                                                if (updated == null) Store.delete(entry) else { UndoStore.recordIngredientRemoval(entry); Store.update(updated) }
                                             } },
                                             onDuplicate = { scope.launch { h.tap(); Store.update(entry.duplicatingIngredient(ing.id)) } },
                                             modifier = Modifier.weight(1f)) {
@@ -416,7 +446,7 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
     }
 
     closeError?.let {
-        AlertDialog(onDismissRequest = { closeError = null }, confirmButton = { TextButton({ closeError = null }) { Text("OK", color = Palette.accent) } },
+        AlertDialog(onDismissRequest = { closeError = null }, confirmButton = { TextButton({ closeError = null }) { Text("OK", color = Palette.accentText) } },
             title = { Text("Tag abschließen fehlgeschlagen") }, text = { Text(it) })
     }
 }
@@ -521,9 +551,9 @@ fun SummaryCard(total: Nutrients, mood: CatMood, burst: Int, target: DayTarget, 
                     if (target.activityBonus > 0) {
                         Spacer(Modifier.width(6.dp))
                         Row(Modifier.clip(CircleShape).background(C.accentSoft).padding(horizontal = 7.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.LocalFireDepartment, null, Modifier.size(10.dp), tint = Palette.accent)
+                            Icon(Icons.Rounded.LocalFireDepartment, null, Modifier.size(10.dp), tint = Palette.accentText)
                             Spacer(Modifier.width(3.dp))
-                            Text("+${target.activityBonus.kcalString} durch Aktivität", style = font(11, FontWeight.Bold), color = Palette.accent, maxLines = 1)
+                            Text("+${target.activityBonus.kcalString} durch Aktivität", style = font(11, FontWeight.Bold), color = Palette.accentText, maxLines = 1)
                         }
                     }
                 }
@@ -534,14 +564,14 @@ fun SummaryCard(total: Nutrients, mood: CatMood, burst: Int, target: DayTarget, 
                 if (goals.activityEnabled || target.manualKcal > 0) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.LocalFireDepartment, null, Modifier.size(12.dp), tint = Palette.accent)
+                            Icon(Icons.Rounded.LocalFireDepartment, null, Modifier.size(12.dp), tint = Palette.accentText)
                             Text(target.activeKcal.kcalString, style = font(16, FontWeight.Bold), color = C.textPrimary)
                         }
                         Row {
                             Text("Aktiv", style = font(12), color = C.textSecondary)
                             if (target.activityPercent > 0 && target.activeKcal > 0) {
                                 Spacer(Modifier.width(3.dp))
-                                Text("${target.activityPercent.toInt()} %", style = font(11, FontWeight.Bold), color = Palette.accent)
+                                Text("${target.activityPercent.toInt()} %", style = font(11, FontWeight.Bold), color = Palette.accentText)
                             }
                         }
                     }
@@ -651,7 +681,7 @@ fun IngredientRow(ingredient: RecipeIngredient, compact: Boolean = false, onClic
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(ingredient.food.displayName, style = font(if (compact) 15 else 16, FontWeight.SemiBold), color = C.textPrimary, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (ingredient.food.source == FoodSource.ai) { Spacer(Modifier.width(5.dp)); Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(11.dp), tint = Palette.accent) }
+                if (ingredient.food.source == FoodSource.ai) { Spacer(Modifier.width(5.dp)); Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(11.dp), tint = Palette.accentText) }
             }
             Text(ingredient.amountText, style = font(if (compact) 12 else 13), color = C.textSecondary, maxLines = 1)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MacroDot(Palette.protein, n.protein); MacroDot(Palette.carbs, n.carbs); MacroDot(Palette.fat, n.fat) }
@@ -722,9 +752,9 @@ fun scoreColor(score: HealthScore): Color = when {
 @Composable
 fun AIDeltaBadge(delta: Int) {
     Row(Modifier.clip(CircleShape).background(C.accentSoft).padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(8.dp), tint = Palette.accent)
+        Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(8.dp), tint = Palette.accentText)
         Spacer(Modifier.width(2.dp))
-        Text("${if (delta >= 0) "+" else "−"}${abs(delta)} KI", style = font(10, FontWeight.Bold), color = Palette.accent)
+        Text("${if (delta >= 0) "+" else "−"}${abs(delta)} KI", style = font(10, FontWeight.Bold), color = Palette.accentText)
     }
 }
 
@@ -787,7 +817,7 @@ private fun DayCloseRow(hasReview: Boolean, outdated: Boolean, running: Boolean,
                 Text(if (outdated) "Tag geändert, neu abschließen" else "Tag abschließen", style = font(16, FontWeight.Bold), color = C.textPrimary)
                 Text("KI ergänzt fehlende Mikronährstoffe und ordnet deinen Tag ein", style = font(12), color = C.textSecondary)
             }
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Palette.accent)
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Palette.accentText)
         }
     }
 }
@@ -813,7 +843,7 @@ private fun QuickAddBar(day: LocalDate) {
 @Composable
 private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Box(Modifier.size(54.dp).clip(CircleShape).background(C.accentSoft).squishClick(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, label, Modifier.size(22.dp), tint = Palette.accent)
+        Icon(icon, label, Modifier.size(22.dp), tint = Palette.accentText)
     }
 }
 

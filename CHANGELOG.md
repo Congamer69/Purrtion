@@ -1,8 +1,10 @@
 # Changelog
 
-## 2.0 – Redesign (iPhone)
+## 2.0 – Redesign (iPhone und Android)
 
 ### Neu
+- **Android im neuen Look:** Die Android-App folgt dem 2.0-Design: Darstellung zum Anpassen (Akzent, Ecken, Karten, Hintergrund, Schrift) mit Live-Vorschau, Wochenleiste auf „Heute“, Serie mit Streak-Freezes und Meilensteinen, Rückgängig nach dem Löschen, anpassbarer Verlauf, gruppierte Einstellungen, neu geordnete Freunde, neuer Startbildschirm (auch dunkel) und der geheime Hund.
+- **Besser lesbar im hellen Modus:** Texte in Akzent-, Wasser-, Makro- und Zielfarben sind auf hellem Hintergrund jetzt dunkler, die Zweitfarbe der Texte kräftiger. „Schwarz“ heißt im hellen Modus „Weiß“.
 - **Neue Navigation:** Heute, Verlauf, Profil (und Freunde, wenn aktiv) in der nativen Leiste.
 - **Eintragen mit einem Tipp:** Suchen, Barcode, Foto und Schnell sitzen als Zusatzleiste direkt über der Tab-Leiste auf „Heute“ (iOS-Bottom-Accessory).
 - **Neues Suchfenster:** Barcode, Foto und Schnell-Eintrag sind auch hier, dazu „Was passt noch?“ und Zuletzt/Favoriten/Meine.

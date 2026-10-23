@@ -36,6 +36,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Bedtime
@@ -150,52 +155,98 @@ import kotlin.math.min
 fun SettingsScreen() {
     val goals = App.goals
     val prefs = App.prefs
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val h = rememberHaptics()
-    var exportError by remember { mutableStateOf<String?>(null) }
+    val name = prefs.string("profile.name", "")
+    var logoTaps by remember { mutableIntStateOf(0) }
+    var lastLogoTap by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var toast by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val photo = AITask.photo.provider
+    val day = AITask.day.provider
+    val aiSummary = if (photo == day) photo.shortName else "${photo.shortName} · ${day.shortName}"
+
+    fun showToast(text: String) {
+        toast = text
+        scope.launch { kotlinx.coroutines.delay(2400); if (toast == text) toast = null }
+    }
+
+    /** Five taps in a row (each within 1.5 s of the last) switch to the dog; the unlock stays for good. */
+    fun logoTapped() {
+        val now = System.currentTimeMillis()
+        logoTaps = if (now - lastLogoTap < 1500) logoTaps + 1 else 1
+        lastLogoTap = now
+        if (logoTaps < 5) return
+        logoTaps = 0
+        if (prefs.string("catPalette", "ginger") == CatPalette.dog.id) { showToast("${CatPalette.dog.name} ist schon bei dir 🐶"); return }
+        h.success()
+        prefs.set("dogUnlocked", true)
+        prefs.set("catPalette", CatPalette.dog.id)
+        showToast("${CatPalette.dog.name} ist eingezogen 🐶")
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(C.background).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            Text("Profil", style = font(34, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.padding(top = 12.dp))
+
+            FormSection(footer = "Geschlecht, Alter, Größe, Gewicht und Aktivität. Grundlage für Bedarf, echten Verbrauch und Promille.") {
+                Row(Modifier.fillMaxWidth().clickable { Nav.push { ProfileCalculator() } }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CatMascot(CatMood.happy, 2.4.dp, modifier = Modifier.width(44.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (name.isBlank()) "Dein Profil" else name, style = font(16, FontWeight.SemiBold), color = C.textPrimary)
+                        Text("${goals.sex.label} · ${goals.age} Jahre · ${goals.heightCM.toInt()} cm · ${goals.weightKG.format(1)} kg", style = font(13), color = C.textSecondary, maxLines = 1)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = C.textSecondary)
+                }
+            }
+
+            FormSection("Ziele") {
+                FormRow("Kalorien & Makros", value = "${goals.kcal.kcalString} kcal", chevron = true, onClick = { Nav.push { GoalsEditor() } })
+            }
+
+            FormSection {
+                FormRow("Darstellung", icon = Icons.Rounded.Palette, chevron = true, onClick = { Nav.push { AppearanceScreen() } })
+                Divider()
+                FormRow("Funktionen", icon = Icons.Rounded.Tune, chevron = true, onClick = { Nav.push { FunctionsPage() } })
+                Divider()
+                FormRow("Health Connect", icon = Icons.Rounded.Favorite, chevron = true, onClick = { Nav.push { Screen("Health Connect", back = true) { HealthConnectSection() } } })
+                Divider()
+                FormRow("Eigene Lebensmittel & Rezepte", icon = Icons.Rounded.LocalDining, chevron = true, onClick = { Nav.push { MyFoodsScreen() } })
+            }
+
+            FormSection {
+                FormRow("Freunde", icon = Icons.Rounded.Group, chevron = true, onClick = { Nav.push { Screen("Freunde", back = true) { FriendsSettingsSection() } } })
+                Divider()
+                FormRow("Daten & Backup", icon = Icons.Rounded.Storage, chevron = true, onClick = { Nav.push { DataPage() } })
+                Divider()
+                FormRow("Datenquellen", icon = Icons.Rounded.LibraryBooks, chevron = true, onClick = { Nav.push { SourcesPage() } })
+                Divider()
+                FormRow("KI-Modelle", icon = Icons.Rounded.AutoAwesome, value = aiSummary, chevron = true, onClick = { Nav.push { VisionSettingsScreen() } })
+                Divider()
+                FormRow("App-Update", icon = Icons.Rounded.SystemUpdate, chevron = true, onClick = { Nav.push { Screen("App-Update", back = true) { AppUpdateSection() } } })
+            }
+
+            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { logoTapped() },
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                WalkingCatLoader(2.dp, 160.dp)
+                PixelText("PURRTION", 3.dp, Palette.accent)
+                Text("Version ${BuildConfig.VERSION_NAME} · mit 🧡 und Pixeln", style = font(12), color = C.textSecondary)
+            }
+            Spacer(Modifier.navigationBarsPadding().height(88.dp))
+        }
+        // Above the list so nothing can clip it.
+        de.purrtion.app.ui.Toast(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 110.dp))
+    }
+}
+
+@Composable
+private fun FunctionsPage() {
+    val goals = App.goals
+    val prefs = App.prefs
     var notificationsDenied by remember { mutableStateOf(false) }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notificationsDenied = !it }
-
-    Column(Modifier.fillMaxSize().background(C.background).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        Text("Einstellungen", style = font(34, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.padding(top = 12.dp))
-
-        FormSection("Deine Katze & Look") {
-            val paletteId = prefs.string("catPalette", "ginger")
-            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                for (p in CatPalette.all) {
-                    val selected = paletteId == p.id
-                    val scale by animateFloatAsState(if (selected) 1.12f else 1f, label = "palette")
-                    Column(Modifier.weight(1f).clickable { h.tap(); prefs.set("catPalette", p.id) }, horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PixelSpriteView(if (selected) Sprites.happy else Sprites.sit, 3.dp, p, Modifier.scale(scale))
-                        Text(p.name, style = font(12, if (selected) FontWeight.Bold else FontWeight.Normal), color = if (selected) Palette.accent else C.textSecondary)
-                    }
-                }
-            }
-            val appearance = runCatching { Appearance.valueOf(prefs.string("appearance", "system")) }.getOrDefault(Appearance.system)
-            Segmented(Appearance.entries, appearance, { it.label }, Modifier.padding(bottom = 10.dp)) { prefs.set("appearance", it.name) }
-        }
-
-        FormSection("Dein Profil", "Geschlecht, Alter, Größe, Gewicht und Aktivität. Grundlage für Bedarf, echten Verbrauch und Promille.") {
-            Row(Modifier.fillMaxWidth().clickable { Nav.push { ProfileCalculator() } }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.AccountCircle, null, Modifier.size(34.dp), tint = Palette.accent)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Profil bearbeiten", style = font(16, FontWeight.SemiBold), color = C.textPrimary)
-                    Text("${goals.sex.label} · ${goals.age} Jahre · ${goals.heightCM.toInt()} cm · ${goals.weightKG.format(1)} kg", style = font(13), color = C.textSecondary, maxLines = 1)
-                }
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = C.textSecondary)
-            }
-        }
-
-        FormSection("Ziele") {
-            FormRow("Kalorien & Makros", value = "${goals.kcal.kcalString} kcal", chevron = true, onClick = { Nav.push { GoalsEditor() } })
-        }
-
-        FriendsSettingsSection()
-
+    Screen("Funktionen", back = true) {
         FormSection("Funktionen", "Der Health Score bewertet jeden Tag von 0 bis 100 nach Empfehlungen von WHO und DGE. Bei der automatischen Analyse schließt die KI ab etwa 0:30 Uhr den Vortag ab (Anbieter unter „KI-Modelle“ → Tagesanalyse) und du bekommst eine Mitteilung. Android bestimmt den genauen Zeitpunkt. Sonst passiert es beim nächsten Öffnen der App.") {
             FormToggle("Wasser tracken", goals.waterEnabled, { goals.waterEnabled = it }, Icons.Rounded.WaterDrop)
             AnimatedVisibility(goals.waterEnabled) {
@@ -224,31 +275,30 @@ fun SettingsScreen() {
                 else if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }, Icons.Rounded.Bedtime, subtitle = if (notificationsDenied) "Mitteilungen sind aus. In den Android-Einstellungen erlauben." else null)
         }
+    }
+}
 
-        FormSection {
-            FormRow("Eigene Lebensmittel & Rezepte", icon = Icons.Rounded.LocalDining, chevron = true, onClick = { Nav.push { MyFoodsScreen() } })
-        }
-
-        HealthConnectSection()
-
-        BackupSection()
-
-        FormSection("Datenquellen", "Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n${BlsDatabase.attribution}\n\n${SwissDatabase.attribution}\n\n${RestaurantDatabase.attribution}") {
+@Composable
+private fun SourcesPage() {
+    Screen("Datenquellen", back = true) {
+        FormSection(null, "Ausgeschaltete Quellen erscheinen nicht mehr in der Suche. Barcodes nutzen immer Open Food Facts (immer live). Neue Versionen von BLS und Schweizer Datenbank werden über GitHub verteilt und bleiben danach offline nutzbar.\n\n${BlsDatabase.attribution}\n\n${SwissDatabase.attribution}\n\n${RestaurantDatabase.attribution}") {
             SearchSource.entries.forEachIndexed { i, s ->
                 if (i > 0) Divider()
                 SourceToggle(s)
             }
             Divider()
             DatabaseUpdateRow()
-            Divider()
-            val photo = AITask.photo.provider
-            val day = AITask.day.provider
-            FormRow("KI-Modelle", icon = Icons.Rounded.AutoAwesome, value = if (photo == day) photo.shortName else "${photo.shortName} · ${day.shortName}",
-                chevron = true, onClick = { Nav.push { VisionSettingsScreen() } })
         }
+    }
+}
 
-        AppUpdateSection()
-
+@Composable
+private fun DataPage() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var exportError by remember { mutableStateOf<String?>(null) }
+    Screen("Daten & Backup", back = true) {
+        BackupSection()
         FormSection("Daten", exportError) {
             FormRow("Alle Daten als CSV exportieren", icon = Icons.Rounded.TableChart, onClick = {
                 scope.launch {
@@ -270,20 +320,13 @@ fun SettingsScreen() {
                 Text("Alle Einträge löschen", style = font(16), color = Palette.danger)
             }
         }
-
-        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            WalkingCatLoader(2.dp, 160.dp)
-            PixelText("PURRTION", 3.dp, Palette.accent)
-            Text("Version ${BuildConfig.VERSION_NAME} · mit 🧡 und Pixeln", style = font(12), color = C.textSecondary)
-        }
-        Spacer(Modifier.navigationBarsPadding().height(88.dp))
     }
 }
 
 @Composable
 private fun IconTile(icon: ImageVector) {
     Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(C.accentSoft), contentAlignment = Alignment.Center) {
-        Icon(icon, null, Modifier.size(17.dp), tint = Palette.accent)
+        Icon(icon, null, Modifier.size(17.dp), tint = Palette.accentText)
     }
 }
 
@@ -323,10 +366,10 @@ private fun DatabaseUpdateRow() {
                 Text("Datenbanken aktualisieren", style = font(15, FontWeight.SemiBold), color = C.textPrimary)
                 val checked = u.lastCheck?.let { " · geprüft ${de.purrtion.app.model.relativeTime(it)}" } ?: ""
                 Text("BLS ${u.version(DatabaseUpdater.Database.bls)} · Schweiz ${u.version(DatabaseUpdater.Database.swiss)} · Ketten ${u.version(DatabaseUpdater.Database.restaurants)}$checked", style = font(12), color = C.textSecondary)
-                u.status?.let { Text(it, style = font(12, FontWeight.SemiBold), color = Palette.accent) }
+                u.status?.let { Text(it, style = font(12, FontWeight.SemiBold), color = Palette.accentText) }
             }
-            if (u.isChecking) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accent, strokeWidth = 2.dp)
-            else TextButton({ scope.launch { u.update() } }) { Text("Prüfen", style = font(14, FontWeight.Bold), color = Palette.accent) }
+            if (u.isChecking) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accentText, strokeWidth = 2.dp)
+            else TextButton({ scope.launch { u.update() } }) { Text("Prüfen", style = font(14, FontWeight.Bold), color = Palette.accentText) }
         }
         val auto = App.prefs.bool(DatabaseUpdater.AUTO_KEY, true)
         Row(Modifier.fillMaxWidth().clickable { App.prefs.set(DatabaseUpdater.AUTO_KEY, !auto) }, verticalAlignment = Alignment.CenterVertically) {
@@ -538,7 +581,7 @@ private fun ModelPicker(task: AITask, provider: VisionProvider) {
         TextInput(model, { App.prefs.set(key, it.trim()) }, placeholder, Modifier.weight(1f),
             keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
         if (provider.suggestedModels.isNotEmpty()) Box {
-            Icon(Icons.Rounded.UnfoldMore, "Modelle", Modifier.padding(start = 8.dp).size(22.dp).clickable { open = true }, tint = Palette.accent)
+            Icon(Icons.Rounded.UnfoldMore, "Modelle", Modifier.padding(start = 8.dp).size(22.dp).clickable { open = true }, tint = Palette.accentText)
             DropdownMenu(open, { open = false }) {
                 for (m in provider.suggestedModels) DropdownMenuItem({ Text(m) }, { App.prefs.set(key, m); open = false },
                     trailingIcon = { if (task.model(provider) == m) Icon(Icons.Rounded.Check, null) })
@@ -624,7 +667,7 @@ private fun WeekdayGoalsSection() {
                     SliderField(name, goals.kcal(wd), 1000.0..5000.0, { goals.setKcal(it, wd) }, step = 10.0, unit = "kcal")
                 }
                 TextButton({ goals.weekdayKcal = weekdays.associateWith { goals.kcal } }) {
-                    Text("Alle auf ${goals.kcal.kcalString} kcal zurücksetzen", style = font(14, FontWeight.SemiBold), color = Palette.accent)
+                    Text("Alle auf ${goals.kcal.kcalString} kcal zurücksetzen", style = font(14, FontWeight.SemiBold), color = Palette.accentText)
                 }
             }
         }
@@ -703,7 +746,7 @@ fun ProfileCalculator(onApply: (() -> Unit)? = null, onSkip: (() -> Unit)? = nul
         goals.activity = activity; goals.target = target
     }
     Screen("Dein Profil", back = onApply == null, leading = if (onSkip != null) null else "Abbrechen", onLeading = if (onApply == null) ({ Nav.pop() }) else null,
-        trailing = onSkip?.let { skip -> { TextButton(skip) { Text("Überspringen", style = font(16, FontWeight.SemiBold), color = Palette.accent) } } }) {
+        trailing = onSkip?.let { skip -> { TextButton(skip) { Text("Überspringen", style = font(16, FontWeight.SemiBold), color = Palette.accentText) } } }) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             CatMascot(CatMood.happy, 3.dp)
             Spacer(Modifier.width(14.dp))
@@ -727,7 +770,7 @@ fun ProfileCalculator(onApply: (() -> Unit)? = null, onSkip: (() -> Unit)? = nul
                         Text(a.label, style = font(16), color = C.textPrimary)
                         Text(a.detail, style = font(12), color = C.textSecondary)
                     }
-                    if (activity == a) Icon(Icons.Rounded.Check, null, tint = Palette.accent)
+                    if (activity == a) Icon(Icons.Rounded.Check, null, tint = Palette.accentText)
                 }
             }
         }
@@ -795,7 +838,7 @@ fun OnboardingScreen() {
 private fun Feature(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(C.accentSoft), contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(19.dp), tint = Palette.accent)
+            Icon(icon, null, Modifier.size(19.dp), tint = Palette.accentText)
         }
         Spacer(Modifier.width(14.dp))
         Text(text, style = font(16, FontWeight.Medium), color = C.textPrimary)
@@ -820,7 +863,7 @@ private fun AppUpdateSection() {
                     style = font(15, FontWeight.SemiBold), color = if (release != null) Palette.accent else C.textPrimary)
                 u.status?.let { Text(it, style = font(12), color = C.textSecondary) }
             }
-            if (u.isChecking) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accent, strokeWidth = 2.dp)
+            if (u.isChecking) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accentText, strokeWidth = 2.dp)
         }
         u.progress?.let { p ->
             de.purrtion.app.ui.Bar(p.toDouble(), Palette.accent, Modifier.padding(bottom = 10.dp), height = 6.dp, track = C.cardAlt)

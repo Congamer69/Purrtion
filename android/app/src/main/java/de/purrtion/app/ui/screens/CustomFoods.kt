@@ -114,9 +114,9 @@ fun MyFoodsScreen() {
 @Composable
 private fun FormRowAction(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, Modifier.size(20.dp), tint = Palette.accent)
+        Icon(icon, null, Modifier.size(20.dp), tint = Palette.accentText)
         Spacer(Modifier.width(12.dp))
-        Text(title, style = font(16), color = Palette.accent)
+        Text(title, style = font(16), color = Palette.accentText)
     }
 }
 
@@ -239,7 +239,7 @@ fun RecipeEditorSheet(id: String?) {
             Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Portionen", style = font(16), color = C.textPrimary, modifier = Modifier.weight(1f))
                 Icon(Icons.Rounded.Remove, "Weniger", Modifier.clip(CircleShape).background(C.cardAlt).squishClick { if (portions > 1) portions-- }.padding(6.dp), tint = Palette.accent)
-                Text("$portions", style = font(18, FontWeight.Bold), color = Palette.accent, modifier = Modifier.width(44.dp), textAlign = TextAlign.Center)
+                Text("$portions", style = font(18, FontWeight.Bold), color = Palette.accentText, modifier = Modifier.width(44.dp), textAlign = TextAlign.Center)
                 Icon(Icons.Rounded.Add, "Mehr", Modifier.clip(CircleShape).background(C.cardAlt).squishClick { if (portions < 30) portions++ }.padding(6.dp), tint = Palette.accent)
             }
         }

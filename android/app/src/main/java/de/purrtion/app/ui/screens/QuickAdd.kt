@@ -158,7 +158,7 @@ fun QuickAddSheet(day: LocalDate) {
             Column(Modifier.fillMaxWidth().card(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Gegessen", style = font(17), color = C.textPrimary, modifier = Modifier.weight(1f))
-                    NumberInput(amount, { amount = it }, Modifier.width(120.dp), style = font(28, FontWeight.ExtraBold), color = Palette.accent)
+                    NumberInput(amount, { amount = it }, Modifier.width(120.dp), style = font(28, FontWeight.ExtraBold), color = Palette.accentText)
                     Spacer(Modifier.width(6.dp))
                     Text("g / ml", style = font(15, FontWeight.Medium), color = C.textSecondary)
                 }
@@ -195,7 +195,7 @@ fun QuickAddSheet(day: LocalDate) {
         val rot by animateFloatAsState(if (showMore) 180f else 0f, label = "more")
         Row(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(20.dp)).background(C.card)
             .squishClick { h.tap(); focusManager.clearFocus(); showMore = !showMore }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ListAlt, null, Modifier.size(20.dp), tint = Palette.accent)
+            Icon(Icons.Rounded.ListAlt, null, Modifier.size(20.dp), tint = Palette.accentText)
             Spacer(Modifier.width(10.dp))
             Text("Alkohol & Mikronährstoffe", style = font(15, FontWeight.SemiBold), color = C.textPrimary)
             if (extraCount > 0) {
@@ -212,7 +212,7 @@ fun QuickAddSheet(day: LocalDate) {
                 Column(Modifier.fillMaxWidth().card(6.dp)) {
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
                         Text("Alkohol", style = font(13, FontWeight.Bold), color = C.textSecondary, modifier = Modifier.weight(1f))
-                        if (alcohol > 0) Text("${alcohol.format(1)} g · ${(alcohol * 7).kcalString} kcal", style = font(12, FontWeight.SemiBold), color = Palette.accent)
+                        if (alcohol > 0) Text("${alcohol.format(1)} g · ${(alcohol * 7).kcalString} kcal", style = font(12, FontWeight.SemiBold), color = Palette.accentText)
                     }
                     Row {
                         // In the table mode the amount above is the drink, so only the strength is needed here.
@@ -224,7 +224,7 @@ fun QuickAddSheet(day: LocalDate) {
                     Divider()
                     Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Getrunken um", style = font(17), color = C.textPrimary, modifier = Modifier.weight(1f))
-                        Text("%02d:%02d".format(time.hour, time.minute), style = font(17, FontWeight.SemiBold), color = Palette.accent,
+                        Text("%02d:%02d".format(time.hour, time.minute), style = font(17, FontWeight.SemiBold), color = Palette.accentText,
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(C.cardAlt).clickable {
                                 TimePickerDialog(context, { _, hh, mm -> time = LocalTime.of(hh, mm) }, time.hour, time.minute, true).show()
                             }.padding(horizontal = 12.dp, vertical = 6.dp))
@@ -242,7 +242,7 @@ fun QuickAddSheet(day: LocalDate) {
                     }
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for ((label, m, v) in listOf(Triple("Bier 0,5", 500.0, 5.0), Triple("Wein", 200.0, 12.0), Triple("Sekt", 100.0, 11.0), Triple("Shot", 20.0, 40.0))) {
-                            Text(label, style = font(12, FontWeight.SemiBold), color = Palette.accent,
+                            Text(label, style = font(12, FontWeight.SemiBold), color = Palette.accentText,
                                 modifier = Modifier.clip(CircleShape).background(C.accentSoft).squishClick {
                                     h.tap(); ml = m.clean; vol = v.clean; alcGrams = ""; if (name.isEmpty()) name = label; if (per100) amount = m.clean
                                 }.padding(horizontal = 10.dp, vertical = 7.dp))

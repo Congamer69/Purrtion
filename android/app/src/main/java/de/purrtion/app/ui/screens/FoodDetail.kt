@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
 import de.purrtion.app.data.FoodEntry
 import de.purrtion.app.data.Store
+import de.purrtion.app.data.UndoStore
 import de.purrtion.app.model.FoodItem
 import de.purrtion.app.model.FoodSource
 import de.purrtion.app.model.NutrientKey
@@ -218,7 +219,7 @@ fun FoodDetailScreen(food: FoodItem, mode: DetailMode, preset: Pair<Double, Serv
 @Composable
 private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Box(Modifier.size(52.dp, 56.dp).clip(RoundedCornerShape(16.dp)).background(C.accentSoft).squishClick(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Palette.accent)
+        Icon(icon, null, tint = Palette.accentText)
     }
 }
 
@@ -356,7 +357,7 @@ fun MealEntrySheet(entryId: String) {
                 scope.launch {
                     h.warning()
                     val updated = e.removingIngredient(ing.id)
-                    if (updated == null) { Store.delete(e); Nav.pop() } else Store.update(updated)
+                    if (updated == null) { Store.delete(e); Nav.pop() } else { UndoStore.recordIngredientRemoval(e); Store.update(updated) }
                 }
             }, onDuplicate = { scope.launch { h.tap(); Store.update(e.duplicatingIngredient(ing.id)) } }) {
                 IngredientRow(ing, onClick = { Nav.push { IngredientEditSheet(e.id, ing.id, back = true) } })

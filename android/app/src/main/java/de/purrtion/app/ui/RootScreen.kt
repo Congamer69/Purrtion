@@ -1,6 +1,8 @@
 package de.purrtion.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -43,6 +45,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,7 +79,7 @@ private data class TabItem(val id: Int, val title: String, val icon: ImageVector
 
 @Composable
 fun RootScreen(activity: MainActivity) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(App.prefs.int("startTab", 0)) }
     var splash by remember { mutableStateOf(true) }
     val friendsEnabled = App.prefs.bool(FriendsStore.ENABLED_KEY, true) && FirebaseConfig.isAvailable
     val tabs = listOfNotNull(
@@ -77,7 +88,7 @@ fun RootScreen(activity: MainActivity) {
         if (friendsEnabled) TabItem(3, "Freunde", Icons.Rounded.Group) else null,
         TabItem(2, "Einstellungen", Icons.Rounded.Settings),
     )
-    LaunchedEffect(Unit) { delay(1300); splash = false }
+    LaunchedEffect(Unit) { delay(1550); splash = false }
     LaunchedEffect(activity.reviewDay) { if (activity.reviewDay != null) tab = 0 }
     LaunchedEffect(activity.openFriends) { if (activity.openFriends) { tab = 3; activity.openFriends = false } }
     LaunchedEffect(friendsEnabled) { if (!friendsEnabled && tab == 3) tab = 2 }
@@ -119,20 +130,49 @@ private fun TabBar(tabs: List<TabItem>, selected: Int, modifier: Modifier, onSel
     }
 }
 
-/** Falling cat, pixel logo and a cat running along the loading bar – like the iOS splash. */
+/**
+ * Splash like on iOS: a plate pops up, the cat drops onto it, a ring draws around it and the letters rise one by one.
+ * Light: the accent fills the screen. Dark: the app's background setting (warm, neutral or black) with the accent on the details.
+ */
 @Composable
 private fun Splash() {
-    var landed by remember { mutableStateOf(false) }
-    val drop by animateDpAsState(if (landed) 0.dp else (-260).dp, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessLow), label = "drop")
-    LaunchedEffect(Unit) { landed = true }
-    Box(Modifier.fillMaxSize().background(C.background), contentAlignment = Alignment.Center) {
+    val dark = C.dark
+    val bg = if (dark) C.background else Palette.accent
+    val plate = if (dark) C.card else Color(0xFFFFF3E4)
+    val ink = if (dark) Palette.accent else Color(0xFFFFF3E4)
+    val word = "PURRTION"
+    val disc = remember { Animatable(0.05f) }
+    val cat = remember { Animatable(0f) }
+    val ring = remember { Animatable(0f) }
+    val letters = remember { word.map { Animatable(0f) } }
+    LaunchedEffect(Unit) {
+        coroutineScope {
+            launch { disc.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)) }
+            launch { delay(140); cat.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessLow)) }
+            launch { delay(300); ring.animateTo(1f, tween(950, easing = FastOutSlowInEasing)) }
+            letters.forEachIndexed { i, a -> launch { delay(450L + i * 45L); a.animateTo(1f, tween(400, easing = FastOutSlowInEasing)) } }
+        }
+    }
+    Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            AnimatedSprite(if (landed) CatMood.happy.frames else listOf(Sprites.sit), 4.0, 8.dp, modifier = Modifier.offset(y = drop))
-            Spacer(Modifier.height(24.dp))
-            PixelText("PURRTION", 6.dp, Palette.accent)
-            Spacer(Modifier.height(28.dp))
-            de.purrtion.app.ui.pixel.WalkingCatLoader(2.5.dp, 180.dp)
+            Box(Modifier.size(224.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(184.dp).graphicsLayer { scaleX = disc.value; scaleY = disc.value }
+                    .shadow(14.dp, CircleShape, clip = false).clip(CircleShape).background(plate))
+                Canvas(Modifier.size(216.dp)) {
+                    val w = 7.dp.toPx()
+                    drawArc(ink.copy(alpha = 0.9f), -90f, 360f * ring.value, false, Offset(w / 2, w / 2),
+                        Size(size.width - w, size.height - w), style = Stroke(w, cap = StrokeCap.Round))
+                }
+                AnimatedSprite(if (cat.value > 0.5f) CatMood.happy.frames else listOf(Sprites.sit), 4.0, 7.dp,
+                    modifier = Modifier.offset(y = (-4 - (1 - cat.value) * 196).dp).graphicsLayer { alpha = minOf(1f, cat.value * 2f) })
+            }
+            Spacer(Modifier.height(40.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                word.forEachIndexed { i, ch ->
+                    val a = letters[i].value
+                    PixelText(ch.toString(), 5.dp, ink, Modifier.offset(y = ((1 - a) * 16).dp).graphicsLayer { alpha = a })
+                }
+            }
         }
     }
 }
-

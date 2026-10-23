@@ -49,11 +49,15 @@ import kotlin.math.sin
 class PixelSprite(val rows: List<String>) {
     val width: Int = rows.maxOfOrNull { it.length } ?: 0
     val height: Int = rows.size
+    override fun equals(other: Any?) = other is PixelSprite && other.rows == rows
+    override fun hashCode() = rows.hashCode()
     val mirrored: PixelSprite by lazy { PixelSprite(rows.map { it.reversed() }) }
 }
 
 /** Colour palettes for the cats – the same four as on iOS. */
 data class CatPalette(val id: String, val name: String, val fur: Color, val furLight: Color, val stripe: Color) {
+    val isDog: Boolean get() = id == "dog"
+
     fun color(c: Char, dark: Boolean): Color? = when (c) {
         'o' -> if (dark) Palette.dark.pixelOutline else Palette.light.pixelOutline
         'w' -> fur
@@ -87,8 +91,10 @@ data class CatPalette(val id: String, val name: String, val fur: Color, val furL
         val grey = CatPalette("grey", "Nebel", Color(0xFFA8A9B8), Color(0xFFECECF3), Color(0xFF82849A))
         val black = CatPalette("black", "Mitternacht", Color(0xFF4A4453), Color(0xFF6E6779), Color(0xFF3A3542))
         val cream = CatPalette("cream", "Keks", Color(0xFFF3DDBE), Color(0xFFFFF6EA), Color(0xFFD9B88E))
+        /** The secret dog. Not part of [all]: it is unlocked by tapping the logo in the settings. */
+        val dog = CatPalette("dog", "Buddy", Color(0xFFC98B4F), Color(0xFFF4E0BE), Color(0xFF8B5A33))
         val all = listOf(ginger, grey, black, cream)
-        fun byId(id: String) = all.firstOrNull { it.id == id } ?: ginger
+        fun byId(id: String) = (all + dog).firstOrNull { it.id == id } ?: ginger
     }
 }
 
@@ -99,8 +105,9 @@ private object SpriteCache {
     fun get(sprite: PixelSprite, palette: CatPalette, dark: Boolean): ImageBitmap {
         val key = Triple(sprite, palette.id, dark)
         cache.get(key)?.let { return it }
-        val bitmap = android.graphics.Bitmap.createBitmap(maxOf(sprite.width, 1), maxOf(sprite.height, 1), android.graphics.Bitmap.Config.ARGB_8888)
-        for ((y, row) in sprite.rows.withIndex()) for ((x, ch) in row.withIndex()) {
+        val shown = if (palette.id == "dog") DogSprites.convert(sprite) else sprite
+        val bitmap = android.graphics.Bitmap.createBitmap(maxOf(shown.width, 1), maxOf(shown.height, 1), android.graphics.Bitmap.Config.ARGB_8888)
+        for ((y, row) in shown.rows.withIndex()) for ((x, ch) in row.withIndex()) {
             palette.color(ch, dark)?.let { bitmap.setPixel(x, y, it.toArgb()) }
         }
         return bitmap.asImageBitmap().also { cache.put(key, it) }

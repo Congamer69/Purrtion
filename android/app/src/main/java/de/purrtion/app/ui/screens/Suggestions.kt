@@ -116,7 +116,7 @@ fun SuggestionsList(day: LocalDate, back: Boolean = false, onLogged: ((String) -
                                 Text(s.food.displayName, style = font(15, FontWeight.SemiBold), color = C.textPrimary, maxLines = 1)
                                 Text(s.amountText, style = font(12), color = C.textSecondary, maxLines = 1)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(s.reason, style = font(11, FontWeight.Bold), color = Palette.accent,
+                                    Text(s.reason, style = font(11, FontWeight.Bold), color = Palette.accentText,
                                         modifier = Modifier.clip(CircleShape).background(C.accentSoft).padding(horizontal = 6.dp, vertical = 2.dp))
                                     Spacer(Modifier.width(6.dp))
                                     Text(s.kind.label, style = font(11, FontWeight.Medium), color = C.textSecondary)

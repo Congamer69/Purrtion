@@ -150,10 +150,10 @@ fun DayOverviewSheet(day: LocalDate) {
         // Activity
         Column(Modifier.fillMaxWidth().card(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.LocalFireDepartment, null, tint = Palette.accent)
+                Icon(Icons.Rounded.LocalFireDepartment, null, tint = Palette.accentText)
                 Spacer(Modifier.width(6.dp))
                 Text("Aktivität", style = font(17, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.weight(1f))
-                Text("${(target.healthKcal + manual).kcalString} kcal", style = font(17, FontWeight.ExtraBold), color = Palette.accent)
+                Text("${(target.healthKcal + manual).kcalString} kcal", style = font(17, FontWeight.ExtraBold), color = Palette.accentText)
             }
             if (goals.activityEnabled) Row {
                 Text("Health Connect", style = font(14), color = C.textSecondary, modifier = Modifier.weight(1f))
@@ -172,7 +172,7 @@ fun DayOverviewSheet(day: LocalDate) {
                 }
                 for (step in listOf(50.0, 100.0, 250.0, 500.0)) {
                     Box(Modifier.weight(1f).height(36.dp).clip(CircleShape).background(C.accentSoft).squishClick { change(step) }, contentAlignment = Alignment.Center) {
-                        Text("+${step.toInt()}", style = font(14, FontWeight.Bold), color = Palette.accent)
+                        Text("+${step.toInt()}", style = font(14, FontWeight.Bold), color = Palette.accentText)
                     }
                 }
                 Box(Modifier.width(44.dp).height(36.dp).clip(CircleShape).background(C.cardAlt).squishClick(manual > 0) { change(-manual) }, contentAlignment = Alignment.Center) {
@@ -205,7 +205,7 @@ fun DayOverviewSheet(day: LocalDate) {
         // Suggestions
         Row(Modifier.fillMaxWidth().card(14.dp).squishClick { Nav.push { SuggestionsList(day, back = true) } }, verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(C.accentSoft), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.AutoAwesome, null, tint = Palette.accent)
+                Icon(Icons.Rounded.AutoAwesome, null, tint = Palette.accentText)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -277,8 +277,8 @@ fun AlcoholCard(day: LocalDate) {
         }
         val rot by animateFloatAsState(if (editing) 180f else 0f, label = "drinks")
         Row(Modifier.clickable { editing = !editing }, verticalAlignment = Alignment.CenterVertically) {
-            Text("Getränke & Uhrzeiten", style = font(14, FontWeight.SemiBold), color = Palette.accent, modifier = Modifier.weight(1f))
-            Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.rotate(rot), tint = Palette.accent)
+            Text("Getränke & Uhrzeiten", style = font(14, FontWeight.SemiBold), color = Palette.accentText, modifier = Modifier.weight(1f))
+            Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.rotate(rot), tint = Palette.accentText)
         }
         AnimatedVisibility(editing) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -348,7 +348,7 @@ private fun DrinkTimeRow(entry: FoodEntry, grams: Double, time: Long) {
             Text(entry.name, style = font(14, FontWeight.SemiBold), color = C.textPrimary, maxLines = 1)
             Text("${Math.round(grams)} g Alkohol", style = font(11), color = C.textSecondary)
         }
-        Text("%02d:%02d".format(t.hour, t.minute), style = font(15, FontWeight.SemiBold), color = Palette.accent,
+        Text("%02d:%02d".format(t.hour, t.minute), style = font(15, FontWeight.SemiBold), color = Palette.accentText,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(C.card).clickable {
                 android.app.TimePickerDialog(context, { _, hh, mm ->
                     scope.launch { Store.update(entry.copy(createdAt = combine(entry.date, java.time.LocalTime.of(hh, mm)))) }
@@ -396,7 +396,7 @@ private fun ShareCard(day: LocalDate, entries: List<FoodEntry>, total: Nutrients
     Column(Modifier.fillMaxWidth().card(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row {
             Text("Teilen", style = font(17, FontWeight.Bold), color = C.textPrimary, modifier = Modifier.weight(1f))
-            Text(ShareStyle.entries[pager.currentPage].title, style = font(13, FontWeight.SemiBold), color = Palette.accent)
+            Text(ShareStyle.entries[pager.currentPage].title, style = font(13, FontWeight.SemiBold), color = Palette.accentText)
         }
         HorizontalPager(pager, Modifier.fillMaxWidth().height(460.dp)) { page ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -447,7 +447,7 @@ private fun ShareDesign(style: ShareStyle, d: ShareData) {
                 Text("PURRTION", style = font(15, FontWeight.Black).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(2f, androidx.compose.ui.unit.TextUnitType.Sp)), color = Palette.accent)
                 Text(d.day.fullTitle(), style = font(13, FontWeight.Medium), color = shareMuted)
             }
-            if (d.streak > 1) Text("🔥 ${d.streak} Tage", style = font(13, FontWeight.Bold), color = Palette.accent,
+            if (d.streak > 1) Text("🔥 ${d.streak} Tage", style = font(13, FontWeight.Bold), color = Palette.accentText,
                 modifier = Modifier.clip(CircleShape).background(Palette.accent.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 5.dp))
         }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
@@ -610,7 +610,7 @@ private fun ColumnScope.StoryBody(d: ShareData) {
         Text("von ${d.target.kcal.kcalString} kcal", style = font(17, FontWeight.SemiBold), color = shareMuted)
     }
     Bar(d.progress, if (d.progress > 1.08) Palette.danger else Palette.accent, Modifier.padding(horizontal = 20.dp), height = 12.dp, track = Palette.accent.copy(alpha = 0.18f))
-    d.rating?.let { Text("„$it“", style = font(24, FontWeight.ExtraBold), color = Palette.accent) }
+    d.rating?.let { Text("„$it“", style = font(24, FontWeight.ExtraBold), color = Palette.accentText) }
     d.points.firstOrNull()?.let { Text(it, style = font(14, FontWeight.Medium), color = shareMuted, textAlign = TextAlign.Center) }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         d.score?.let { Tile("${it.score}", "Score", Palette.fiber, Modifier.weight(1f)) }
