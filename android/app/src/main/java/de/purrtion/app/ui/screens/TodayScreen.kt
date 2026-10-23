@@ -78,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -218,7 +219,8 @@ fun TodayScreen(activity: MainActivity) {
         } else {
             QuickAddBar(day)
         }
-        Spacer(Modifier.navigationBarsPadding().height(88.dp))
+        // Room for the floating tab bar.
+        Spacer(Modifier.navigationBarsPadding().height(80.dp))
     }
 
     askRecipe?.let { fromSelection ->
@@ -333,11 +335,13 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(key = "week") { WeekStrip(day, weekPager, onSelectDay) }
+        // One card: calories on top, macros below (like on iOS).
         item(key = "summary") {
-            SummaryCard(total, mood, burst, target, Modifier.squishClick { Nav.sheet { DayOverviewSheet(day) } })
-        }
-        item(key = "macros") {
-            MacroCard(total, target, Modifier.squishClick { Nav.sheet { NutrientsDaySheet(total, "Nährstoffe") } })
+            Column(Modifier.fillMaxWidth().card(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                SummaryCard(total, mood, burst, target, Modifier.squishClick { Nav.sheet { DayOverviewSheet(day) } })
+                HorizontalDivider(color = C.line)
+                MacroCard(total, target, Modifier.squishClick { Nav.sheet { NutrientsDaySheet(total, "Nährstoffe") } })
+            }
         }
         if (goals.healthScoreEnabled && entries.isNotEmpty()) {
             item(key = "score") {
@@ -535,7 +539,7 @@ fun SwipeRow(enabled: Boolean, onDelete: (() -> Unit)?, onDuplicate: () -> Unit,
 fun SummaryCard(total: Nutrients, mood: CatMood, burst: Int, target: DayTarget, modifier: Modifier = Modifier) {
     val goals = App.goals
     val remaining = target.kcal - total.kcal
-    Row(modifier.fillMaxWidth().card(18.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(136.dp), contentAlignment = Alignment.Center) {
             CalorieRing(total.kcal / maxOf(target.kcal, 1.0), 14.dp, Modifier.fillMaxSize())
             CatMascot(mood, 4.2.dp, modifier = Modifier.offset(y = if (mood == CatMood.sleeping) 4.dp else 2.dp))
@@ -591,7 +595,7 @@ private fun Stat(title: String, value: String) {
 
 @Composable
 fun MacroCard(total: Nutrients, target: DayTarget, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().card(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         MacroBar("Protein", total.protein, target.protein, Palette.protein, Modifier.weight(1f))
         MacroBar("Kohlenh.", total.carbs, target.carbs, Palette.carbs, Modifier.weight(1f))
         MacroBar("Fett", total.fat, target.fat, Palette.fat, Modifier.weight(1f))
@@ -824,26 +828,28 @@ private fun DayCloseRow(hasReview: Boolean, outdated: Boolean, running: Boolean,
 
 // MARK: Bottom bars
 
+/** The four ways to log food, always one tap away: one compact pill right above the tab bar (like the iOS accessory). */
 @Composable
 private fun QuickAddBar(day: LocalDate) {
     val h = rememberHaptics()
-    Row(Modifier.fillMaxWidth().background(C.background).padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.weight(1f).height(54.dp).clip(CircleShape).background(Palette.accent).squishClick { h.tap(); Nav.sheet { AddFoodSheet(day) } },
-            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Search, null, tint = Color.White)
-            Spacer(Modifier.width(8.dp))
-            Text("Essen suchen", style = font(16, FontWeight.Bold), color = Color.White)
-        }
-        RoundAction(Icons.Rounded.QrCodeScanner, "Barcode scannen") { h.tap(); Nav.sheet { BarcodeSheet(day) } }
-        RoundAction(Icons.Rounded.CameraAlt, "Gericht fotografieren") { h.tap(); Nav.sheet { MealPhotoSheet(day) } }
-        RoundAction(Icons.Rounded.Bolt, "Schnell eintragen") { h.tap(); Nav.sheet { QuickAddSheet(day) } }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 6.dp)
+            .shadow(10.dp, CircleShape, clip = false).clip(CircleShape).background(C.card).height(50.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        QuickAction(Icons.Rounded.Search, "Suchen", Modifier.weight(1f)) { h.tap(); Nav.sheet { AddFoodSheet(day) } }
+        QuickAction(Icons.Rounded.QrCodeScanner, "Barcode", Modifier.weight(1f)) { h.tap(); Nav.sheet { BarcodeSheet(day) } }
+        QuickAction(Icons.Rounded.CameraAlt, "Foto", Modifier.weight(1f)) { h.tap(); Nav.sheet { MealPhotoSheet(day) } }
+        QuickAction(Icons.Rounded.Bolt, "Schnell", Modifier.weight(1f)) { h.tap(); Nav.sheet { QuickAddSheet(day) } }
     }
 }
 
 @Composable
-private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(54.dp).clip(CircleShape).background(C.accentSoft).squishClick(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, label, Modifier.size(22.dp), tint = Palette.accentText)
+private fun QuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    Row(modifier.fillMaxHeight().clip(CircleShape).squishClick(onClick = onClick), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(17.dp), tint = Palette.accent)
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = font(14, FontWeight.Bold), color = C.textPrimary, maxLines = 1)
     }
 }
 
