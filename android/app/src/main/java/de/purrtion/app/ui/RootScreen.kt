@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -100,6 +103,10 @@ fun RootScreen(activity: MainActivity) {
             3 -> FriendsScreen()
             else -> SettingsScreen()
         }
+        // Soft fade behind the floating tab bar instead of a hard band.
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp)
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, C.background.copy(alpha = 0.92f), C.background))))
         TabBar(tabs, tab, Modifier.align(Alignment.BottomCenter)) { tab = it }
         Nav.Host()
         if (!App.goals.onboarded && !splash) OnboardingScreen()

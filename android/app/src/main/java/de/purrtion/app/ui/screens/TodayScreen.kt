@@ -183,7 +183,8 @@ fun TodayScreen(activity: MainActivity) {
         App.db.reviews().day(d)?.let { r -> Nav.sheet { DayReviewSheet(r) } }
     }
 
-    Column(Modifier.fillMaxSize().background(C.background).statusBarsPadding()) {
+    Box(Modifier.fillMaxSize().background(C.background)) {
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         DayHeader(day, streak, pop,
             onCalendar = { Nav.sheet { CalendarSheet("Tag wählen") { day = it; selection = null } } },
             onToday = { h.tap(); day = LocalDate.now(); selection = null },
@@ -202,6 +203,11 @@ fun TodayScreen(activity: MainActivity) {
                     onSelectDay = { h.tap(); day = it; selection = null })
             }
         }
+    }
+    // The bars float over the list: no hard band, the content just fades out behind them.
+    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, C.background.copy(alpha = 0.94f), C.background)))
+        .padding(top = 30.dp)) {
         if (selection != null) {
             SelectionBar(selection!!.size,
                 onDelete = { scope.launch { h.warning(); Store.deleteIds(selection!!, day); selection = null } },
@@ -221,6 +227,7 @@ fun TodayScreen(activity: MainActivity) {
         }
         // Room for the floating tab bar.
         Spacer(Modifier.navigationBarsPadding().height(80.dp))
+    }
     }
 
     askRecipe?.let { fromSelection ->
@@ -446,7 +453,8 @@ private fun DayContent(day: LocalDate, selection: Set<String>?, setSelection: (S
                 }
             }
         }
-        item(key = "bottom") { Spacer(Modifier.height(20.dp)) }
+        // Room to scroll the last entry above the floating bars.
+        item(key = "bottom") { Spacer(Modifier.height(190.dp)) }
     }
 
     closeError?.let {
@@ -855,7 +863,7 @@ private fun QuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, l
 
 @Composable
 private fun SelectionBar(count: Int, onDelete: () -> Unit, onCopy: () -> Unit, onRecipe: () -> Unit, onDone: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(C.background).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Fertig", style = font(15, FontWeight.Bold), color = C.textPrimary,
             modifier = Modifier.clip(CircleShape).background(C.cardAlt).clickable(onClick = onDone).padding(horizontal = 16.dp, vertical = 15.dp))
