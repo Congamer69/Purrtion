@@ -1,0 +1,63 @@
+name: iPhone-Release (SideStore)
+
+# Baut ein unsigniertes IPA, hängt es an das GitHub-Release und trägt die Version in die SideStore-Quelle ein.
+# SideStore signiert das IPA auf dem iPhone mit der eigenen Apple-ID, deshalb braucht dieser Workflow keine Secrets.
+# Das IPA enthält keine Freunde-Server-Daten: Purrtion/Resources/Firebase.plist liegt nicht im Repository.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag des Releases, z. B. v2.3 (muss zur Version im Xcode-Projekt passen)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Xcode-Version
+        run: xcodebuild -version
+      - name: IPA bauen
+        run: tools/build-ipa.sh
+      - name: Release anlegen und IPA hochladen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${TAG#v}"
+          ipa="dist/Purrtion-$version.ipa"
+          # Prüft Tag gegen Xcode-Version, berechnet Größe und SHA-256 und schreibt die Quelle.
+          python3 tools/update_sidestore_source.py "$ipa" --tag "$TAG" --notes-out "$RUNNER_TEMP/notes.txt"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Purrtion $version" --notes-file "$RUNNER_TEMP/notes.txt"
+          gh release upload "$TAG" "$ipa" --clobber
+      - name: Quelle veröffentlichen
+        run: |
+          # Der Tag zeigt auf einen älteren Stand: die Quelle gehört auf den aktuellen main.
+          cp distribution/sidestore-source.json "$RUNNER_TEMP/source.json"
+          git config user.name "purrtion-bot"
+          git config user.email "purrtion-bot@users.noreply.github.com"
+          git fetch origin main
+          git checkout -f -B main origin/main
+          # Die Quelle auf main kann neuer sein (Rollback-Einträge): die neue Version wird dort eingefügt.
+          python3 - <<'PY'
+          import json, os
+          new = json.load(open(os.environ["RUNNER_TEMP"] + "/source.json"))["apps"][0]["versions"][0]
+          path = "distribution/sidestore-source.json"
+          src = json.load(open(path))
+          app = src["apps"][0]
+          app["versions"] = [new] + [v for v in app["versions"] if v["version"] != new["version"]]
+          app["versions"].sort(key=lambda v: int(v.get("buildVersion", 0)), reverse=True)
+          json.dump(src, open(path, "w"), ensure_ascii=False, indent=2)
+          open(path, "a").write("\n")
+          PY
+          git add distribution/sidestore-source.json
+          git commit -m "SideStore-Quelle: ${TAG#v}" || { echo "Keine Änderung."; exit 0; }
+          git push origin main

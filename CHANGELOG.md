@@ -1,5 +1,14 @@
 # Changelog
 
+## Unveröffentlicht – Updates per SideStore (iPhone)
+
+### Neu
+- **App-Update:** Purrtion prüft beim Start (höchstens alle 6 Stunden) und unter Profil → App-Update, ob eine neuere Version in der SideStore-Quelle steht, zeigt Hinweise und öffnet SideStore zum Aktualisieren. „Später“ blendet die Meldung drei Tage aus. Ohne Verbindung passiert nichts.
+- **SideStore-Quelle und Release-Workflow:** `distribution/sidestore-source.json`, `tools/build-ipa.sh`, GitHub-Workflow „iPhone-Release (SideStore)“. Das IPA enthält keine Freunde-Server-Daten. Einrichtung: [distribution/README.md](distribution/README.md).
+
+### Verbessert
+- Das Widget findet seine App-Gruppe auch, wenn SideStore sie umbenennt.
+
 ## 2.2 – Gemüse zählt auch bei KI und Scans (iPhone und Android) – 24. Oktober 2026
 
 ### Neu

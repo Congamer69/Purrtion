@@ -2,7 +2,11 @@ import Foundation
 
 /// Small summary of today that the app writes and the widgets read (via the shared App Group).
 struct WidgetSnapshot: Codable {
-    static let appGroup = "group.com.const.purrtion"
+    /// SideStore re-signs with a free Apple ID and renames the group. It records the real name under `ALTAppGroups` in each Info.plist.
+    static let appGroup: String = {
+        let listed = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String]
+        return listed?.first ?? "group.com.const.purrtion"
+    }()
     static let key = "widget.snapshot"
 
     var day: Date = Calendar.current.startOfDay(for: .now)

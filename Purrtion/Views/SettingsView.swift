@@ -114,6 +114,9 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.card)
 
+                Section { AppUpdateRow() }
+                    .listRowBackground(Theme.card)
+
                 Section {
                     VStack(spacing: 10) {
                         WalkingCatLoader(pixel: 2, width: 160)

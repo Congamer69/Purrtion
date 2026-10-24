@@ -105,6 +105,9 @@ Schlüssel liegen in der Keychain und gelten pro Anbieter für beide Aufgaben; d
 - **Ziele:** eigenes Kalorienziel pro Wochentag; Zieländerungen gelten ab heute, vergangene Tage behalten ihr damaliges Ziel – `Models/Goals.swift`
 - **Widgets:** Homescreen (quadratisch, breit) und Sperrbildschirm – Ziel `PurrtionWidget`, Daten über App Group `group.com.const.purrtion`
 
+## iPhone-Updates mit SideStore
+Kostenlos und privat: Das IPA liegt bei den GitHub Releases, SideStore erkennt neue Versionen, die App meldet sie. Einrichtung, Release-Ablauf und Grenzen des kostenlosen Apple-Kontos: [distribution/README.md](distribution/README.md).
+
 ## Freunde (Reiter „Freunde“, in den Einstellungen ausblendbar)
 Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
 

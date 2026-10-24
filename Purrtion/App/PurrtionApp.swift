@@ -99,6 +99,7 @@ struct RootView: View {
     private var themeRevision: String { [themeAccent, themeCorners, themeCards, themeBackground, themeFont].joined(separator: "|") }
     /// Re-renders the tabs when a server code is pasted or the server is disconnected.
     @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
+    @StateObject private var appUpdate = AppUpdateChecker.shared
 
     var body: some View {
         ZStack {
@@ -139,6 +140,7 @@ struct RootView: View {
             withAnimation(.smooth(duration: 0.6)) { showSplash = false }
             try? await Task.sleep(for: .milliseconds(500))
             router.appReady = true
+            await appUpdate.checkOnLaunch()
             #if DEBUG
             if let t = UserDefaults.standard.string(forKey: "debugTab").flatMap(Int.init) { tab = t }
             if ProcessInfo.processInfo.arguments.contains("-debugAppearance") { debugAppearance = true }
@@ -146,6 +148,7 @@ struct RootView: View {
             if ProcessInfo.processInfo.arguments.contains("-demoData") { seedDemoData() }
             #endif
         }
+        .sheet(isPresented: $appUpdate.showSheet) { AppUpdateSheet(checker: appUpdate) }
         .onChange(of: scenePhase, initial: true) { _, phase in
             guard phase == .active else { return }
             WidgetBridge.update(ctx, goals: goals)

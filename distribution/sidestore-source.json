@@ -1,0 +1,22 @@
+{
+  "name": "Purrtion",
+  "identifier": "com.const.purrtion.source",
+  "subtitle": "Kalorien zählen mit Katze",
+  "description": "Private Quelle für Purrtion. Neue Versionen erscheinen hier und lassen sich in SideStore aktualisieren.",
+  "iconURL": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/docs/icon.png",
+  "website": "https://github.com/Congamer69/Purrtion",
+  "tintColor": "E8733A",
+  "apps": [
+    {
+      "name": "Purrtion",
+      "bundleIdentifier": "com.const.purrtion",
+      "developerName": "Constantin Jaeckel",
+      "subtitle": "Kalorien zählen mit Katze",
+      "localizedDescription": "Kalorien, Nährstoffe, Health Score und Freunde-Vergleich, mit einer Pixelkatze als Begleiterin.",
+      "iconURL": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/docs/icon.png",
+      "tintColor": "E8733A",
+      "versions": []
+    }
+  ],
+  "news": []
+}

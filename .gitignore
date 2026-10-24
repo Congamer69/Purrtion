@@ -9,3 +9,4 @@ xcuserdata/
 # Firebase config of the friends backend (see backend/README.md)
 Purrtion/Resources/Firebase.plist
 backend/.firebase/
+dist/
