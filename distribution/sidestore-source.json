@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.4",
+          "buildVersion": "21",
+          "date": "2026-10-24T21:27:00Z",
+          "localizedDescription": "NEU\n• Freunde-Konto mitsichern: Unter Daten & Backup lässt sich dein Freunde-Konto verschlüsselt in die Sicherung aufnehmen. Beim Wiederherstellen (auch nach Neuinstallation, Wechsel zu SideStore oder zwischen iPhone und Android) kommen Profil, Freunde und Server-Verbindung zurück.\n• So ist es geschützt: Du legst ein Passwort fest (mindestens 8 Zeichen). Daraus wird per PBKDF2 ein Schlüssel abgeleitet, die Anmeldung wird mit AES-256-GCM verschlüsselt. Das Passwort bleibt nur auf dem Gerät (Schlüsselbund bzw. Android Keystore) und steht nicht in der Sicherung. Ein falsches Passwort verändert nichts. Ohne das Passwort ist die Anmeldung in der Datei nicht lesbar und nicht wiederherstellbar. Ausgeschaltet wird sie aus der Sicherung wieder entfernt.\n• Besser gesichert: Name für Freunde, Ein/Aus der Freunde-Seite, Gewichtstrend teilen und die gewählte Kennzahl stehen jetzt auch in der iPhone-Sicherung.\n\nVERBESSERT\n• Die README beginnt jetzt mit der Installation für iPhone und Android.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.4/Purrtion-2.4.ipa",
+          "size": 4170570,
+          "sha256": "7816eaf6858fff717773865528c2d52c38186b8d3ccb67b6a8f4cc7c852baa4b",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.3",
           "buildVersion": "20",
           "date": "2026-10-24T21:14:23Z",
