@@ -115,7 +115,9 @@ struct RootView: View {
             }
             // System behaviour: the tab bar shrinks while scrolling down and the accessory folds in next to it.
             .tabBarMinimizeBehavior(.onScrollDown)
-            .tabViewBottomAccessory(isEnabled: tab == 0) { QuickAddAccessory() }
+            // With three tabs the bar is narrow without the accessory and wide with it, so it jumped when switching. There the
+            // quick-add bar stays on every tab (the sheets open from Today either way); with four tabs only Today shows it.
+            .tabViewBottomAccessory(isEnabled: tab == 0 || !(friendsEnabled && FirebaseConfig.isAvailable(serverCode))) { QuickAddAccessory() }
             // No scaleEffect: scaling the UIKit tab bar while it is still laying out made it jump into place.
             .opacity(showSplash ? 0 : 1)
             .allowsHitTesting(!showSplash)
@@ -155,8 +157,7 @@ struct RootView: View {
             Backup.autoBackupIfNeeded(ctx)
             Task {
                 // After a re-sign (SideStore refresh) iOS may have forgotten the Health answers: ask again if so.
-                await HealthSync.requestAuthorizationIfNeeded()
-                await NutritionSync.requestAuthorizationIfNeeded()
+                await HealthAccess.requestIfNeeded(activityEnabled: goals.activityEnabled)
                 await HealthSync.importWeights(into: ctx)
             }
             if goals.activityEnabled {

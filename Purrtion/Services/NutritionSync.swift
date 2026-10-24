@@ -39,7 +39,7 @@ enum NutritionSync {
         }
     }
 
-    private static var shareTypes: Set<HKSampleType> {
+    static var shareTypes: Set<HKSampleType> {
         var s = Set<HKSampleType>(macroTypes.map { HKQuantityType($0.0) })
         for id in microTypes.values { s.insert(HKQuantityType(id)) }
         s.insert(HKQuantityType(.dietaryWater))
@@ -253,18 +253,35 @@ enum NutritionSync {
     }
 }
 
-/// Asks for every Apple Health permission Purrtion can use, and says what went wrong in plain words.
+/// Asks for every Apple Health permission Purrtion can use in ONE request, so iOS shows a single sheet with weight,
+/// nutrition and activity together (separate requests could leave one of them out), and says what went wrong in plain words.
 enum HealthAccess {
+    private static let store = HKHealthStore()
+
+    private static var shareTypes: Set<HKSampleType> { HealthSync.accessTypes.union(NutritionSync.shareTypes) }
+    private static var readTypes: Set<HKObjectType> { Set(HealthSync.accessTypes).union(ActivityStore.readTypes) }
+
     @MainActor
     static func requestAll() async -> String {
         guard HKHealthStore.isHealthDataAvailable() else { return "Apple Health gibt es auf diesem Gerät nicht." }
-        var problems: [String] = []
-        do { try await HealthSync.requestAuthorization() } catch { problems.append(error.localizedDescription) }
-        do { try await NutritionSync.requestAuthorization() } catch { problems.append(error.localizedDescription) }
-        do { try await ActivityStore.requestAuthorization() } catch { problems.append(error.localizedDescription) }
-        if let problem = problems.first {
-            return "Anfrage fehlgeschlagen: \(problem) Das passiert, wenn die App ohne Health-Berechtigung installiert wurde. Aktualisiere Purrtion in SideStore auf die neueste Version."
+        do {
+            try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
+        } catch {
+            return "Anfrage fehlgeschlagen: \(error.localizedDescription) Das passiert, wenn die App ohne Health-Berechtigung installiert wurde (SideStore ohne HealthKit)."
         }
         return "Angefragt. Fragt iOS nichts mehr, sind die Rechte schon entschieden. Ändern kannst du sie in der Health-App unter Teilen → Apps → Purrtion."
+    }
+
+    /// At launch: asks only for what an enabled feature needs and iOS has no answer for yet. Shows nothing otherwise.
+    static func requestIfNeeded(activityEnabled: Bool) async {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        var share = Set<HKSampleType>()
+        var read = Set<HKObjectType>()
+        if HealthSync.isEnabled { share.formUnion(HealthSync.accessTypes); read.formUnion(HealthSync.accessTypes) }
+        if NutritionSync.isEnabled { share.formUnion(NutritionSync.shareTypes) }
+        if activityEnabled { read.formUnion(ActivityStore.readTypes) }
+        guard !share.isEmpty || !read.isEmpty,
+              let status = try? await store.statusForAuthorizationRequest(toShare: share, read: read), status == .shouldRequest else { return }
+        try? await store.requestAuthorization(toShare: share, read: read)
     }
 }

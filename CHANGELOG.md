@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.4 – Ziele bei der Wiederherstellung, Health-Anfrage, Tab-Leiste (iPhone, Sicherung auch Android) – 25. Oktober 2026
+
+### Behoben
+- **Ziele nach der Wiederherstellung:** Der Verlauf deiner Kalorienziele ging beim Wiederherstellen verloren, alle vergangenen Tage zeigten wieder 2000 kcal. Die App hielt den alten Wert im Speicher und schrieb ihn kurz nach dem Wiederherstellen zurück. Jetzt bleibt der wiederhergestellte Verlauf erhalten.
+- **Aktivität bei „Zugriff auf Health neu anfragen“:** Der Knopf fragt Gewicht, Ernährung und Aktivitätskalorien jetzt in einer einzigen Anfrage, sodass iOS alle drei zusammen anzeigt. Beim Start fragt die App ebenfalls nach, wenn für eine eingeschaltete Funktion (auch Aktivität) noch keine Antwort vorliegt.
+- **Tab-Leiste mit drei Tabs:** Ist die Freunde-Seite ausgeblendet, sprang die Leiste zwischen breit (Heute) und schmal (andere Seiten). Die Schnell-Leiste bleibt jetzt auf allen Seiten und die Leiste ändert ihre Breite nicht mehr.
+
+### Neu
+- **Schutz der Sicherung:** Zeigst du einer frisch installierten App den alten Sicherungsordner, überschrieb sie die gute Sicherung mit fast leeren Daten. Enthält die neue Sicherung weniger als die Hälfte der Einträge der vorhandenen, bleibt die alte als „Purrtion-Backup-Vorher.json“ daneben liegen (iPhone und Android).
+
 ## 2.4.3 – Apple Health mit SideStore repariert (iPhone) – 25. Oktober 2026
 
 ### Behoben

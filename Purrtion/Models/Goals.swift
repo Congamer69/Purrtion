@@ -49,12 +49,22 @@ final class Goals: ObservableObject {
 
     /// Different calorie goals per weekday.
     @AppStorage("goal.weekdayEnabled") var weekdayEnabled = false
-    @AppStorage("goal.weekdayKcal") private var weekdayJSON = ""
     /// Share of Apple Health active energy added to the goal (0 = only shown).
     @AppStorage("goal.activityPercent") var activityPercent: Double = 0
     /// Show active energy from Apple Health.
     @AppStorage("activity.enabled") var activityEnabled = false
-    @AppStorage("goal.history") private var historyJSON = ""
+    // Read and written straight through UserDefaults: a restored backup replaces these while the app runs, and a copy
+    // held by the property wrapper kept the old value and wrote it back over the restored one.
+    private static let weekdayKey = "goal.weekdayKcal"
+    private static let historyKey = "goal.history"
+    private var weekdayJSON: String {
+        get { UserDefaults.standard.string(forKey: Self.weekdayKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: Self.weekdayKey); objectWillChange.send() }
+    }
+    private var historyJSON: String {
+        get { UserDefaults.standard.string(forKey: Self.historyKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: Self.historyKey); objectWillChange.send() }
+    }
 
     private var bag: Set<AnyCancellable> = []
 

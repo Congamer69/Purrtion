@@ -31,6 +31,7 @@ import java.time.temporal.ChronoUnit
  */
 object Backup {
     const val FILE_NAME = "Purrtion-Backup.json"
+    private const val PREVIOUS_NAME = "Purrtion-Backup-Vorher.json"
     const val AUTO_KEY = "backup.auto"
     private const val FOLDER_KEY = "backup.folderUri"
     private const val LAST_KEY = "backup.lastMillis"
@@ -158,8 +159,20 @@ object Backup {
 
     suspend fun writeToFolder(context: Context) {
         val tree = DocumentFile.fromTreeUri(context, folderUri ?: throw IllegalStateException("Kein Ordner")) ?: throw IllegalStateException()
-        val file = tree.findFile(FILE_NAME) ?: tree.createFile("application/json", FILE_NAME) ?: throw IllegalStateException()
+        val existing = tree.findFile(FILE_NAME)
+        val file = existing ?: tree.createFile("application/json", FILE_NAME) ?: throw IllegalStateException()
         val text = data()
+        // A fresh app pointed at the old backup folder would overwrite the good backup with its almost empty data.
+        // If the new backup holds much less than the one in the folder, the old file is kept as "Purrtion-Backup-Vorher.json".
+        if (existing != null) runCatching {
+            val old = context.contentResolver.openInputStream(existing.uri)?.use { it.readBytes().decodeToString() } ?: return@runCatching
+            val oldCount = json.decodeFromString(Payload.serializer(), old).entries.size
+            val newCount = json.decodeFromString(Payload.serializer(), text).entries.size
+            if (oldCount > 0 && newCount < oldCount / 2) {
+                val keep = tree.findFile(PREVIOUS_NAME) ?: tree.createFile("application/json", PREVIOUS_NAME)
+                keep?.let { k -> context.contentResolver.openOutputStream(k.uri, "wt")?.use { it.write(old.toByteArray()) } }
+            }
+        }
         context.contentResolver.openOutputStream(file.uri, "wt")?.use { it.write(text.toByteArray()) } ?: throw IllegalStateException()
         App.prefs.set(LAST_KEY, System.currentTimeMillis().toDouble())
     }

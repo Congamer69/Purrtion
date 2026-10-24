@@ -63,6 +63,9 @@ enum ActivityStore {
     }
     #endif
 
+    /// Active and resting energy, read only.
+    static var readTypes: Set<HKObjectType> { [type, basalType] }
+
     static func requestAuthorization() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         try await store.requestAuthorization(toShare: [], read: [type, basalType])

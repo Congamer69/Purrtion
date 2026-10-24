@@ -12,6 +12,8 @@ enum HealthSync {
     static var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
 
+    static let accessTypes: Set<HKSampleType> = [bodyMass]
+
     static func requestAuthorization() async throws {
         try await store.requestAuthorization(toShare: [bodyMass], read: [bodyMass])
     }

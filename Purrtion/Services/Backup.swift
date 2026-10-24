@@ -204,6 +204,7 @@ enum Backup {
         let ok = folder.startAccessingSecurityScopedResource()
         defer { if ok { folder.stopAccessingSecurityScopedResource() } }
         let data = try data(ctx)
+        keepOldBackupIfShrinking(in: folder, newCount: (try? entryCount(of: data)) ?? 0)
         var coordError: NSError?
         var writeError: Error?
         NSFileCoordinator().coordinate(writingItemAt: folder.appendingPathComponent(fileName), options: .forReplacing, error: &coordError) { url in
@@ -211,6 +212,23 @@ enum Backup {
         }
         if let e = coordError ?? writeError { throw e }
         UserDefaults.standard.set(Date(), forKey: lastKey)
+    }
+
+    static let previousFileName = "Purrtion-Backup-Vorher.json"
+
+    private static func entryCount(of data: Data) throws -> Int {
+        struct Count: Decodable { var entries: [Skip] }
+        struct Skip: Decodable {}
+        return try JSONDecoder().decode(Count.self, from: data).entries.count
+    }
+
+    /// A fresh app (new install, other bundle ID) that is pointed at the old backup folder would overwrite the good
+    /// backup with its almost empty data. If the new backup holds much less than the one in the folder, the old file is
+    /// kept next to it as "Purrtion-Backup-Vorher.json".
+    private static func keepOldBackupIfShrinking(in folder: URL, newCount: Int) {
+        let current = folder.appendingPathComponent(fileName)
+        guard let old = try? Data(contentsOf: current), let oldCount = try? entryCount(of: old), oldCount > 0, newCount < oldCount / 2 else { return }
+        try? old.write(to: folder.appendingPathComponent(previousFileName), options: .atomic)
     }
 
     /// Called when the app becomes active: backs up if the last backup is older than ~a day.
