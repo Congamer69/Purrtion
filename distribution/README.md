@@ -48,7 +48,8 @@ Nötig sind keine Secrets, Zertifikate oder Apple-IDs. Das IPA ist unsigniert, S
 ## Grenzen des kostenlosen Apple-Kontos
 - Die Signatur läuft nach 7 Tagen ab. SideStore erneuert sie im Hintergrund, sonst Purrtion in SideStore unter „Meine Apps“ antippen („Erneuern“).
 - Höchstens 3 aktive Apps gleichzeitig, und etwa 10 App-IDs pro Woche. Das Widget zählt als eigene App-ID.
-- HealthKit und App-Gruppen sind bei kostenlosen Konten eingeschränkt. Ob Apple Health und das Widget damit laufen, habe ich ohne Gerät nicht geprüft. Das Widget sucht seine App-Gruppe über `ALTAppGroups` (so macht es auch AltStore).
+- **Apple Health (HealthKit) funktioniert mit SideStore nicht.** SideStore fragt dafür bei Apple keine Berechtigung an (nur App-Gruppen und Inter-App-Audio), das Profil hat sie nie, die App meldet „Missing com.apple.developer.healthkit entitlement“. Mit Xcode installiert geht es. Ein SideStore, das HealthKit anfragen darf, wäre nötig.
+- Das Widget sucht seine App-Gruppe über `ALTAppGroups` (so macht es auch AltStore).
 
 ## Wenn ein Update nicht erscheint
 1. Die Quelle im Browser öffnen: Steht oben die neue Version mit `buildVersion`? GitHub liefert Rohdateien bis zu 5 Minuten verzögert.
