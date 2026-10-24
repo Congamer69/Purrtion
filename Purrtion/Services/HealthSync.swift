@@ -16,6 +16,14 @@ enum HealthSync {
         try await store.requestAuthorization(toShare: [bodyMass], read: [bodyMass])
     }
 
+    /// Asks again only if iOS has no answer yet (see `NutritionSync.requestAuthorizationIfNeeded`).
+    static func requestAuthorizationIfNeeded() async {
+        guard isEnabled, isAvailable,
+              let status = try? await store.statusForAuthorizationRequest(toShare: [bodyMass], read: [bodyMass]),
+              status == .shouldRequest else { return }
+        try? await requestAuthorization()
+    }
+
     /// Imports weights from Health that aren't in the app yet (same day = same value).
     @MainActor
     static func importWeights(into ctx: ModelContext) async {

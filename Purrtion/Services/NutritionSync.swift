@@ -50,6 +50,18 @@ enum NutritionSync {
         try await store.requestAuthorization(toShare: shareTypes, read: [])
     }
 
+    /// Asks again only if iOS has no answer yet. A re-signed app (SideStore refresh, new profile) can lose its answer,
+    /// and then every write fails quietly until the question is asked again. Shows nothing when access is already decided.
+    static func requestAuthorizationIfNeeded() async {
+        guard isEnabled,
+              let status = try? await store.statusForAuthorizationRequest(toShare: shareTypes, read: []),
+              status == .shouldRequest else { return }
+        try? await requestAuthorization()
+    }
+
+    /// The last error when writing to Apple Health failed (shown in the settings), nil when the last write worked.
+    static let lastErrorKey = "health.lastError"
+
     private static var hashes: [String: String] {
         get { UserDefaults.standard.dictionary(forKey: hashKey) as? [String: String] ?? [:] }
         set { UserDefaults.standard.set(newValue, forKey: hashKey) }
@@ -202,9 +214,15 @@ enum NutritionSync {
         for o in existingFood where !keep.contains(id(o) ?? "") { toDelete += Array(o.objects) + [o]; stored[id(o) ?? ""] = nil }
         for o in existingWater where !keep.contains(id(o) ?? "") { toDelete.append(o); stored[id(o) ?? ""] = nil }
 
-        if !toDelete.isEmpty { try? await store.delete(toDelete) }
-        if !toSave.isEmpty { try? await store.save(toSave) }
-        hashes = stored
+        // Only a write that worked counts as synced, so a failed one (no permission) is tried again next time.
+        do {
+            if !toDelete.isEmpty { try await store.delete(toDelete) }
+            if !toSave.isEmpty { try await store.save(toSave) }
+            hashes = stored
+            UserDefaults.standard.removeObject(forKey: lastErrorKey)
+        } catch {
+            UserDefaults.standard.set(error.localizedDescription, forKey: lastErrorKey)
+        }
     }
 
     /// Stable across app starts (Swift's Hasher is seeded randomly per launch, which made every entry look changed).

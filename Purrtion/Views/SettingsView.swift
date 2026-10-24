@@ -245,6 +245,10 @@ struct SettingsView: View {
                         .disabled(rewritingHealth)
                     }
                 } footer: {
+                    if let problem = UserDefaults.standard.string(forKey: NutritionSync.lastErrorKey) {
+                        Text("Letzter Fehler beim Schreiben in Health: \(problem). Prüfe in iOS unter Einstellungen → Health → Datenzugriff & Geräte → Purrtion, ob alles erlaubt ist, und schalte „Ernährung“ einmal aus und an.")
+                            .foregroundStyle(Theme.accentText)
+                    }
                     Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort. „Ernährung“ schreibt jeden Eintrag mit kcal, Makros und Mikronährstoffen sowie dein Wasser ins Ernährungsprotokoll von Health. Änderungen und Löschungen werden übernommen. „Neu schreiben“ löscht alles, was Purrtion in Health eingetragen hat, und schreibt jeden Tag einmal sauber neu. Daten anderer Apps bleiben unberührt.")
                 }
                 .listRowBackground(Theme.card)

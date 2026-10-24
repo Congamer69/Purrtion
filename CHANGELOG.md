@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.1 – Apple Health nach SideStore-Refresh (iPhone) – 25. Oktober 2026
+
+### Verbessert
+- **Health-Freigaben:** Hat iOS nach dem Neu-Signieren (SideStore „Refresh“) die Antworten für Apple Health vergessen, fragt Purrtion beim Start neu nach. Sind die Rechte noch gesetzt, erscheint nichts.
+- **Fehler sichtbar:** Schlägt das Schreiben in Apple Health fehl, steht der Fehler unter Profil → Apple Health. Ein fehlgeschlagenes Schreiben gilt nicht mehr als erledigt und wird beim nächsten Mal wiederholt.
+
 ## 2.4 – Freunde-Konto in der Sicherung (iPhone und Android) – 24. Oktober 2026
 
 ### Neu

@@ -153,7 +153,12 @@ struct RootView: View {
             guard phase == .active else { return }
             WidgetBridge.update(ctx, goals: goals)
             Backup.autoBackupIfNeeded(ctx)
-            Task { await HealthSync.importWeights(into: ctx) }
+            Task {
+                // After a re-sign (SideStore refresh) iOS may have forgotten the Health answers: ask again if so.
+                await HealthSync.requestAuthorizationIfNeeded()
+                await NutritionSync.requestAuthorizationIfNeeded()
+                await HealthSync.importWeights(into: ctx)
+            }
             if goals.activityEnabled {
                 Task {
                     if await ActivityStore.refresh(days: 14) {
