@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.4.4",
+          "buildVersion": "25",
+          "date": "2026-10-24T23:23:31Z",
+          "localizedDescription": "BEHOBEN\n• Ziele nach der Wiederherstellung: Der Verlauf deiner Kalorienziele ging beim Wiederherstellen verloren, alle vergangenen Tage zeigten wieder 2000 kcal. Die App hielt den alten Wert im Speicher und schrieb ihn kurz nach dem Wiederherstellen zurück. Jetzt bleibt der wiederhergestellte Verlauf erhalten.\n• Aktivität bei „Zugriff auf Health neu anfragen“: Der Knopf fragt Gewicht, Ernährung und Aktivitätskalorien jetzt in einer einzigen Anfrage, sodass iOS alle drei zusammen anzeigt. Beim Start fragt die App ebenfalls nach, wenn für eine eingeschaltete Funktion (auch Aktivität) noch keine Antwort vorliegt.\n• Tab-Leiste mit drei Tabs: Ist die Freunde-Seite ausgeblendet, sprang die Leiste zwischen breit (Heute) und schmal (andere Seiten). Die Schnell-Leiste bleibt jetzt auf allen Seiten und die Leiste ändert ihre Breite nicht mehr.\n\nNEU\n• Schutz der Sicherung: Zeigst du einer frisch installierten App den alten Sicherungsordner, überschrieb sie die gute Sicherung mit fast leeren Daten. Enthält die neue Sicherung weniger als die Hälfte der Einträge der vorhandenen, bleibt die alte als „Purrtion-Backup-Vorher.json“ daneben liegen (iPhone und Android).",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.4.4/Purrtion-2.4.4.ipa",
+          "size": 4221162,
+          "sha256": "6c42d167fee7050b632759034a86c7892e6623e4b6928a71bc1395dc77d8bf00",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.4.3",
           "buildVersion": "24",
           "date": "2026-10-24T22:32:03Z",
