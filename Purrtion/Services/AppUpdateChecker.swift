@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Tells you when a newer Purrtion is published. iOS does not let an app replace itself, so this only notifies and
-/// hands over to SideStore (`sidestore://install?url=…`, see docs.sidestore.io → URL Schema), which installs the new IPA
-/// as an update. The version comes from the same source file SideStore reads, so both always agree.
+/// hands over to SideStore, which installs the new IPA as an update from its source. The version comes from the same
+/// source file SideStore reads, so both always agree.
 @MainActor
 final class AppUpdateChecker: ObservableObject {
     static let shared = AppUpdateChecker()
@@ -107,14 +107,11 @@ final class AppUpdateChecker: ObservableObject {
         needsManualSteps = false
     }
 
-    /// Hands the new IPA to SideStore, which installs it over this app (same bundle identifier, so the data stays).
+    /// Opens SideStore, where the update is installed from "Meine Apps". The deep link `sidestore://install?url=<IPA>`
+    /// is not used: SideStore takes a web address as an unknown file and names the app after the file ("Purrtion-2.4.1"),
+    /// so the install fails with a bundle ID mismatch. An update from the source has the right identity.
     func update() {
-        guard let release = available else { return }
-        var components = URLComponents()
-        components.scheme = "sidestore"
-        components.host = "install"
-        components.queryItems = [URLQueryItem(name: "url", value: release.downloadURL.absoluteString)]
-        guard let url = components.url else { needsManualSteps = true; return }
+        guard let url = URL(string: "sidestore://") else { needsManualSteps = true; return }
         UIApplication.shared.open(url) { [weak self] opened in
             Task { @MainActor in
                 if opened { self?.showSheet = false } else { self?.needsManualSteps = true }
@@ -148,14 +145,15 @@ struct AppUpdateSheet: View {
                 }
                 .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
 
-                if checker.needsManualSteps {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("SideStore ließ sich nicht öffnen.").font(Theme.font(14, .semibold))
-                        Text("Öffne SideStore, wechsle zu „Meine Apps“ und tippe bei Purrtion auf „Aktualisieren“. Erscheint dort nichts, ziehe die Liste nach unten.")
-                            .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(checker.needsManualSteps ? "SideStore ließ sich nicht öffnen." : "So geht das Update").font(Theme.font(14, .semibold))
+                    Text("1. SideStore öffnen\n2. Unten „My Apps“ („Meine Apps“) wählen und die Liste nach unten ziehen\n3. Bei Purrtion auf „Update“ tippen")
+                        .font(Theme.font(13)).foregroundStyle(Theme.textSecondary)
+                    if checker.needsManualSteps {
                         Button("Release-Seite öffnen") { openURL(AppUpdateChecker.releasePage) }.font(Theme.font(14, .bold))
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 12) {
                     Button { checker.later() } label: {
@@ -163,7 +161,7 @@ struct AppUpdateSheet: View {
                             .background(Theme.accentSoft, in: Capsule())
                     }
                     Button { Haptics.tap(); checker.update() } label: {
-                        Text("Aktualisieren").font(Theme.font(16, .bold)).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                        Text("SideStore öffnen").font(Theme.font(16, .bold)).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
                             .background(Theme.accent, in: Capsule())
                     }
                 }

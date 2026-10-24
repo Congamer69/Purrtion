@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2 – Update-Knopf repariert (iPhone) – 25. Oktober 2026
+
+### Behoben
+- **„Aktualisieren“ in der App** brach in SideStore mit „bundle ID does not match“ ab. Der Knopf heißt jetzt „SideStore öffnen“ und zeigt die Schritte: in SideStore unter „Meine Apps“ nach unten ziehen und bei Purrtion „Update“ tippen. Das Update läuft dann über die Quelle.
+
 ## 2.4.1 – Apple Health nach SideStore-Refresh (iPhone) – 25. Oktober 2026
 
 ### Verbessert

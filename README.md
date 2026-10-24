@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 2.4.1** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 2.4.2** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Installieren
 
@@ -24,7 +24,7 @@ Mit einer normalen Apple-ID, ohne Entwicklerkonto. SideStore installiert das IPA
    `https://raw.githubusercontent.com/Congamer69/Purrtion/main/distribution/sidestore-source.json`
    Mit SideStore auf dem Handy geht es auch per Antippen: `sidestore://source?url=https://raw.githubusercontent.com/Congamer69/Purrtion/main/distribution/sidestore-source.json`
 3. Purrtion in der Quelle antippen und „Laden“.
-4. **Updates:** Die App meldet beim Start und unter Profil → App-Update eine neuere Version. „Aktualisieren“ öffnet SideStore, das das neue IPA über die alte App installiert. Alternativ in SideStore unter „Meine Apps“ aktualisieren.
+4. **Updates:** Die App meldet beim Start und unter Profil → App-Update eine neuere Version. „SideStore öffnen“ startet SideStore. Dort unter „Meine Apps“ nach unten ziehen und bei Purrtion „Update“ tippen, das installiert das neue IPA über die alte App.
 5. Das kostenlose Apple-Konto läuft nach 7 Tagen ab. SideStore erneuert automatisch im Hintergrund. Erlaubt sind höchstens 3 Apps gleichzeitig.
 
 Mehr (Release machen, Fehlersuche, Grenzen): [distribution/README.md](distribution/README.md). Auf Mac mit Xcode geht auch der Weg unten unter „Selbst bauen“. Eine Xcode-Installation und eine SideStore-Installation sind getrennte Apps mit getrennten Daten, nimm bei einem Wechsel die Sicherung.

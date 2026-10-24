@@ -40,7 +40,7 @@ Nötig sind keine Secrets, Zertifikate oder Apple-IDs. Das IPA ist unsigniert, S
 
 ## Update am iPhone
 - SideStore zeigt neue Versionen unter „Meine Apps“ (nach unten ziehen zum Aktualisieren der Quellen).
-- Purrtion prüft beim Start höchstens alle 6 Stunden und zeigt „Update verfügbar“ mit Hinweisen. „Aktualisieren“ öffnet `sidestore://install?url=<IPA>`, SideStore installiert das IPA über die alte App. „Später“ blendet die Meldung für diese Version 3 Tage aus. Unter Profil → App-Update lässt sich jederzeit von Hand prüfen.
+- Purrtion prüft beim Start höchstens alle 6 Stunden und zeigt „Update verfügbar“ mit Hinweisen. „SideStore öffnen“ startet SideStore, dort unter „Meine Apps“ nach unten ziehen und bei Purrtion „Update“ tippen. Der Deep Link `sidestore://install?url=<IPA>` taugt dafür nicht: SideStore nennt die App dann nach dem Dateinamen und bricht mit „bundle ID does not match“ ab. „Später“ blendet die Meldung für diese Version 3 Tage aus. Unter Profil → App-Update lässt sich jederzeit von Hand prüfen.
 - Daten bleiben bei einem Update erhalten, solange die Bundle-ID gleich bleibt. Sie ist `com.const.purrtion` und darf sich nie ändern (SideStore hängt selbst ein Suffix an, immer dasselbe).
 
 ## Grenzen des kostenlosen Apple-Kontos
