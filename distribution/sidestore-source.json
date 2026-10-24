@@ -15,7 +15,18 @@
       "localizedDescription": "Kalorien, Nährstoffe, Health Score und Freunde-Vergleich, mit einer Pixelkatze als Begleiterin.",
       "iconURL": "https://raw.githubusercontent.com/Congamer69/Purrtion/main/docs/icon.png",
       "tintColor": "E8733A",
-      "versions": []
+      "versions": [
+        {
+          "version": "2.3",
+          "buildVersion": "20",
+          "date": "2026-10-24T21:14:23Z",
+          "localizedDescription": "NEU\n• App-Update: Purrtion prüft beim Start (höchstens alle 6 Stunden) und unter Profil → App-Update, ob eine neuere Version in der SideStore-Quelle steht, zeigt Hinweise und öffnet SideStore zum Aktualisieren. „Später“ blendet die Meldung drei Tage aus. Ohne Verbindung passiert nichts.\n• SideStore-Quelle und Release-Workflow: `distribution/sidestore-source.json`, `tools/build-ipa.sh`, GitHub-Workflow „iPhone-Release (SideStore)“. Das IPA enthält keine Freunde-Server-Daten. Einrichtung: [distribution/README.md](distribution/README.md).\n\nVERBESSERT\n• Das Widget findet seine App-Gruppe auch, wenn SideStore sie umbenennt.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.3/Purrtion-2.3.ipa",
+          "size": 4152172,
+          "sha256": "f29e7f97ca2ee25e95b727d924672f48f8bca8c04eea2b37749bfcaafef7630d",
+          "minOSVersion": "27.0"
+        }
+      ]
     }
   ],
   "news": []
