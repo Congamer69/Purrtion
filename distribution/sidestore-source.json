@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.5",
+          "buildVersion": "26",
+          "date": "2026-10-24T23:58:56Z",
+          "localizedDescription": "NEU\n• Eigene Akzentfarbe: Der letzte Farbkreis (vorher Graphit) öffnet ein Farbrad. Auf dem iPhone ist es das System-Farbrad, auf Android ein eigenes mit Helligkeitsregler. Zu dunkle Farben werden für Text im Dunkelmodus automatisch aufgehellt. Die Farbe steht in der Sicherung und wandert zwischen iPhone und Android mit. Das alte Graphit wird zur eigenen Farbe mit demselben Grau.\n• Widget „Heute“ mit Auswahl (iPhone): Gedrückt halten → „Widget bearbeiten“. Quadratisch: Katze mit Ring oder Mehr Infos (übrige kcal, gegessen, Fortschritt, Protein, Kohlenhydrate, Fett, Wasser, Score). Breit: Makros und Wasser oder die Woche (sieben Balken in Zielfarben). Die Widgets nutzen deine Akzentfarbe.\n• Widget „Schnell eintragen“ (iPhone): Tasten für Suchen, Barcode, Foto und Schnell-Eintrag öffnen Purrtion direkt an der richtigen Stelle. Das breite Widget zeigt dazu die übrigen kcal und trägt Wasser mit einem Tipp ein, ohne die App zu öffnen. Die App übernimmt es beim nächsten Öffnen.\n• Darstellung: „Deine Katze & Look“ steht jetzt über „Stil“ (iPhone und Android).\n\nBEHOBEN\n• Widget nach Mitternacht: Es zeigte als offene Kalorien das Ziel plus die aktiven Kalorien des Vortags, bis die App geöffnet wurde. Jetzt gilt ab Mitternacht das Ziel des neuen Tages ohne den Bonus von gestern.\n• „Bis +5 %“ ist immer orange (Android): Die Farbe folgte bisher der Akzentfarbe, wie auf dem iPhone ist sie jetzt fest.\n• Tab-Leiste: Im Video-Test bleibt die Leiste mit ausgeblendeter Freunde-Seite beim Wechsel zwischen den Seiten gleich breit.\n• Sicherung: Die iPhone-Sicherung enthält jetzt auch die Darstellungs-Einstellungen (Farbe, Ecken, Karten, Hintergrund, Schrift).",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.5/Purrtion-2.5.ipa",
+          "size": 4312490,
+          "sha256": "d1bc791b97cf8c2b5f60934e79bf83eaba1e2359bb6539f5cde411d2ba6a9ffb",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.4.4",
           "buildVersion": "25",
           "date": "2026-10-24T23:23:31Z",
