@@ -20,6 +20,7 @@ struct PurrtionApp: App {
 
     init() {
         // A server config built into this app is kept in the settings, so builds without one stay connected.
+        ThemeSetting.migrate()
         FirebaseConfig.persistBundled()
         BLSDatabase.shared.preload()
         SwissDatabase.shared.preload()
@@ -96,7 +97,8 @@ struct RootView: View {
     @AppStorage(ThemeSetting.cardsKey) private var themeCards = ""
     @AppStorage(ThemeSetting.backgroundKey) private var themeBackground = ""
     @AppStorage(ThemeSetting.fontKey) private var themeFont = ""
-    private var themeRevision: String { [themeAccent, themeCorners, themeCards, themeBackground, themeFont].joined(separator: "|") }
+    @AppStorage(ThemeSetting.customKey) private var themeCustom = ""
+    private var themeRevision: String { [themeAccent, themeCustom, themeCorners, themeCards, themeBackground, themeFont].joined(separator: "|") }
     /// Re-renders the tabs when a server code is pasted or the server is disconnected.
     @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
     @StateObject private var appUpdate = AppUpdateChecker.shared
@@ -192,6 +194,25 @@ struct RootView: View {
         }
         // Invite links: purrtion://friend/CODE (opened from the invite page).
         .onOpenURL { url in
+            // Widget buttons: purrtion://add/search | barcode | photo | quick
+            if url.host == "add" {
+                let sheet: AddSheet? = switch url.lastPathComponent {
+                case "search": .search
+                case "barcode": .barcode
+                case "photo": .photo
+                case "quick": .quick
+                default: nil
+                }
+                if let sheet {
+                    tab = 0
+                    // From a cold start Today is not listening yet: wait until the app is ready.
+                    Task {
+                        for _ in 0..<30 where !NotificationRouter.shared.appReady { try? await Task.sleep(for: .milliseconds(100)) }
+                        AddRouter.shared.open(sheet)
+                    }
+                }
+                return
+            }
             guard FriendsStore.shared.handle(url: url) else { return }
             friendsEnabled = true
             tab = 3

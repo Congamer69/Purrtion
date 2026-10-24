@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 2.4.4** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 2.5** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Installieren
 
@@ -49,9 +49,10 @@ Optional: **Freunde-Konto mitsichern.** Deine Freunde-Anmeldung kommt dann versc
 - **Echter Verbrauch:** aus Essen und Gewichtstrend gemessener Tagesverbrauch, aufgeteilt in Grundumsatz, Verdauung und Bewegung – inklusive Abgleich mit Apple Health
 - **Was passt noch?** schlägt Favoriten und Rezepte vor, die zu den restlichen Kalorien und Makros passen
 - Promille-Schätzung für eingetragene Getränke (Körperwasser nach Watson, Verlauf und „nüchtern ab“)
-- Health Score (mit Abzug für Alkohol), Wasser, Gewicht und Ernährung in Apple Health, Widgets, Backup und CSV-Export
+- Health Score (mit Abzug für Alkohol), Wasser, Gewicht und Ernährung in Apple Health, Backup und CSV-Export
+- **Widgets (iPhone):** „Heute“ quadratisch mit Katze oder mit mehr Infos, breit mit Makros und Wasser oder als Wochenansicht (gedrückt halten → Widget bearbeiten), „Schnell eintragen“ mit Tasten für Suchen, Barcode, Foto und Schnell-Eintrag und Wasser mit einem Tipp, Sperrbildschirm-Widgets
 - **Freunde:** per Link oder Code einladen, Rangliste über zehn Kennzahlen (Serie, Zieltreue, Health Score, Protein, Wasser, Aktivität, Obst & Gemüse …), Wochenvergleich und Duell-Ansicht – nur Kennzahlen werden geteilt, Backend gratis auf Firebase ([backend/README.md](backend/README.md))
-- Hell- und Dunkelmodus, Pixel-Katze mit vielen Stimmungen – gähnend, hungrig, beschwipst, stolz, vollgefressen …
+- Hell- und Dunkelmodus, eigene Akzentfarbe per Farbrad, Pixel-Katze mit vielen Stimmungen – gähnend, hungrig, beschwipst, stolz, vollgefressen …
 
 ## Screenshots
 

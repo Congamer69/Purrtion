@@ -3,13 +3,14 @@ import UIKit
 
 /// Look & feel choices from Profil → Darstellung. Stored in UserDefaults; the app re-creates its screens when one changes.
 enum ThemeAccent: String, CaseIterable, Identifiable {
-    case orange, berry, violet, sky, mint, graphite
+    /// "custom" is the colour picked on the colour wheel (it replaced the grey "graphite", which is its default).
+    case orange, berry, violet, sky, mint, custom
     var id: String { rawValue }
     var name: String {
-        switch self { case .orange: "Orange"; case .berry: "Beere"; case .violet: "Violett"; case .sky: "Himmel"; case .mint: "Minze"; case .graphite: "Graphit" }
+        switch self { case .orange: "Orange"; case .berry: "Beere"; case .violet: "Violett"; case .sky: "Himmel"; case .mint: "Minze"; case .custom: "Eigene" }
     }
     var hex: UInt32 {
-        switch self { case .orange: 0xFF8A4A; case .berry: 0xFF5D8F; case .violet: 0x9B7BFF; case .sky: 0x3E9BFF; case .mint: 0x2FBF94; case .graphite: 0x7C7C8A }
+        switch self { case .orange: 0xFF8A4A; case .berry: 0xFF5D8F; case .violet: 0x9B7BFF; case .sky: 0x3E9BFF; case .mint: 0x2FBF94; case .custom: ThemeSetting.customHex }
     }
 }
 
@@ -41,9 +42,19 @@ enum ThemeFont: String, CaseIterable, Identifiable {
 }
 
 enum ThemeSetting {
+    static let customKey = "theme.accentCustom"
     static let accentKey = "theme.accent", cornersKey = "theme.corners", cardsKey = "theme.cards", backgroundKey = "theme.bg", fontKey = "theme.font"
 
-    static var accent: ThemeAccent { ThemeAccent(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .orange }
+    static var accent: ThemeAccent {
+        let raw = UserDefaults.standard.string(forKey: accentKey) ?? ""
+        return ThemeAccent(rawValue: raw == "graphite" ? "custom" : raw) ?? .orange
+    }
+    /// The picked colour as RRGGBB (graphite grey until one is picked).
+    static var customHex: UInt32 { UInt32(UserDefaults.standard.string(forKey: customKey) ?? "", radix: 16) ?? 0x7C7C8A }
+    /// Old settings and backups from Android call the custom colour "graphite".
+    static func migrate() {
+        if UserDefaults.standard.string(forKey: accentKey) == "graphite" { UserDefaults.standard.set("custom", forKey: accentKey) }
+    }
     static var corners: ThemeCorners { ThemeCorners(rawValue: UserDefaults.standard.string(forKey: cornersKey) ?? "") ?? .normal }
     static var cards: ThemeCards { ThemeCards(rawValue: UserDefaults.standard.string(forKey: cardsKey) ?? "") ?? .shadow }
     static var background: ThemeBackground { ThemeBackground(rawValue: UserDefaults.standard.string(forKey: backgroundKey) ?? "") ?? .warm }
@@ -75,7 +86,17 @@ enum Theme {
     /// The accent for text and thin icons: darker on light backgrounds, where the vivid fill colour is too pale to read.
     static var accentText: Color {
         let h = ThemeSetting.accent.hex
-        return Color(light: mix(h, 0x000000, 0.34), dark: h)
+        // A very dark picked colour would vanish on the dark background: lighten it there.
+        let dark = luminance(h) < 0.2 ? mix(h, 0xFFFFFF, 0.45) : h
+        return Color(light: mix(h, 0x000000, 0.34), dark: dark)
+    }
+
+    private static func luminance(_ hex: UInt32) -> Double {
+        func ch(_ shift: UInt32) -> Double {
+            let c = Double((hex >> shift) & 0xFF) / 255
+            return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * ch(16) + 0.7152 * ch(8) + 0.0722 * ch(0)
     }
 
     private static func mix(_ a: UInt32, _ b: UInt32, _ t: Double) -> UInt32 {

@@ -10,7 +10,7 @@ enum Backup {
     static let autoKey = "backup.auto"
 
     /// UserDefaults keys that belong to the user's settings.
-    private static let settingPrefixes = ["goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "appearance", "onboarded", "health.", "friends.server", "friends.name", "friends.enabled", "friends.shareWeight", "friends.metric", "streak."]
+    private static let settingPrefixes = ["goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "theme.", "appearance", "onboarded", "health.", "friends.server", "friends.name", "friends.enabled", "friends.shareWeight", "friends.metric", "streak."]
 
     struct Payload: Codable {
         var version = 1
@@ -164,6 +164,7 @@ enum Backup {
                 }
             }
         }
+        ThemeSetting.migrate()
         if let account {
             // The old account's cached friends are not this account's.
             for k in ["friends.cache", "friends.me", "friends.lastRefresh", "friends.lastHash", "friends.lastUpload"] { UserDefaults.standard.removeObject(forKey: k) }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -23,8 +24,9 @@ import de.purrtion.app.domain.SafeMode
 /** Look & feel choices from Einstellungen → Darstellung. The same keys and values as on iOS. */
 enum class ThemeAccent(val id: String, val label: String, val hex: Long) {
     orange("orange", "Orange", 0xFFFF8A4A), berry("berry", "Beere", 0xFFFF5D8F), violet("violet", "Violett", 0xFF9B7BFF),
-    sky("sky", "Himmel", 0xFF3E9BFF), mint("mint", "Minze", 0xFF2FBF94), graphite("graphite", "Graphit", 0xFF7C7C8A);
-    val color: Color get() = Color(hex)
+    sky("sky", "Himmel", 0xFF3E9BFF), mint("mint", "Minze", 0xFF2FBF94), custom("custom", "Eigene", 0xFF7C7C8A);
+    /** "Eigene" is the colour picked on the wheel (the old "Graphit" is now the default of it). */
+    val color: Color get() = if (this == custom) ThemeSetting.customColor else Color(hex)
 }
 
 enum class ThemeCorners(val id: String, val label: String, val radius: Dp, val small: Dp) {
@@ -43,11 +45,15 @@ object ThemeSetting {
     const val cardsKey = "theme.cards"
     const val backgroundKey = "theme.bg"
     const val fontKey = "theme.font"
+    const val customKey = "theme.accentCustom"
 
     // Unknown or damaged values fall back to the defaults; so does everything in the safe mode.
     private fun saved(key: String): String = if (SafeMode.active) "" else Diag.safe("Einstellung $key", "") { App.prefs.string(key, "") }
 
-    val accent: ThemeAccent get() = ThemeAccent.entries.firstOrNull { it.id == saved(accentKey) } ?: ThemeAccent.orange
+    val accent: ThemeAccent get() = saved(accentKey).let { id -> ThemeAccent.entries.firstOrNull { it.id == (if (id == "graphite") "custom" else id) } } ?: ThemeAccent.orange
+
+    /** The picked colour as RRGGBB (graphite grey until one is picked). */
+    val customColor: Color get() = saved(customKey).toLongOrNull(16)?.let { Color(0xFF000000 or it) } ?: Color(0xFF7C7C8A)
     val corners: ThemeCorners get() = ThemeCorners.entries.firstOrNull { it.id == saved(cornersKey) } ?: ThemeCorners.normal
     val cards: ThemeCards get() = ThemeCards.entries.firstOrNull { it.id == saved(cardsKey) } ?: ThemeCards.shadow
     val background: ThemeBackground get() = ThemeBackground.entries.firstOrNull { it.id == saved(backgroundKey) } ?: ThemeBackground.warm
@@ -84,7 +90,7 @@ object Palette {
     @Volatile var isDark: Boolean = false
 
     /** The accent for text and thin icons: darker on light backgrounds, where the vivid fill colour is too pale to read. */
-    val accentText: Color get() = if (isDark) accent else mix(accent, Color.Black, 0.34f)
+    val accentText: Color get() = if (isDark) (if (accent.luminance() < 0.2f) mix(accent, Color.White, 0.45f) else accent) else mix(accent, Color.Black, 0.34f)
 
     val protein: Color get() = if (isDark) Color(0xFFFF6B8B) else Color(0xFFD93A66)
     val carbs: Color get() = if (isDark) Color(0xFFFFC145) else Color(0xFFC98500)

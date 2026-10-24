@@ -24,6 +24,17 @@ struct WidgetSnapshot: Codable {
     var score: Int?
     var paletteID = "ginger"
     var entryCount = 0
+    /// Goals of the next day without any activity bonus (that day has no activity yet). After midnight the widget shows
+    /// these instead of today's goal, which still contained yesterday's active calories until the app was opened.
+    var next: NextGoals? = nil
+    /// The last days for the week view of the widget.
+    var week: [DayPoint]? = nil
+    /// The accent colour chosen in the app (RRGGBB); the widget cannot read the app's settings.
+    var accentHex: UInt32? = nil
+    var waterStep: Int? = nil
+
+    struct NextGoals: Codable { var kcal: Double; var protein: Double; var carbs: Double; var fat: Double }
+    struct DayPoint: Codable { var day: Date; var kcal: Double; var goal: Double }
 
     /// Values for today – a snapshot from yesterday counts as an empty day.
     var forToday: WidgetSnapshot { values(on: .now) }
@@ -33,8 +44,14 @@ struct WidgetSnapshot: Codable {
         let target = Calendar.current.startOfDay(for: date)
         guard day < target else { return self }
         var s = self
+        // Yesterday becomes part of the week.
+        var points = (week ?? []).filter { $0.day != day }
+        points.append(DayPoint(day: day, kcal: kcal, goal: kcalGoal))
+        s.week = points.filter { $0.day < target }.suffix(7).map { $0 }
         s.day = target
         s.kcal = 0; s.protein = 0; s.carbs = 0; s.fat = 0; s.waterML = 0; s.score = nil; s.entryCount = 0
+        if let n = next { s.kcalGoal = n.kcal; s.proteinGoal = n.protein; s.carbsGoal = n.carbs; s.fatGoal = n.fat }
+        s.next = nil
         return s
     }
 
@@ -50,5 +67,32 @@ struct WidgetSnapshot: Codable {
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         UserDefaults(suiteName: Self.appGroup)?.set(data, forKey: Self.key)
+    }
+}
+
+// MARK: Water added from the widget
+
+extension WidgetSnapshot {
+    private static let pendingKey = "widget.pendingWater"
+
+    /// The "+ water" button of the widget: updates what the widgets show right away and queues the amount for the app,
+    /// which writes it into its database the next time it opens (the database is not reachable from the widget).
+    static func addWater(_ ml: Int) {
+        var snapshot = load().forToday
+        snapshot.waterML += ml
+        snapshot.save()
+        guard let defaults = UserDefaults(suiteName: appGroup) else { return }
+        var pending = defaults.dictionary(forKey: pendingKey) as? [String: Int] ?? [:]
+        let day = String(Int(Calendar.current.startOfDay(for: .now).timeIntervalSince1970))
+        pending[day, default: 0] += ml
+        defaults.set(pending, forKey: pendingKey)
+    }
+
+    /// Amounts waiting for the app, by day. Clears the queue.
+    static func takePendingWater() -> [(day: Date, ml: Int)] {
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let pending = defaults.dictionary(forKey: pendingKey) as? [String: Int] else { return [] }
+        defaults.removeObject(forKey: pendingKey)
+        return pending.compactMap { key, ml in Double(key).map { (Date(timeIntervalSince1970: $0), ml) } }
     }
 }

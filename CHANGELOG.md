@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.5 – Eigene Farbe, mehr Widgets (iPhone und Android) – 25. Oktober 2026
+
+### Neu
+- **Eigene Akzentfarbe:** Der letzte Farbkreis (vorher Graphit) öffnet ein Farbrad. Auf dem iPhone ist es das System-Farbrad, auf Android ein eigenes mit Helligkeitsregler. Zu dunkle Farben werden für Text im Dunkelmodus automatisch aufgehellt. Die Farbe steht in der Sicherung und wandert zwischen iPhone und Android mit. Das alte Graphit wird zur eigenen Farbe mit demselben Grau.
+- **Widget „Heute“ mit Auswahl (iPhone):** Gedrückt halten → „Widget bearbeiten“. Quadratisch: Katze mit Ring oder Mehr Infos (übrige kcal, gegessen, Fortschritt, Protein, Kohlenhydrate, Fett, Wasser, Score). Breit: Makros und Wasser oder die Woche (sieben Balken in Zielfarben). Die Widgets nutzen deine Akzentfarbe.
+- **Widget „Schnell eintragen“ (iPhone):** Tasten für Suchen, Barcode, Foto und Schnell-Eintrag öffnen Purrtion direkt an der richtigen Stelle. Das breite Widget zeigt dazu die übrigen kcal und trägt Wasser mit einem Tipp ein, ohne die App zu öffnen. Die App übernimmt es beim nächsten Öffnen.
+- **Darstellung:** „Deine Katze & Look“ steht jetzt über „Stil“ (iPhone und Android).
+
+### Behoben
+- **Widget nach Mitternacht:** Es zeigte als offene Kalorien das Ziel plus die aktiven Kalorien des Vortags, bis die App geöffnet wurde. Jetzt gilt ab Mitternacht das Ziel des neuen Tages ohne den Bonus von gestern.
+- **„Bis +5 %“ ist immer orange (Android):** Die Farbe folgte bisher der Akzentfarbe, wie auf dem iPhone ist sie jetzt fest.
+- **Tab-Leiste:** Im Video-Test bleibt die Leiste mit ausgeblendeter Freunde-Seite beim Wechsel zwischen den Seiten gleich breit.
+- **Sicherung:** Die iPhone-Sicherung enthält jetzt auch die Darstellungs-Einstellungen (Farbe, Ecken, Karten, Hintergrund, Schrift).
+
 ## 2.4.4 – Ziele bei der Wiederherstellung, Health-Anfrage, Tab-Leiste (iPhone, Sicherung auch Android) – 25. Oktober 2026
 
 ### Behoben

@@ -62,6 +62,9 @@ enum HealthSync {
 enum WidgetBridge {
     @MainActor
     static func update(_ ctx: ModelContext, goals: Goals) {
+        // Water tapped in the widget since the app was last open goes into the database first.
+        for (day, ml) in WidgetSnapshot.takePendingWater() where ml > 0 { ctx.insert(WaterLog(day: day, ml: ml)) }
+        try? ctx.save()
         let today = Calendar.current.startOfDay(for: .now)
         let entries = (try? ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day == today }))) ?? []
         let water = (try? ctx.fetch(FetchDescriptor<WaterLog>(predicate: #Predicate { $0.day == today }))) ?? []
@@ -74,6 +77,19 @@ enum WidgetBridge {
         let target = goals.target(for: today)
         s.kcalGoal = target.kcal
         s.proteinGoal = target.protein; s.carbsGoal = target.carbs; s.fatGoal = target.fat
+        let tomorrow = goals.target(for: Calendar.current.date(byAdding: .day, value: 1, to: today)!)
+        s.next = .init(kcal: tomorrow.kcal, protein: tomorrow.protein, carbs: tomorrow.carbs, fat: tomorrow.fat)
+        s.accentHex = ThemeSetting.accent.hex
+        s.waterStep = goals.waterStep
+        // The last seven days for the week view.
+        let cal = Calendar.current
+        let from = cal.date(byAdding: .day, value: -6, to: today)!
+        let recent = (try? ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day >= from && $0.day <= today }))) ?? []
+        let byDay = Dictionary(grouping: recent, by: \.day)
+        s.week = (0..<7).compactMap { i in
+            guard let d = cal.date(byAdding: .day, value: i - 6, to: today) else { return nil }
+            return WidgetSnapshot.DayPoint(day: d, kcal: (byDay[d] ?? []).reduce(0) { $0 + $1.kcal }, goal: goals.target(for: d).kcal)
+        }
         s.waterML = water.reduce(0) { $0 + $1.ml }
         s.waterGoal = goals.waterML
         s.waterEnabled = goals.waterEnabled

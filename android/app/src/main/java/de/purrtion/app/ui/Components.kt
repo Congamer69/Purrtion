@@ -369,7 +369,7 @@ fun GoalLegend(modifier: Modifier = Modifier) {
 fun goalColor(s: GoalStatus): Color = when (s) {
     GoalStatus.none -> C.cardAlt
     GoalStatus.within -> Palette.fiber
-    GoalStatus.slightlyOver -> Palette.accent
+    GoalStatus.slightlyOver -> Color(0xFFFF9F43)   // status colours stay fixed, whatever accent is chosen
     GoalStatus.over -> Palette.danger
 }
 

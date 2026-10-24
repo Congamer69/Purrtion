@@ -6,6 +6,7 @@ struct AppearanceSettingsView: View {
     @AppStorage("appearance") private var appearance = Appearance.system
     @AppStorage("profile.name") private var profileName = ""
     @AppStorage(ThemeSetting.accentKey) private var accent = ThemeAccent.orange
+    @AppStorage(ThemeSetting.customKey) private var customColorHex = ""
     @AppStorage(ThemeSetting.cornersKey) private var corners = ThemeCorners.normal
     @AppStorage(ThemeSetting.cardsKey) private var cardStyle = ThemeCards.shadow
     @AppStorage(ThemeSetting.backgroundKey) private var backgroundTone = ThemeBackground.warm
@@ -25,6 +26,28 @@ struct AppearanceSettingsView: View {
             .animation(Motion.smooth, value: cardStyle)
             .animation(Motion.smooth, value: backgroundTone)
             .animation(Motion.smooth, value: accent)
+    }
+
+    /// The last swatch: a rainbow circle (the picked colour once chosen) that opens the system colour wheel.
+    private var customSwatch: some View {
+        let on = accent == .custom
+        let binding = Binding<Color>(
+            get: { Color(hex: ThemeSetting.customHex) },
+            set: { color in
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                customColorHex = String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+                accent = .custom
+            })
+        return Circle()
+            .fill(on ? AnyShapeStyle(Color(hex: ThemeSetting.customHex)) : AnyShapeStyle(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center)))
+            .frame(height: 40)
+            .overlay { if on { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
+            .overlay(Circle().stroke(Theme.textPrimary.opacity(on ? 0.9 : 0), lineWidth: 2).padding(-4))
+            // The system colour picker sits invisibly on top, so a tap anywhere on the circle opens the wheel.
+            .overlay { ColorPicker("Eigene Farbe", selection: binding, supportsOpacity: false).labelsHidden().scaleEffect(1.7).opacity(0.02) }
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Eigene Farbe")
     }
 
     /// A small Today screen built from the real card styles, so every choice below is visible right here.
@@ -90,46 +113,26 @@ struct AppearanceSettingsView: View {
         Section {
             HStack(spacing: 12) {
                 ForEach(ThemeAccent.allCases) { a in
-                    Button {
-                        Haptics.tap()
-                        withAnimation(Motion.playful) { accent = a }
-                    } label: {
-                        Circle().fill(Color(hex: a.hex)).frame(height: 40)
-                            .overlay { if accent == a { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
-                            .overlay(Circle().stroke(Theme.textPrimary.opacity(accent == a ? 0.9 : 0), lineWidth: 2).padding(-4))
-                            .frame(maxWidth: .infinity)
+                    if a == .custom {
+                        customSwatch
+                    } else {
+                        Button {
+                            Haptics.tap()
+                            withAnimation(Motion.playful) { accent = a }
+                        } label: {
+                            Circle().fill(Color(hex: a.hex)).frame(height: 40)
+                                .overlay { if accent == a { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
+                                .overlay(Circle().stroke(Theme.textPrimary.opacity(accent == a ? 0.9 : 0), lineWidth: 2).padding(-4))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(a.name)
+                        .accessibilityAddTraits(accent == a ? .isSelected : [])
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(a.name)
-                    .accessibilityAddTraits(accent == a ? .isSelected : [])
                 }
             }
             .padding(.vertical, 6)
-        } header: { Text("Akzentfarbe") }
-        .listRowBackground(Theme.card)
-
-        Section {
-            Picker("Ecken", selection: $corners) { ForEach(ThemeCorners.allCases) { Text($0.name).tag($0) } }
-            Picker("Karten", selection: $cardStyle) { ForEach(ThemeCards.allCases) { Text($0.name).tag($0) } }
-            Picker("Hintergrund", selection: $backgroundTone) {
-                ForEach(ThemeBackground.allCases) { Text($0 == .black ? (scheme == .dark ? "Schwarz" : "Weiß") : $0.name).tag($0) }
-            }
-            Picker("Schrift", selection: $fontStyle) { ForEach(ThemeFont.allCases) { Text($0.name).tag($0) } }
-            Button("Auf Standard zurücksetzen") {
-                accent = .orange; corners = .normal; cardStyle = .shadow; backgroundTone = .warm; fontStyle = .rounded
-            }
-        } header: { Text("Stil") }
-        .listRowBackground(Theme.card)
-
-        Section {
-            Picker("Startseite", selection: $startTab) {
-                Text("Heute").tag(0)
-                Text("Verlauf").tag(1)
-            }
-            Toggle("Haptisches Feedback", isOn: $haptics)
-        } header: { Text("Verhalten") } footer: {
-            Text("Die Startseite gilt beim nächsten Öffnen der App.")
-        }
+        } header: { Text("Akzentfarbe") } footer: { Text("Der letzte Kreis öffnet ein Farbrad für eine eigene Farbe.") }
         .listRowBackground(Theme.card)
 
                 Section {
@@ -158,5 +161,29 @@ struct AppearanceSettingsView: View {
                     .pickerStyle(.segmented)
                 } header: { Text(paletteID == CatPalette.dog.id ? "Dein Hund & Look" : "Deine Katze & Look") }
                 .listRowBackground(Theme.card)
+
+        Section {
+            Picker("Ecken", selection: $corners) { ForEach(ThemeCorners.allCases) { Text($0.name).tag($0) } }
+            Picker("Karten", selection: $cardStyle) { ForEach(ThemeCards.allCases) { Text($0.name).tag($0) } }
+            Picker("Hintergrund", selection: $backgroundTone) {
+                ForEach(ThemeBackground.allCases) { Text($0 == .black ? (scheme == .dark ? "Schwarz" : "Weiß") : $0.name).tag($0) }
+            }
+            Picker("Schrift", selection: $fontStyle) { ForEach(ThemeFont.allCases) { Text($0.name).tag($0) } }
+            Button("Auf Standard zurücksetzen") {
+                accent = .orange; customColorHex = ""; corners = .normal; cardStyle = .shadow; backgroundTone = .warm; fontStyle = .rounded
+            }
+        } header: { Text("Stil") }
+        .listRowBackground(Theme.card)
+
+        Section {
+            Picker("Startseite", selection: $startTab) {
+                Text("Heute").tag(0)
+                Text("Verlauf").tag(1)
+            }
+            Toggle("Haptisches Feedback", isOn: $haptics)
+        } header: { Text("Verhalten") } footer: {
+            Text("Die Startseite gilt beim nächsten Öffnen der App.")
+        }
+        .listRowBackground(Theme.card)
     }
 }

@@ -33,6 +33,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.toArgb
 import de.purrtion.app.ui.CalorieRing
 import de.purrtion.app.ui.Divider
 import de.purrtion.app.ui.FormSection
@@ -74,43 +84,27 @@ fun AppearanceScreen() {
                 Modifier.fillMaxWidth().padding(vertical = 12.dp))
         }
 
-        FormSection("Akzentfarbe") {
+        var wheelOpen by remember { mutableStateOf(false) }
+        FormSection("Akzentfarbe", "Der letzte Kreis öffnet ein Farbrad für eine eigene Farbe.") {
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 for (a in ThemeAccent.entries) {
                     val on = ThemeSetting.accent == a
+                    val isCustom = a == ThemeAccent.custom
                     Box(Modifier.weight(1f).height(44.dp), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(40.dp).clip(CircleShape).background(a.color)
+                        Box(Modifier.size(40.dp).clip(CircleShape)
+                            .then(if (isCustom && !on) Modifier.background(Brush.sweepGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)))
+                                  else Modifier.background(a.color))
                             .then(if (on) Modifier.border(BorderStroke(2.dp, C.textPrimary), CircleShape) else Modifier)
-                            .clickable { h.tap(); prefs.set(ThemeSetting.accentKey, a.id) }, contentAlignment = Alignment.Center) {
+                            .clickable { h.tap(); prefs.set(ThemeSetting.accentKey, a.id); if (isCustom) wheelOpen = true }, contentAlignment = Alignment.Center) {
                             if (on) Icon(Icons.Rounded.Check, a.label, Modifier.size(18.dp), tint = Color.White)
                         }
                     }
                 }
             }
         }
-
-        FormSection("Stil") {
-            Labeled("Ecken") { Segmented(ThemeCorners.entries, ThemeSetting.corners, { it.label }) { prefs.set(ThemeSetting.cornersKey, it.id) } }
-            Divider()
-            Labeled("Karten") { Segmented(ThemeCards.entries, ThemeSetting.cards, { it.label }) { prefs.set(ThemeSetting.cardsKey, it.id) } }
-            Divider()
-            Labeled("Hintergrund") { Segmented(ThemeBackground.entries, ThemeSetting.background, { if (it == ThemeBackground.black) (if (isDark) "Schwarz" else "Weiß") else it.label }) { prefs.set(ThemeSetting.backgroundKey, it.id) } }
-            Divider()
-            Labeled("Schrift") { Segmented(ThemeFont.entries, ThemeSetting.font, { it.label }) { prefs.set(ThemeSetting.fontKey, it.id) } }
-            Divider()
-            Text("Auf Standard zurücksetzen", style = font(16), color = Palette.accentText,
-                modifier = Modifier.fillMaxWidth().clickable {
-                    h.tap()
-                    for (k in listOf(ThemeSetting.accentKey, ThemeSetting.cornersKey, ThemeSetting.cardsKey, ThemeSetting.backgroundKey, ThemeSetting.fontKey)) prefs.set(k, "")
-                }.padding(vertical = 12.dp))
-        }
-
-        FormSection("Verhalten", "Die Startseite gilt beim nächsten Öffnen der App.") {
-            Labeled("Startseite") {
-                Segmented(listOf(0, 1), prefs.int("startTab", 0), { if (it == 0) "Heute" else "Verlauf" }) { prefs.set("startTab", it) }
-            }
-            Divider()
-            FormToggle("Haptisches Feedback", prefs.bool("haptics", true), { prefs.set("haptics", it) })
+        if (wheelOpen) ColorWheelDialog(ThemeSetting.customColor, onDismiss = { wheelOpen = false }) { picked ->
+            val rgb = (picked.toArgb() and 0xFFFFFF).toString(16).padStart(6, '0')
+            prefs.set(ThemeSetting.customKey, rgb); prefs.set(ThemeSetting.accentKey, ThemeAccent.custom.id); wheelOpen = false
         }
 
         val paletteId = prefs.string("catPalette", "ginger")
@@ -129,6 +123,30 @@ fun AppearanceScreen() {
             }
             val appearance = runCatching { Appearance.valueOf(prefs.string("appearance", "system")) }.getOrDefault(Appearance.system)
             Segmented(Appearance.entries, appearance, { it.label }, Modifier.padding(bottom = 10.dp)) { prefs.set("appearance", it.name) }
+        }
+
+        FormSection("Stil") {
+            Labeled("Ecken") { Segmented(ThemeCorners.entries, ThemeSetting.corners, { it.label }) { prefs.set(ThemeSetting.cornersKey, it.id) } }
+            Divider()
+            Labeled("Karten") { Segmented(ThemeCards.entries, ThemeSetting.cards, { it.label }) { prefs.set(ThemeSetting.cardsKey, it.id) } }
+            Divider()
+            Labeled("Hintergrund") { Segmented(ThemeBackground.entries, ThemeSetting.background, { if (it == ThemeBackground.black) (if (isDark) "Schwarz" else "Weiß") else it.label }) { prefs.set(ThemeSetting.backgroundKey, it.id) } }
+            Divider()
+            Labeled("Schrift") { Segmented(ThemeFont.entries, ThemeSetting.font, { it.label }) { prefs.set(ThemeSetting.fontKey, it.id) } }
+            Divider()
+            Text("Auf Standard zurücksetzen", style = font(16), color = Palette.accentText,
+                modifier = Modifier.fillMaxWidth().clickable {
+                    h.tap()
+                    for (k in listOf(ThemeSetting.accentKey, ThemeSetting.cornersKey, ThemeSetting.cardsKey, ThemeSetting.backgroundKey, ThemeSetting.fontKey, ThemeSetting.customKey)) prefs.set(k, "")
+                }.padding(vertical = 12.dp))
+        }
+
+        FormSection("Verhalten", "Die Startseite gilt beim nächsten Öffnen der App.") {
+            Labeled("Startseite") {
+                Segmented(listOf(0, 1), prefs.int("startTab", 0), { if (it == 0) "Heute" else "Verlauf" }) { prefs.set("startTab", it) }
+            }
+            Divider()
+            FormToggle("Haptisches Feedback", prefs.bool("haptics", true), { prefs.set("haptics", it) })
         }
     }
 }
@@ -180,4 +198,53 @@ private fun ThemePreview() {
             Text("210", style = font(18, FontWeight.Bold), color = C.textPrimary)
         }
     }
+}
+
+/** A colour wheel: hue around, saturation outwards, brightness below. */
+@Composable
+private fun ColorWheelDialog(initial: Color, onDismiss: () -> Unit, onPick: (Color) -> Unit) {
+    val hsv = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial.toArgb(), it) } }
+    var hue by remember { mutableFloatStateOf(hsv[0]) }
+    var sat by remember { mutableFloatStateOf(hsv[1]) }
+    var value by remember { mutableFloatStateOf(maxOf(hsv[2], 0.35f)) }
+    val color = Color.hsv(hue, sat, value)
+    androidx.compose.material3.AlertDialog(onDismissRequest = onDismiss,
+        title = { Text("Eigene Farbe") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Box(Modifier.size(240.dp).pointerInput(Unit) {
+                    fun update(p: androidx.compose.ui.geometry.Offset) {
+                        val c = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+                        val d = p - c
+                        val r = size.width / 2f
+                        sat = (kotlin.math.hypot(d.x, d.y) / r).coerceIn(0f, 1f)
+                        hue = ((Math.toDegrees(kotlin.math.atan2(d.y, d.x).toDouble()).toFloat() + 360f) % 360f)
+                    }
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        update(down.position)
+                        do {
+                            val event = awaitPointerEvent()
+                            event.changes.firstOrNull()?.let { update(it.position); it.consume() }
+                        } while (event.changes.any { it.pressed })
+                    }
+                }) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val hues = (0..360 step 30).map { Color.hsv(it.toFloat(), 1f, value) }
+                        drawCircle(Brush.sweepGradient(hues))
+                        drawCircle(Brush.radialGradient(listOf(Color.hsv(0f, 0f, value), Color.Transparent)))
+                        // Marker
+                        val r = size.minDimension / 2f
+                        val ang = Math.toRadians(hue.toDouble())
+                        val m = androidx.compose.ui.geometry.Offset(center.x + (kotlin.math.cos(ang) * sat * r).toFloat(), center.y + (kotlin.math.sin(ang) * sat * r).toFloat())
+                        drawCircle(Color.White, 11.dp.toPx(), m, style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+                        drawCircle(color, 8.dp.toPx(), m)
+                    }
+                }
+                androidx.compose.material3.Slider(value, { value = it }, valueRange = 0.25f..1f)
+                Box(Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(10.dp)).background(color))
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton({ onPick(color) }) { Text("Übernehmen") } },
+        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { Text("Abbrechen") } })
 }
