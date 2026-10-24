@@ -24,11 +24,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TAG }}
+      - name: Schon veröffentlicht?
+        id: done
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Wurde das IPA von Hand hochgeladen, wird es nicht ersetzt (die Quelle enthält dessen SHA-256).
+          if gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '\.ipa$'; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
       - name: Xcode-Version
+        if: steps.done.outputs.skip != 'true'
         run: xcodebuild -version
       - name: IPA bauen
+        if: steps.done.outputs.skip != 'true'
         run: tools/build-ipa.sh
       - name: Release anlegen und IPA hochladen
+        if: steps.done.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -39,6 +49,7 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Purrtion $version" --notes-file "$RUNNER_TEMP/notes.txt"
           gh release upload "$TAG" "$ipa" --clobber
       - name: Quelle veröffentlichen
+        if: steps.done.outputs.skip != 'true'
         run: |
           # Der Tag zeigt auf einen älteren Stand: die Quelle gehört auf den aktuellen main.
           cp distribution/sidestore-source.json "$RUNNER_TEMP/source.json"

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unveröffentlicht – Updates per SideStore (iPhone)
+## 2.3 – Updates per SideStore (iPhone) – 24. Oktober 2026
 
 ### Neu
 - **App-Update:** Purrtion prüft beim Start (höchstens alle 6 Stunden) und unter Profil → App-Update, ob eine neuere Version in der SideStore-Quelle steht, zeigt Hinweise und öffnet SideStore zum Aktualisieren. „Später“ blendet die Meldung drei Tage aus. Ohne Verbindung passiert nichts.
