@@ -25,6 +25,7 @@ struct SettingsView: View {
     @AppStorage(AutoClose.enabledKey) private var autoClose = false
     @State private var notificationsDenied = false
     @State private var rewritingHealth = false
+    @State private var accessStatus: String?
     @State private var healthRewritten = false
     @State private var showDeleteAll = false
     @State private var exportURLs: [URL] = []
@@ -209,6 +210,7 @@ struct SettingsView: View {
 
     @ViewBuilder private var healthSection: some View {
                 Section {
+                    ActivityHealthRows()
                     Toggle(isOn: $healthSync) { Label("Gewicht mit Apple Health", systemImage: "heart.fill") }
                         .onChange(of: healthSync) { _, on in
                             guard on else { return }
@@ -225,6 +227,10 @@ struct SettingsView: View {
                                 await NutritionSync.syncRecent(days: 30, container: PurrtionApp.container)
                             }
                         }
+                    Button {
+                        Task { accessStatus = await HealthAccess.requestAll() }
+                    } label: { Label("Zugriff auf Health neu anfragen", systemImage: "hand.raised.fill") }
+                    if let accessStatus { Text(accessStatus).font(Theme.font(12)).foregroundStyle(Theme.accentText) }
                     if nutritionSync {
                         Button {
                             rewritingHealth = true
@@ -246,7 +252,7 @@ struct SettingsView: View {
                     }
                 } footer: {
                     if let problem = UserDefaults.standard.string(forKey: NutritionSync.lastErrorKey) {
-                        Text("Letzter Fehler beim Schreiben in Health: \(problem). Prüfe in iOS unter Einstellungen → Health → Datenzugriff & Geräte → Purrtion, ob alles erlaubt ist, und schalte „Ernährung“ einmal aus und an.")
+                        Text("Letzter Fehler beim Schreiben in Health: \(problem). Fehlt die Health-Berechtigung („entitlement“), aktualisiere Purrtion in SideStore auf die neueste Version. Sonst prüfe in iOS unter Einstellungen → Health → Datenzugriff & Geräte → Purrtion, ob alles erlaubt ist.")
                             .foregroundStyle(Theme.accentText)
                     }
                     Text("Liest dein Gewicht aus Health und speichert neue Einträge aus Purrtion dort. „Ernährung“ schreibt jeden Eintrag mit kcal, Makros und Mikronährstoffen sowie dein Wasser ins Ernährungsprotokoll von Health. Änderungen und Löschungen werden übernommen. „Neu schreiben“ löscht alles, was Purrtion in Health eingetragen hat, und schreibt jeden Tag einmal sauber neu. Daten anderer Apps bleiben unberührt.")
@@ -796,26 +802,43 @@ private struct WeekdayGoalsSection: View {
     }
 }
 
-/// Active energy from Apple Health – shown on Today and optionally added to the goal.
-private struct ActivityGoalSection: View {
+/// Apple Health page: whether Purrtion reads your active calories.
+private struct ActivityHealthRows: View {
     @EnvironmentObject private var goals: Goals
     @Environment(\.modelContext) private var ctx
     @State private var todayActive: Double = ActivityStore.kcal(for: .now)
     @State private var failed = false
 
     var body: some View {
+        Toggle(isOn: Binding(get: { goals.activityEnabled }, set: { on in
+            withAnimation(Motion.quick) { goals.activityEnabled = on }
+            guard on else { return }
+            Task {
+                do { try await ActivityStore.requestAuthorization(); failed = false } catch { failed = true }
+                await ActivityStore.refresh()
+                todayActive = ActivityStore.kcal(for: .now)
+                goals.activityUpdated()
+                WidgetBridge.update(ctx, goals: goals)
+            }
+        })) { Label("Aktivitätskalorien lesen", systemImage: "flame.fill") }
+        if goals.activityEnabled {
+            LabeledContent("Heute laut Apple Health", value: "\(todayActive.kcalString) kcal")
+            if failed {
+                Text("Kein Zugriff auf Apple Health. Unten „Zugriff neu anfragen“ tippen oder in der Health-App unter Teilen → Apps → Purrtion erlauben.")
+                    .font(Theme.font(12)).foregroundStyle(Theme.danger)
+            }
+        }
+    }
+}
+
+/// Active energy from Apple Health – shown on Today and optionally added to the goal.
+private struct ActivityGoalSection: View {
+    @EnvironmentObject private var goals: Goals
+    @Environment(\.modelContext) private var ctx
+    @State private var todayActive: Double = ActivityStore.kcal(for: .now)
+
+    var body: some View {
         Section {
-            Toggle(isOn: Binding(get: { goals.activityEnabled }, set: { on in
-                withAnimation(Motion.quick) { goals.activityEnabled = on }
-                guard on else { return }
-                Task {
-                    do { try await ActivityStore.requestAuthorization() } catch { failed = true }
-                    await ActivityStore.refresh()
-                    todayActive = ActivityStore.kcal(for: .now)
-                    goals.activityUpdated()
-                    WidgetBridge.update(ctx, goals: goals)
-                }
-            })) { Label("Aktivitätskalorien", systemImage: "flame.fill") }
             if goals.activityEnabled {
                 LabeledContent("Heute laut Apple Health", value: "\(todayActive.kcalString) kcal")
                 SliderField(title: "Aufs Ziel anrechnen", value: $goals.activityPercent, range: 0...100, step: 5, unit: "%")
@@ -823,15 +846,13 @@ private struct ActivityGoalSection: View {
                     LabeledContent("Heute dazu", value: "+\((todayActive * goals.activityPercent / 100).kcalString) kcal")
                         .foregroundStyle(Theme.accentText)
                 }
-                if failed {
-                    Text("Kein Zugriff auf Apple Health – in der Health-App unter Teilen → Apps → Purrtion erlauben.")
-                        .font(Theme.font(12)).foregroundStyle(Theme.danger)
-                }
+            } else {
+                Label("Aus. Einschalten unter Profil → Apple Health.", systemImage: "flame.fill").foregroundStyle(Theme.textSecondary)
             }
         } header: { Text("Aktivität (Apple Health)") } footer: {
             Text(goals.activityEnabled
                  ? "0 % zeigt die Kalorien nur an. Sonst steigt dein Tagesziel um diesen Anteil deiner aktiven Kalorien (Fitness-Ringe). Uhren überschätzen den Verbrauch oft – 50–75 % ist ein guter Kompromiss. Dein Grundumsatz ist im Kalorienziel schon enthalten. Manuell eingetragene Aktivität (Heute → oberste Karte antippen) zählt mit demselben Anteil."
-                 : "Zeigt deine aktiven Kalorien aus Apple Health (z. B. Apple Watch) auf der Heute-Seite – auf Wunsch werden sie aufs Ziel angerechnet.")
+                 : "Ob Purrtion deine aktiven Kalorien aus Apple Health liest (z. B. von der Apple Watch), stellst du unter Profil → Apple Health ein. Hier legst du fest, wie viel davon aufs Ziel angerechnet wird.")
         }
         .listRowBackground(Theme.card)
         .task {

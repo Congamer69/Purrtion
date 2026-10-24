@@ -252,3 +252,19 @@ enum NutritionSync {
                                         HKMetadataKeySyncVersion: version])
     }
 }
+
+/// Asks for every Apple Health permission Purrtion can use, and says what went wrong in plain words.
+enum HealthAccess {
+    @MainActor
+    static func requestAll() async -> String {
+        guard HKHealthStore.isHealthDataAvailable() else { return "Apple Health gibt es auf diesem Gerät nicht." }
+        var problems: [String] = []
+        do { try await HealthSync.requestAuthorization() } catch { problems.append(error.localizedDescription) }
+        do { try await NutritionSync.requestAuthorization() } catch { problems.append(error.localizedDescription) }
+        do { try await ActivityStore.requestAuthorization() } catch { problems.append(error.localizedDescription) }
+        if let problem = problems.first {
+            return "Anfrage fehlgeschlagen: \(problem) Das passiert, wenn die App ohne Health-Berechtigung installiert wurde. Aktualisiere Purrtion in SideStore auf die neueste Version."
+        }
+        return "Angefragt. Fragt iOS nichts mehr, sind die Rechte schon entschieden. Ändern kannst du sie in der Health-App unter Teilen → Apps → Purrtion."
+    }
+}

@@ -36,6 +36,8 @@ git add distribution/sidestore-source.json && git commit -m "SideStore-Quelle: 2
 ```
 `tools/build-ipa.sh` baut aus einem sauberen Export des Commits und bricht ab, wenn `Firebase.plist` oder ein API-Key im IPA steckt.
 
+`tools/build-ipa.sh` signiert App und Widget ad hoc (ohne Zertifikat), nur damit ihre Berechtigungen (HealthKit, App-Gruppe) im IPA stehen. Ohne sie fehlt nach SideStores Neu-Signieren HealthKit.
+
 Nötig sind keine Secrets, Zertifikate oder Apple-IDs. Das IPA ist unsigniert, SideStore signiert es auf dem iPhone mit deiner Apple-ID. Der Workflow nutzt nur das eingebaute `GITHUB_TOKEN`.
 
 ## Update am iPhone

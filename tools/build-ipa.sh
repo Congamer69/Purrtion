@@ -24,6 +24,17 @@ fi
 
 mkdir -p "$work/ipa/Payload" dist
 cp -R "$app" "$work/ipa/Payload/"
+
+# An unsigned build carries no entitlements, and SideStore only keeps the ones it finds in the app: without them HealthKit
+# and the app group are gone after the re-sign ("Missing com.apple.developer.healthkit entitlement"). So sign ad hoc
+# (no certificate, SideStore replaces it) just to embed them. The extension first, then the app.
+payload="$work/ipa/Payload/Purrtion.app"
+codesign -f -s - --timestamp=none --entitlements "$work/PurrtionWidget.entitlements" "$payload/PlugIns/PurrtionWidget.appex"
+codesign -f -s - --timestamp=none --entitlements "$work/Purrtion.entitlements" "$payload"
+for t in "$payload" "$payload/PlugIns/PurrtionWidget.appex"; do
+  codesign -d --entitlements - "$t" 2>&1 | grep -q "application-groups" || { echo "Abbruch: Berechtigungen fehlen in $t"; exit 1; }
+done
+codesign -d --entitlements - "$payload" 2>&1 | grep -q "com.apple.developer.healthkit" || { echo "Abbruch: HealthKit fehlt in der App."; exit 1; }
 rm -f "dist/Purrtion-$version.ipa"
 (cd "$work/ipa" && zip -qry "$OLDPWD/dist/Purrtion-$version.ipa" Payload)
 echo "Fertig: dist/Purrtion-$version.ipa ($(du -h "dist/Purrtion-$version.ipa" | cut -f1)), ohne Freunde-Server."

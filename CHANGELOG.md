@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.3 – Apple Health mit SideStore repariert (iPhone) – 25. Oktober 2026
+
+### Behoben
+- **Apple Health ging nach der SideStore-Installation nicht** („Missing com.apple.developer.healthkit entitlement“): Das IPA war ganz ohne Berechtigungen gebaut, und SideStore übernimmt nur, was schon in der App steht. Jetzt tragen App und Widget ihre Berechtigungen (HealthKit, App-Gruppe) schon im IPA, SideStore ersetzt nur die Signatur. Nach dem Update in SideStore (My Apps → Update) funktioniert Health wieder, ohne Neuinstallation.
+
+### Neu
+- **Aktivitätskalorien unter Apple Health:** Ob Purrtion deine aktiven Kalorien liest, stellst du jetzt unter Profil → Apple Health ein. Unter Ziele → Kalorien & Makros legst du nur noch fest, wie viel davon aufs Ziel angerechnet wird.
+- **„Zugriff auf Health neu anfragen“:** Knopf unter Profil → Apple Health. Er fragt Gewicht, Ernährung und Aktivität neu an und nennt bei einem Fehler den Grund.
+
 ## 2.4.2 – Update-Knopf repariert (iPhone) – 25. Oktober 2026
 
 ### Behoben
