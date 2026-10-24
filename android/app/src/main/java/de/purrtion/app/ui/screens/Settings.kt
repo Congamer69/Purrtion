@@ -33,6 +33,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Refresh
+import de.purrtion.app.ui.theme.RadiusSmall
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -106,6 +111,7 @@ import de.purrtion.app.domain.Backup
 import de.purrtion.app.domain.BlsDatabase
 import de.purrtion.app.domain.CsvExport
 import de.purrtion.app.domain.DatabaseUpdater
+import de.purrtion.app.domain.Diag
 import de.purrtion.app.domain.Goals
 import de.purrtion.app.domain.HealthConnect
 import de.purrtion.app.domain.NutritionSync
@@ -225,6 +231,8 @@ fun SettingsScreen() {
                 FormRow("KI-Modelle", icon = Icons.Rounded.AutoAwesome, value = aiSummary, chevron = true, onClick = { Nav.push { VisionSettingsScreen() } })
                 Divider()
                 FormRow("App-Update", icon = Icons.Rounded.SystemUpdate, chevron = true, onClick = { Nav.push { Screen("App-Update", back = true) { AppUpdateSection() } } })
+                Divider()
+                FormRow("Diagnose", icon = Icons.Rounded.BugReport, chevron = true, onClick = { Nav.push { Screen("Diagnose", back = true) { DiagnosisSection() } } })
             }
 
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { logoTapped() },
@@ -846,6 +854,31 @@ private fun Feature(icon: ImageVector, text: String) {
 }
 
 // MARK: App update
+
+/** Everything that helps to find a problem, in one text: app, device, the last crash and what the app did before. */
+@Composable
+private fun DiagnosisSection() {
+    val context = LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val h = rememberHaptics()
+    var report by remember { mutableStateOf(Diag.report()) }
+    val crash = remember { Diag.lastCrash(context) }
+    FormSection("Bericht", "Enthält App-Version, Gerät, die letzten Schritte der App und abgefangene Fehler. Keine Einträge, Schlüssel oder Namen. Bei Problemen kopieren und mitschicken.") {
+        FormRow("Bericht kopieren", icon = Icons.Rounded.ContentCopy, onClick = { h.success(); clipboard.setText(androidx.compose.ui.text.AnnotatedString(report)) })
+        Divider()
+        FormRow("Bericht teilen", icon = Icons.Rounded.Share, onClick = {
+            val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_SUBJECT, "Purrtion Bericht"); putExtra(Intent.EXTRA_TEXT, report) }
+            context.startActivity(Intent.createChooser(send, "Bericht teilen"))
+        })
+        Divider()
+        FormRow("Aktualisieren", icon = Icons.Rounded.Refresh, onClick = { h.tap(); report = Diag.report() })
+    }
+    if (crash != null) FormSection("Letzter Absturz", "So sah der Bericht beim letzten Absturz aus.") {
+        FormRow("Absturzbericht kopieren", icon = Icons.Rounded.ContentCopy, onClick = { h.success(); clipboard.setText(androidx.compose.ui.text.AnnotatedString(crash)) })
+    }
+    Text(report, style = font(11).copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace), color = C.textSecondary,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(RadiusSmall)).background(C.card).padding(12.dp))
+}
 
 /** Search for and install a newer version from GitHub, inside the app. All data stays (see [AppUpdater]). */
 @Composable

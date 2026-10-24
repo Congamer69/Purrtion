@@ -58,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
+import de.purrtion.app.domain.Diag
+import kotlinx.coroutines.flow.catch
 import de.purrtion.app.data.FoodEntry
 import de.purrtion.app.data.UndoStore
 import de.purrtion.app.domain.GoalStatus
@@ -175,9 +177,9 @@ fun WeekStrip(day: LocalDate, pager: PagerState, onSelect: (LocalDate) -> Unit) 
 
 @Composable
 private fun WeekPage(weekStart: LocalDate, day: LocalDate, onSelect: (LocalDate) -> Unit) {
-    val entries by remember(weekStart) { App.db.entries().observeRange(weekStart.toEpochDay(), weekStart.plusDays(6).toEpochDay()) }.collectAsState(emptyList())
+    val entries by remember(weekStart) { App.db.entries().observeRange(weekStart.toEpochDay(), weekStart.plusDays(6).toEpochDay()).catch { Diag.warn("Wochenleiste", it); emit(emptyList()) } }.collectAsState(emptyList())
     val byDay = entries.groupBy { it.day }.mapValues { (_, l) -> l.sumOf { it.kcal } }
-    val frozen = Streak.frozenDays()
+    val frozen = Diag.safe("Eistage", emptySet()) { Streak.frozenDays() }
     Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (i in 0 until 7) {
             val d = weekStart.plusDays(i.toLong())
@@ -232,7 +234,7 @@ fun StreakSheet() {
     val gridStart = today.mondayOfWeek().minusDays(28)
     var logged by remember { mutableStateOf(emptySet<LocalDate>()) }
     LaunchedEffect(Unit) {
-        state = Streak.refresh()
+        state = Diag.safe("Serie berechnen", state) { Streak.refresh() }
         logged = App.db.entries().loggedDays(gridStart.toEpochDay()).map(LocalDate::ofEpochDay).toSet()
     }
     Screen("Serie", leading = null, trailing = { TopTextButton("Fertig") { Nav.pop() } }) {

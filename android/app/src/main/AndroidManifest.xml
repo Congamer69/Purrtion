@@ -56,6 +56,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Crash report screen: own process and plain views, so it still works when the app itself cannot start. -->
+        <activity
+            android:name=".CrashActivity"
+            android:exported="false"
+            android:process=":crash"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar" />
+
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"

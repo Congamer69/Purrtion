@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 2.1** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 2.1.1** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten

@@ -111,10 +111,11 @@ import kotlin.math.min
 
 class Haptics(private val view: android.view.View) {
     private val on: Boolean get() = App.prefs.bool("haptics", true)
-    fun tap() { if (on) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
-    fun select() { if (on) view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK) }
-    fun success() { if (on) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
-    fun warning() { if (on) view.performHapticFeedback(HapticFeedbackConstants.REJECT) }
+    private fun buzz(kind: Int) { if (on) runCatching { view.performHapticFeedback(kind) } }
+    fun tap() = buzz(HapticFeedbackConstants.CLOCK_TICK)
+    fun select() = buzz(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
+    fun success() = buzz(HapticFeedbackConstants.CONFIRM)
+    fun warning() = buzz(HapticFeedbackConstants.REJECT)
 }
 
 @Composable

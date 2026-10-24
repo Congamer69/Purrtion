@@ -24,8 +24,8 @@ class Prefs(context: Context) {
     fun bool(key: String, default: Boolean = false): Boolean = state(key) { readBool(key, default) }.value
     fun int(key: String, default: Int = 0): Int = state(key) { readInt(key, default) }.value
     fun double(key: String, default: Double = 0.0): Double = state(key) { readDouble(key, default) }.value
-    fun string(key: String, default: String = ""): String = state(key) { sp.getString(key, null) ?: default }.value
-    fun optString(key: String): String? = state(key) { sp.getString(key, null) }.value
+    fun string(key: String, default: String = ""): String = state(key) { readString(key) ?: default }.value
+    fun optString(key: String): String? = state(key) { readString(key) }.value
     fun has(key: String): Boolean = sp.contains(key)
 
     fun set(key: String, value: Boolean) { sp.edit().putBoolean(key, value).apply(); state(key) { value }.value = value }
@@ -42,6 +42,9 @@ class Prefs(context: Context) {
         sp.edit().remove(key).remove("$key#d").apply()
         states.remove(key)
     }
+
+    /** Text settings never crash: a value that was stored as another type is read as its text. */
+    private fun readString(key: String): String? = try { sp.getString(key, null) } catch (_: ClassCastException) { sp.all[key]?.toString() }
 
     private fun readBool(key: String, default: Boolean): Boolean = when (val v = sp.all[key]) {
         is Boolean -> v

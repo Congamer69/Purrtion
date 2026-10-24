@@ -63,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
 import de.purrtion.app.MainActivity
 import de.purrtion.app.domain.FirebaseConfig
+import de.purrtion.app.domain.Diag
+import de.purrtion.app.domain.SafeMode
 import de.purrtion.app.domain.FriendsStore
 import de.purrtion.app.ui.pixel.AnimatedSprite
 import de.purrtion.app.ui.pixel.CatMood
@@ -82,16 +84,17 @@ private data class TabItem(val id: Int, val title: String, val icon: ImageVector
 
 @Composable
 fun RootScreen(activity: MainActivity) {
-    var tab by rememberSaveable { mutableIntStateOf(App.prefs.int("startTab", 0)) }
+    var tab by rememberSaveable { mutableIntStateOf(if (SafeMode.active) 0 else App.prefs.int("startTab", 0).coerceIn(0, 1)) }
     var splash by remember { mutableStateOf(true) }
-    val friendsEnabled = App.prefs.bool(FriendsStore.ENABLED_KEY, true) && FirebaseConfig.isAvailable
+    val friendsEnabled = !SafeMode.active && App.prefs.bool(FriendsStore.ENABLED_KEY, true) && Diag.safe("Freunde-Server", false) { FirebaseConfig.isAvailable }
     val tabs = listOfNotNull(
         TabItem(0, "Heute", Icons.Rounded.Pets),
         TabItem(1, "Verlauf", Icons.Rounded.BarChart),
         if (friendsEnabled) TabItem(3, "Freunde", Icons.Rounded.Group) else null,
         TabItem(2, "Einstellungen", Icons.Rounded.Settings),
     )
-    LaunchedEffect(Unit) { delay(1550); splash = false }
+    LaunchedEffect(Unit) { delay(1550); splash = false; Diag.log("Splash beendet") }
+    LaunchedEffect(tab) { Diag.log("Tab $tab") }
     LaunchedEffect(activity.reviewDay) { if (activity.reviewDay != null) tab = 0 }
     LaunchedEffect(activity.openFriends) { if (activity.openFriends) { tab = 3; activity.openFriends = false } }
     LaunchedEffect(friendsEnabled) { if (!friendsEnabled && tab == 3) tab = 2 }

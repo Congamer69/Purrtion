@@ -138,6 +138,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
 import kotlin.math.min
+import de.purrtion.app.domain.Diag
+import kotlinx.coroutines.flow.catch
 
 @Composable
 fun TodayScreen(activity: MainActivity) {
@@ -152,10 +154,10 @@ fun TodayScreen(activity: MainActivity) {
     var streak by remember { mutableStateOf(Streak.State()) }
     var pop by remember { mutableIntStateOf(0) }
     var streakLoaded by remember { mutableStateOf(false) }
-    val todayEntries by remember { App.db.entries().observeDay(LocalDate.now().toEpochDay()) }.collectAsState(emptyList())
+    val todayEntries by remember { App.db.entries().observeDay(LocalDate.now().toEpochDay()).catch { Diag.warn("Einträge von heute", it); emit(emptyList()) } }.collectAsState(emptyList())
     // Streak: refresh when today's entries change; the first entry of the day lights the flame (and hops the chip).
     LaunchedEffect(todayEntries.size, day) {
-        val new = Streak.refresh()
+        val new = Diag.safe("Serie berechnen", streak) { Streak.refresh() }
         if (streakLoaded && new.loggedToday && !streak.loggedToday && day == LocalDate.now()) { pop++; h.tap() }
         streak = new
         streakLoaded = true

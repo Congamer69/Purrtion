@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
+import de.purrtion.app.domain.Diag
 import de.purrtion.app.ui.theme.C
 import de.purrtion.app.ui.theme.Palette
 import de.purrtion.app.ui.theme.font
@@ -105,7 +106,7 @@ private object SpriteCache {
     fun get(sprite: PixelSprite, palette: CatPalette, dark: Boolean): ImageBitmap {
         val key = Triple(sprite, palette.id, dark)
         cache.get(key)?.let { return it }
-        val shown = if (palette.id == "dog") DogSprites.convert(sprite) else sprite
+        val shown = if (palette.id == "dog") Diag.safe("Hundesprite", sprite) { DogSprites.convert(sprite) } else sprite
         val bitmap = android.graphics.Bitmap.createBitmap(maxOf(shown.width, 1), maxOf(shown.height, 1), android.graphics.Bitmap.Config.ARGB_8888)
         for ((y, row) in shown.rows.withIndex()) for ((x, ch) in row.withIndex()) {
             palette.color(ch, dark)?.let { bitmap.setPixel(x, y, it.toArgb()) }

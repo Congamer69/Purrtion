@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.purrtion.app.App
+import de.purrtion.app.domain.Diag
+import de.purrtion.app.domain.SafeMode
 
 /** Look & feel choices from Einstellungen → Darstellung. The same keys and values as on iOS. */
 enum class ThemeAccent(val id: String, val label: String, val hex: Long) {
@@ -42,11 +44,14 @@ object ThemeSetting {
     const val backgroundKey = "theme.bg"
     const val fontKey = "theme.font"
 
-    val accent: ThemeAccent get() = ThemeAccent.entries.firstOrNull { it.id == App.prefs.string(accentKey, "") } ?: ThemeAccent.orange
-    val corners: ThemeCorners get() = ThemeCorners.entries.firstOrNull { it.id == App.prefs.string(cornersKey, "") } ?: ThemeCorners.normal
-    val cards: ThemeCards get() = ThemeCards.entries.firstOrNull { it.id == App.prefs.string(cardsKey, "") } ?: ThemeCards.shadow
-    val background: ThemeBackground get() = ThemeBackground.entries.firstOrNull { it.id == App.prefs.string(backgroundKey, "") } ?: ThemeBackground.warm
-    val font: ThemeFont get() = ThemeFont.entries.firstOrNull { it.id == App.prefs.string(fontKey, "") } ?: ThemeFont.rounded
+    // Unknown or damaged values fall back to the defaults; so does everything in the safe mode.
+    private fun saved(key: String): String = if (SafeMode.active) "" else Diag.safe("Einstellung $key", "") { App.prefs.string(key, "") }
+
+    val accent: ThemeAccent get() = ThemeAccent.entries.firstOrNull { it.id == saved(accentKey) } ?: ThemeAccent.orange
+    val corners: ThemeCorners get() = ThemeCorners.entries.firstOrNull { it.id == saved(cornersKey) } ?: ThemeCorners.normal
+    val cards: ThemeCards get() = ThemeCards.entries.firstOrNull { it.id == saved(cardsKey) } ?: ThemeCards.shadow
+    val background: ThemeBackground get() = ThemeBackground.entries.firstOrNull { it.id == saved(backgroundKey) } ?: ThemeBackground.warm
+    val font: ThemeFont get() = ThemeFont.entries.firstOrNull { it.id == saved(fontKey) } ?: ThemeFont.rounded
 }
 
 @Immutable
@@ -137,12 +142,14 @@ private fun snapWeight(size: Float, weight: FontWeight): FontWeight = when {
     else -> FontWeight.Medium
 }
 
+/** The phone's rounded system font, or the normal one on phones that do not have it (checked, not assumed). */
 private val roundedFamily: FontFamily by lazy {
-    runCatching {
-        FontFamily(listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold, FontWeight.ExtraBold).map {
+    Diag.safe("Rundschrift", FontFamily.Default) {
+        val present = android.graphics.Typeface.create("sans-serif-rounded", android.graphics.Typeface.NORMAL) !== android.graphics.Typeface.DEFAULT
+        if (!present) FontFamily.Default else FontFamily(listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold, FontWeight.ExtraBold).map {
             androidx.compose.ui.text.font.Font(androidx.compose.ui.text.font.DeviceFontFamilyName("sans-serif-rounded"), it)
         })
-    }.getOrDefault(FontFamily.Default)
+    }
 }
 
 private fun family(): FontFamily = when (ThemeSetting.font) {

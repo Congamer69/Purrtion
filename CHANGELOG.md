@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.1 – Absturzbericht und abgesicherter Modus (Android) – 24. Oktober 2026
+
+### Neu
+- **Absturzbericht:** Stürzt die App ab, zeigt ein eigener, einfacher Bildschirm den Fehler, die App-Version, das Gerät und die letzten Schritte der App. Der Bericht lässt sich mit einem Tipp kopieren oder teilen. Der Bildschirm läuft in einem eigenen Prozess und funktioniert auch dann, wenn Datenbank, Einstellungen oder Design die Ursache sind. Im Bericht stehen keine Einträge, Schlüssel oder Namen.
+- **Abgesicherter Modus:** Vom Absturzbildschirm aus startet die App einmal mit Standardlook, ohne Hintergrundaufgaben und ohne Freunde-Seite. Beim nächsten Start ist wieder alles normal.
+- **Diagnose in den Einstellungen:** Einstellungen → Diagnose zeigt denselben Bericht jederzeit, dazu den letzten Absturz und Fehler, die die App abgefangen hat.
+
+### Verbessert
+- **Robuster Start:** Hintergrundaufgaben (Widget, Backup, Health Connect, Updates, Freunde) laufen einzeln abgesichert. Schlägt eine fehl, laufen die anderen weiter und die App bleibt offen. Fehler werden im Bericht festgehalten.
+- **Sicherere Schrift:** Die runde Systemschrift wird nur genutzt, wenn das Gerät sie wirklich hat, sonst die Standardschrift.
+- **Beschädigte Einstellungen:** Falsch gespeicherte Werte stürzen die App nicht mehr ab, sondern fallen auf den Standard zurück. Das gilt auch für Design, Startseite, Serie, Wochenleiste und Hundesprites.
+- **Haptik:** Ein Gerät ohne bestimmtes Vibrationsmuster führt nicht mehr zu einem Fehler.
+
 ## 2.1 – Redesign (iPhone und Android) – 23. Oktober 2026
 
 ### Neu
