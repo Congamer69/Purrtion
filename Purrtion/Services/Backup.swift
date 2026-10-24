@@ -10,7 +10,7 @@ enum Backup {
     static let autoKey = "backup.auto"
 
     /// UserDefaults keys that belong to the user's settings.
-    private static let settingPrefixes = ["goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "appearance", "onboarded", "health.", "friends.server", "streak."]
+    private static let settingPrefixes = ["goal.", "profile.", "vision.", "source.", "activity.", "catPalette", "appearance", "onboarded", "health.", "friends.server", "friends.name", "friends.enabled", "friends.shareWeight", "friends.metric", "streak."]
 
     struct Payload: Codable {
         var version = 1
@@ -22,6 +22,8 @@ enum Backup {
         var weights: [Weight] = []
         var reviews: [Review]? = nil
         var settings: [String: String] = [:]
+        /// The friends login, encrypted with the backup password (see `BackupVault`). Absent without a password.
+        var friendsAccount: String? = nil
 
         struct Entry: Codable {
             var day: Date; var createdAt: Date; var name: String; var brand: String?
@@ -77,7 +79,17 @@ enum Backup {
             if let s = v as? String { p.settings[k] = "s:" + s }
             else if let n = v as? NSNumber { p.settings[k] = "n:" + n.stringValue }
         }
+        if let password = BackupVault.password, let uid = Keychain.get("fb.uid"), let refresh = Keychain.get("fb.refresh") {
+            p.friendsAccount = try? BackupVault.seal(.init(uid: uid, refresh: refresh), password: password)
+        }
         return p
+    }
+
+    /// True when the backup file holds an encrypted friends login (the restore then asks for the password).
+    static func hasFriendsAccount(_ data: Data) -> Bool {
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
+        return ((try? dec.decode(Payload.self, from: data))?.friendsAccount) != nil
     }
 
     @MainActor
@@ -90,10 +102,15 @@ enum Backup {
 
     /// Replaces all local data with the backup.
     @MainActor
-    static func restore(from data: Data, into ctx: ModelContext) throws -> Payload {
+    /// With a `password`, the friends login in the backup is restored too. A wrong password throws before anything is replaced.
+    static func restore(from data: Data, into ctx: ModelContext, password: String? = nil) throws -> Payload {
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
         let p = try dec.decode(Payload.self, from: data)
+        var account: BackupVault.Account?
+        if let sealed = p.friendsAccount, let password, !password.isEmpty {
+            account = try BackupVault.open(sealed, password: password)
+        }
 
         try ctx.delete(model: FoodEntry.self)
         try ctx.delete(model: SavedFood.self)
@@ -146,6 +163,11 @@ enum Backup {
                     UserDefaults.standard.set(d, forKey: k)
                 }
             }
+        }
+        if let account {
+            // The old account's cached friends are not this account's.
+            for k in ["friends.cache", "friends.me", "friends.lastRefresh", "friends.lastHash", "friends.lastUpload"] { UserDefaults.standard.removeObject(forKey: k) }
+            FirebaseAuth.shared.adopt(uid: account.uid, refresh: account.refresh)
         }
         return p
     }

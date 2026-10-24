@@ -359,6 +359,11 @@ struct BackupSection: View {
     @State private var status: String?
     @State private var restoreData: Data?
     @State private var refresh = 0
+    @State private var setPassword = false
+    @State private var newPassword = ""
+    @State private var newPasswordAgain = ""
+    @State private var vaultOn = BackupVault.password != nil
+    @State private var restorePassword = ""
 
     var body: some View {
         Section {
@@ -375,17 +380,51 @@ struct BackupSection: View {
             Button { backupNow() } label: { Label("Jetzt sichern", systemImage: "arrow.up.doc.fill") }
                 .disabled(Backup.folderName == nil)
             Button { pickRestore = true } label: { Label("Aus Sicherung wiederherstellen", systemImage: "arrow.down.doc.fill") }
+            Button {
+                if vaultOn {
+                    BackupVault.setPassword(nil); vaultOn = false
+                    // Rewrite the backup so the encrypted login is gone from the file too.
+                    if Backup.folderName != nil { backupNow() }
+                    status = "Das Freunde-Konto wird nicht mehr gesichert."
+                }
+                else { newPassword = ""; newPasswordAgain = ""; setPassword = true }
+            } label: {
+                HStack {
+                    Label("Freunde-Konto mitsichern", systemImage: "lock.shield.fill")
+                    Spacer()
+                    Text(vaultOn ? "An" : "Aus").foregroundStyle(Theme.textSecondary)
+                }
+            }
         } header: { Text("Sicherung") } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Wähle einen Ordner in iCloud Drive. Purrtion legt dort etwa einmal täglich „\(Backup.fileName)“ ab – mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Auf einem neuen Gerät einfach wiederherstellen.")
                 if let last = Backup.lastBackup {
                     Text("Letzte Sicherung: \(last.formatted(date: .abbreviated, time: .shortened))")
                 }
+                Text("Freunde-Konto mitsichern: Dein Freunde-Profil (Anmeldung) kommt verschlüsselt in die Sicherung, geschützt mit einem Passwort, das nur du kennst. Es bleibt auf diesem Gerät und steht nicht in der Sicherung. Ohne das Passwort lässt sich das Konto nicht wiederherstellen und nichts davon ist lesbar.")
                 if let status { Text(status).foregroundStyle(Theme.accentText) }
             }
             .id(refresh)
         }
         .listRowBackground(Theme.card)
+        .alert("Passwort für die Sicherung", isPresented: $setPassword) {
+            SecureField("Passwort (mindestens \(BackupVault.minimumLength) Zeichen)", text: $newPassword)
+            SecureField("Passwort wiederholen", text: $newPasswordAgain)
+            Button("Festlegen") {
+                if newPassword.count < BackupVault.minimumLength { status = "Das Passwort ist zu kurz." }
+                else if newPassword != newPasswordAgain { status = "Die Passwörter sind nicht gleich." }
+                else {
+                    BackupVault.setPassword(newPassword)
+                    vaultOn = true
+                    status = "Das Freunde-Konto wird jetzt verschlüsselt mitgesichert. Merke dir das Passwort gut."
+                    if Backup.folderName != nil { backupNow() }
+                }
+                newPassword = ""; newPasswordAgain = ""
+            }
+            Button("Abbrechen", role: .cancel) { newPassword = ""; newPasswordAgain = "" }
+        } message: {
+            Text("Ohne dieses Passwort lässt sich das Freunde-Konto aus der Sicherung nicht zurückholen. Es gibt keine Wiederherstellung des Passworts.")
+        }
         .fileImporter(isPresented: $pickFolder, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
                 do {
@@ -402,18 +441,38 @@ struct BackupSection: View {
             restoreData = try? Data(contentsOf: url)
             if restoreData == nil { status = "Datei konnte nicht gelesen werden." }
         }
-        .confirmationDialog("Sicherung wiederherstellen?", isPresented: Binding(get: { restoreData != nil }, set: { if !$0 { restoreData = nil } }),
-                            titleVisibility: .visible) {
-            Button("Ersetzen & wiederherstellen", role: .destructive) {
-                guard let data = restoreData else { return }
-                do {
-                    let p = try Backup.restore(from: data, into: ctx)
-                    status = "Wiederhergestellt: \(p.entries.count) Einträge, \(p.custom.count) eigene Lebensmittel/Rezepte."
-                } catch { status = "Wiederherstellung fehlgeschlagen: \(error.localizedDescription)" }
-                restoreData = nil
+        .alert("Sicherung wiederherstellen?", isPresented: Binding(get: { restoreData != nil }, set: { if !$0 { restoreData = nil; restorePassword = "" } })) {
+            if let data = restoreData, Backup.hasFriendsAccount(data) {
+                SecureField("Sicherungs-Passwort", text: $restorePassword)
+                Button("Mit Freunde-Konto wiederherstellen", role: .destructive) { restore(data, password: restorePassword) }
+                Button("Ohne Freunde-Konto wiederherstellen", role: .destructive) { restore(data, password: nil) }
+            } else {
+                Button("Ersetzen & wiederherstellen", role: .destructive) { if let data = restoreData { restore(data, password: nil) } }
             }
+            Button("Abbrechen", role: .cancel) { restoreData = nil; restorePassword = "" }
         } message: {
-            Text("Alle Daten auf diesem iPhone werden durch die Sicherung ersetzt.")
+            if let data = restoreData, Backup.hasFriendsAccount(data) {
+                Text("Alle Daten auf diesem iPhone werden ersetzt. Die Sicherung enthält ein verschlüsseltes Freunde-Konto. Gib das Passwort ein, damit es zurückkommt.")
+            } else {
+                Text("Alle Daten auf diesem iPhone werden durch die Sicherung ersetzt.")
+            }
+        }
+    }
+
+    private func restore(_ data: Data, password: String?) {
+        if let password, password.isEmpty { status = "Bitte gib das Passwort ein."; restoreData = nil; return }
+        do {
+            let p = try Backup.restore(from: data, into: ctx, password: password)
+            let account = p.friendsAccount != nil && password != nil ? " Freunde-Konto ist zurück." : ""
+            status = "Wiederhergestellt: \(p.entries.count) Einträge, \(p.custom.count) eigene Lebensmittel/Rezepte.\(account)"
+            restoreData = nil; restorePassword = ""
+        } catch let error as BackupVault.VaultError {
+            // Nothing was replaced, so another try is possible.
+            status = error.localizedDescription + " Es wurde nichts verändert."
+            restoreData = nil; restorePassword = ""
+        } catch {
+            status = "Wiederherstellung fehlgeschlagen: \(error.localizedDescription)"
+            restoreData = nil; restorePassword = ""
         }
     }
 

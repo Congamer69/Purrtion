@@ -5,7 +5,36 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 2.3** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 2.4** – siehe [CHANGELOG.md](CHANGELOG.md).
+
+## Installieren
+
+Die fertigen Dateien liegen immer beim neuesten [Release](https://github.com/Congamer69/Purrtion/releases/latest). Beide Apps brauchen keinen Account und keine Gebühren.
+
+### Android (ab Android 9)
+1. Auf dem Handy die [neueste `Purrtion-<Version>.apk`](https://github.com/Congamer69/Purrtion/releases/latest) laden und öffnen.
+2. Android fragt einmal, ob dein Browser oder Dateimanager Apps installieren darf. Erlauben und installieren.
+3. **Updates** kommen in der App selbst: Einstellungen → App-Update. Die App prüft GitHub, lädt die neue APK, sichert vorher deine Daten und installiert sie über die alte (Daten bleiben). Wer die App nicht mehr öffnen kann, installiert die neue APK einfach von Hand über die alte.
+4. Stürzt die App ab, zeigt sie einen Bericht zum Kopieren und startet auf Wunsch abgesichert (Einstellungen → Diagnose zeigt ihn später noch einmal).
+
+### iPhone (iOS 27, kostenlos mit SideStore)
+Mit einer normalen Apple-ID, ohne Entwicklerkonto. SideStore installiert das IPA und hält es aktuell.
+1. [SideStore](https://docs.sidestore.io) einmalig auf dem iPhone einrichten (Anleitung dort).
+2. In SideStore unter „Quellen“ auf „+“ tippen und diese Adresse einfügen:
+   `https://raw.githubusercontent.com/Congamer69/Purrtion/main/distribution/sidestore-source.json`
+   Mit SideStore auf dem Handy geht es auch per Antippen: `sidestore://source?url=https://raw.githubusercontent.com/Congamer69/Purrtion/main/distribution/sidestore-source.json`
+3. Purrtion in der Quelle antippen und „Laden“.
+4. **Updates:** Die App meldet beim Start und unter Profil → App-Update eine neuere Version. „Aktualisieren“ öffnet SideStore, das das neue IPA über die alte App installiert. Alternativ in SideStore unter „Meine Apps“ aktualisieren.
+5. Das kostenlose Apple-Konto läuft nach 7 Tagen ab. SideStore erneuert automatisch im Hintergrund. Erlaubt sind höchstens 3 Apps gleichzeitig.
+
+Mehr (Release machen, Fehlersuche, Grenzen): [distribution/README.md](distribution/README.md). Auf Mac mit Xcode geht auch der Weg unten unter „Selbst bauen“. Eine Xcode-Installation und eine SideStore-Installation sind getrennte Apps mit getrennten Daten, nimm bei einem Wechsel die Sicherung.
+
+### Freunde-Server verbinden
+Die Apps enthalten keinen Server. Wer die Freunde-Seite nutzen will, fügt den Server-Code unter Einstellungen → Freunde ein (in beiden Apps gleich). Ohne Code ist die Seite ausgeblendet.
+
+### Sicherung und Umzug
+Einstellungen → Daten & Backup (iPhone) bzw. Sicherung (Android): Ordner wählen, täglich automatisch sichern, später wiederherstellen. Das Format ist auf beiden Systemen gleich, ein Umzug zwischen iPhone und Android geht also auch.
+Optional: **Freunde-Konto mitsichern.** Deine Freunde-Anmeldung kommt dann verschlüsselt (Passwort, AES-256) in die Sicherung, damit nach einer Neuinstallation oder einem Wechsel zu SideStore dasselbe Profil und dieselben Freunde zurückkommen. Das Passwort legst du selbst fest, es steht nicht in der Sicherung und lässt sich nicht zurückholen.
 
 ## Highlights
 - Eine einfache Liste pro Tag statt Frühstück/Mittag/Abend; Rezepte und Foto-Scans bleiben ein Eintrag mit ausklappbaren Zutaten
@@ -40,10 +69,10 @@ Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
   </tr>
 </table>
 
-## Voraussetzungen
-Xcode 27 und iOS 27 (Simulator oder iPhone).
+## Selbst bauen
+Voraussetzung: Xcode 27 und iOS 27 (Simulator oder iPhone).
 
-## Starten
+### iPhone / Simulator
 - In Xcode: `Purrtion.xcodeproj` öffnen → Simulator wählen → ▶︎
 - Oder per Terminal (baut und startet im laufenden Simulator): `./run.sh`
 
@@ -105,9 +134,6 @@ Schlüssel liegen in der Keychain und gelten pro Anbieter für beide Aufgaben; d
 - **Ziele:** eigenes Kalorienziel pro Wochentag; Zieländerungen gelten ab heute, vergangene Tage behalten ihr damaliges Ziel – `Models/Goals.swift`
 - **Widgets:** Homescreen (quadratisch, breit) und Sperrbildschirm – Ziel `PurrtionWidget`, Daten über App Group `group.com.const.purrtion`
 
-## iPhone-Updates mit SideStore
-Kostenlos und privat: Das IPA liegt bei den GitHub Releases, SideStore erkennt neue Versionen, die App meldet sie. Einrichtung, Release-Ablauf und Grenzen des kostenlosen Apple-Kontos: [distribution/README.md](distribution/README.md).
-
 ## Freunde (Reiter „Freunde“, in den Einstellungen ausblendbar)
 Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
 
@@ -124,7 +150,7 @@ Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
 
 **Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden etwa 20 Sekunden nach einem neuen Eintrag geschrieben, höchstens alle 2 Minuten und nur bei Änderungen, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die App verbindet sich über einen Server-Code (Einstellungen → Freunde → Server-Code einfügen); ohne ihn ist die Freunde-Seite ausgeblendet. Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository.
 
-## Auf dem echten iPhone installieren
+## Mit Xcode auf dem iPhone (statt SideStore)
 In Xcode beim Ziel **Purrtion** und **PurrtionWidget** unter „Signing & Capabilities“ dein Team auswählen.
 App Groups und HealthKit funktionieren auch mit einem kostenlosen Apple-Account.
 

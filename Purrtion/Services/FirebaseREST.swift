@@ -169,6 +169,14 @@ final class FirebaseAuth {
         _ = try? await FirebaseREST.send(req)
     }
 
+    /// Takes over an account from a backup: the next request refreshes its token.
+    func adopt(uid: String, refresh: String) {
+        idToken = nil
+        expires = .distantPast
+        Keychain.set("fb.uid", uid)
+        Keychain.set("fb.refresh", refresh)
+    }
+
     func signOut() {
         idToken = nil
         expires = .distantPast

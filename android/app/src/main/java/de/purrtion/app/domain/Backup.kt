@@ -49,6 +49,8 @@ object Backup {
         val weights: List<Weight> = emptyList(),
         val reviews: List<Review>? = null,
         val settings: Map<String, String> = emptyMap(),
+        /** The friends login, encrypted with the backup password (see [BackupVault]). Absent without a password. */
+        val friendsAccount: String? = null,
     )
 
     @Serializable data class Entry(val day: String, val createdAt: String, val name: String, val brand: String? = null,
@@ -95,14 +97,22 @@ object Backup {
                     it.providerName, it.score, it.scoreBefore, it.automatic)
             },
             settings = App.prefs.export(settingPrefixes).filterKeys { it != FOLDER_KEY },
+            friendsAccount = BackupVault.password?.let { password ->
+                val uid = Secrets.get("fb.uid"); val refresh = Secrets.get("fb.refresh")
+                if (uid != null && refresh != null) runCatching { BackupVault.seal(BackupVault.Account(uid, refresh), password) }.getOrNull() else null
+            },
         )
     }
 
+    /** True when the backup file holds an encrypted friends login (the restore then asks for the password). */
+    fun hasFriendsAccount(text: String): Boolean = runCatching { json.decodeFromString(Payload.serializer(), text).friendsAccount != null }.getOrDefault(false)
+
     suspend fun data(): String = json.encodeToString(Payload.serializer(), makePayload())
 
-    /** Replaces all local data with the backup. */
-    suspend fun restore(text: String): Payload {
+    /** Replaces all local data with the backup. With a [password] the friends login is restored too; a wrong one throws before anything is replaced. */
+    suspend fun restore(text: String, password: String? = null): Payload {
         val p = json.decodeFromString(Payload.serializer(), text)
+        val account = p.friendsAccount?.let { sealed -> password?.takeIf { it.isNotEmpty() }?.let { BackupVault.open(sealed, it) } }
         val db = App.db
         db.entries().deleteAll(); db.saved().deleteAll(); db.custom().deleteAll(); db.water().deleteAll(); db.weights().deleteAll(); db.reviews().deleteAll()
         db.entries().upsertAll(p.entries.map {
@@ -125,6 +135,11 @@ object Backup {
                 it.enrichedCount, it.providerName, it.score, it.scoreBefore, it.automatic ?: false))
         }
         App.prefs.import(p.settings)
+        if (account != null) {
+            // The old account's cached friends are not this account's.
+            listOf("friends.cache", "friends.me", "friends.lastRefresh", "friends.lastHash", "friends.lastUpload").forEach { App.prefs.remove(it) }
+            FirebaseAuth.adopt(account.uid, account.refresh)
+        }
         return p
     }
 

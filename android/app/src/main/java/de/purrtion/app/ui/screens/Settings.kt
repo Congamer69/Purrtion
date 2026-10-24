@@ -108,6 +108,10 @@ import de.purrtion.app.domain.AITask
 import de.purrtion.app.domain.ActivityStore
 import de.purrtion.app.domain.AutoClose
 import de.purrtion.app.domain.Backup
+import de.purrtion.app.domain.BackupVault
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
 import de.purrtion.app.domain.BlsDatabase
 import de.purrtion.app.domain.CsvExport
 import de.purrtion.app.domain.DatabaseUpdater
@@ -434,6 +438,9 @@ private fun BackupSection() {
     var status by remember { mutableStateOf<String?>(null) }
     var refresh by remember { mutableIntStateOf(0) }
     var restoreText by remember { mutableStateOf<String?>(null) }
+    var vaultOn by remember { mutableStateOf(BackupVault.password != null) }
+    var askPassword by remember { mutableStateOf(false) }
+    var restorePassword by remember { mutableStateOf("") }
     val folderName = remember(refresh) { Backup.folderName(context) }
 
     fun backupNow() {
@@ -457,7 +464,7 @@ private fun BackupSection() {
     }
 
     val footer = buildString {
-        append("Wähle einen Ordner, zum Beispiel in Google Drive oder auf dem Gerät. Purrtion legt dort etwa einmal täglich „${Backup.FILE_NAME}“ ab, mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Die Datei ist mit der iPhone-App kompatibel.")
+        append("Wähle einen Ordner, zum Beispiel in Google Drive oder auf dem Gerät. Purrtion legt dort etwa einmal täglich „${Backup.FILE_NAME}“ ab, mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Die Datei ist mit der iPhone-App kompatibel.\n\nFreunde-Konto mitsichern: Dein Freunde-Profil (Anmeldung) kommt verschlüsselt in die Sicherung, geschützt mit einem Passwort, das nur du kennst. Es bleibt auf diesem Gerät und steht nicht in der Sicherung. Ohne das Passwort lässt sich das Konto nicht wiederherstellen und nichts davon ist lesbar.")
         Backup.lastBackup?.let { append("\nLetzte Sicherung: ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.GERMAN).format(Date(it))}") }
         status?.let { append("\n$it") }
     }
@@ -470,23 +477,85 @@ private fun BackupSection() {
             onClick = if (folderName == null) null else ({ backupNow() }))
         Divider()
         FormRow("Aus Sicherung wiederherstellen", icon = Icons.Rounded.CloudDownload, onClick = { pickRestore.launch(arrayOf("application/json", "application/octet-stream", "*/*")) })
+        Divider()
+        FormRow("Freunde-Konto mitsichern", icon = Icons.Rounded.Lock, value = if (vaultOn) "An" else "Aus", onClick = {
+            if (vaultOn) {
+                BackupVault.password = null; vaultOn = false
+                // Rewrite the backup so the encrypted login is gone from the file too.
+                if (folderName != null) backupNow()
+                status = "Das Freunde-Konto wird nicht mehr gesichert."
+            } else askPassword = true
+        })
     }
+    if (askPassword) PasswordDialog(
+        onDone = { password ->
+            askPassword = false
+            if (password != null) {
+                BackupVault.password = password; vaultOn = true
+                status = "Das Freunde-Konto wird jetzt verschlüsselt mitgesichert. Merke dir das Passwort gut."
+                if (folderName != null) backupNow()
+            }
+        },
+        onError = { status = it })
     restoreText?.let { text ->
-        AlertDialog(onDismissRequest = { restoreText = null },
+        val hasAccount = remember(text) { Backup.hasFriendsAccount(text) }
+        fun restore(password: String?) {
+            restoreText = null; val given = restorePassword; restorePassword = ""
+            if (password != null && given.isEmpty()) { status = "Bitte gib das Passwort ein."; return }
+            scope.launch {
+                runCatching { Backup.restore(text, password?.let { given }) }
+                    .onSuccess { status = "Wiederhergestellt: ${it.entries.size} Einträge, ${it.custom.size} eigene Lebensmittel/Rezepte." + if (it.friendsAccount != null && password != null) " Freunde-Konto ist zurück." else "" }
+                    .onFailure { status = if (it is BackupVault.WrongPassword) "${it.message} Es wurde nichts verändert." else "Wiederherstellung fehlgeschlagen: ${it.localizedMessage ?: "ungültige Datei"}" }
+            }
+        }
+        AlertDialog(onDismissRequest = { restoreText = null; restorePassword = "" },
             title = { Text("Sicherung wiederherstellen?") },
-            text = { Text("Alle Daten auf diesem Gerät werden durch die Sicherung ersetzt.") },
-            confirmButton = {
-                TextButton({
-                    restoreText = null
-                    scope.launch {
-                        runCatching { Backup.restore(text) }
-                            .onSuccess { status = "Wiederhergestellt: ${it.entries.size} Einträge, ${it.custom.size} eigene Lebensmittel/Rezepte." }
-                            .onFailure { status = "Wiederherstellung fehlgeschlagen: ${it.localizedMessage ?: "ungültige Datei"}" }
-                    }
-                }) { Text("Ersetzen & wiederherstellen", color = Palette.danger) }
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(if (hasAccount) "Alle Daten auf diesem Gerät werden ersetzt. Die Sicherung enthält ein verschlüsseltes Freunde-Konto. Gib das Passwort ein, damit es zurückkommt."
+                        else "Alle Daten auf diesem Gerät werden durch die Sicherung ersetzt.")
+                    if (hasAccount) OutlinedTextField(restorePassword, { restorePassword = it }, singleLine = true, label = { Text("Sicherungs-Passwort") },
+                        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+                }
             },
-            dismissButton = { TextButton({ restoreText = null }) { Text("Abbrechen") } })
+            confirmButton = {
+                TextButton({ restore(if (hasAccount) "with" else null) }) { Text(if (hasAccount) "Mit Freunde-Konto" else "Ersetzen & wiederherstellen", color = Palette.danger) }
+            },
+            dismissButton = {
+                Row {
+                    if (hasAccount) TextButton({ restore(null) }) { Text("Ohne Konto", color = Palette.danger) }
+                    TextButton({ restoreText = null; restorePassword = "" }) { Text("Abbrechen") }
+                }
+            })
     }
+}
+
+/** Asks for a new backup password twice; [onDone] gets the password, or null when cancelled. */
+@Composable
+private fun PasswordDialog(onDone: (String?) -> Unit, onError: (String) -> Unit) {
+    var first by remember { mutableStateOf("") }
+    var second by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = { onDone(null) },
+        title = { Text("Passwort für die Sicherung") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Ohne dieses Passwort lässt sich das Freunde-Konto aus der Sicherung nicht zurückholen. Es gibt keine Wiederherstellung des Passworts.")
+                OutlinedTextField(first, { first = it }, singleLine = true, label = { Text("Passwort (mindestens ${BackupVault.MINIMUM_LENGTH} Zeichen)") },
+                    visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+                OutlinedTextField(second, { second = it }, singleLine = true, label = { Text("Passwort wiederholen") },
+                    visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+            }
+        },
+        confirmButton = {
+            TextButton({
+                when {
+                    first.length < BackupVault.MINIMUM_LENGTH -> { onError("Das Passwort ist zu kurz."); onDone(null) }
+                    first != second -> { onError("Die Passwörter sind nicht gleich."); onDone(null) }
+                    else -> onDone(first)
+                }
+            }) { Text("Festlegen") }
+        },
+        dismissButton = { TextButton({ onDone(null) }) { Text("Abbrechen") } })
 }
 
 // MARK: Delete all (protected)

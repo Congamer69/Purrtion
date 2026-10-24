@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4 – Freunde-Konto in der Sicherung (iPhone und Android) – 24. Oktober 2026
+
+### Neu
+- **Freunde-Konto mitsichern:** Unter Daten & Backup lässt sich dein Freunde-Konto verschlüsselt in die Sicherung aufnehmen. Beim Wiederherstellen (auch nach Neuinstallation, Wechsel zu SideStore oder zwischen iPhone und Android) kommen Profil, Freunde und Server-Verbindung zurück.
+- **So ist es geschützt:** Du legst ein Passwort fest (mindestens 8 Zeichen). Daraus wird per PBKDF2 ein Schlüssel abgeleitet, die Anmeldung wird mit AES-256-GCM verschlüsselt. Das Passwort bleibt nur auf dem Gerät (Schlüsselbund bzw. Android Keystore) und steht nicht in der Sicherung. Ein falsches Passwort verändert nichts. Ohne das Passwort ist die Anmeldung in der Datei nicht lesbar und nicht wiederherstellbar. Ausgeschaltet wird sie aus der Sicherung wieder entfernt.
+- **Besser gesichert:** Name für Freunde, Ein/Aus der Freunde-Seite, Gewichtstrend teilen und die gewählte Kennzahl stehen jetzt auch in der iPhone-Sicherung.
+
+### Verbessert
+- Die README beginnt jetzt mit der Installation für iPhone und Android.
+
 ## 2.3 – Updates per SideStore (iPhone) – 24. Oktober 2026
 
 ### Neu

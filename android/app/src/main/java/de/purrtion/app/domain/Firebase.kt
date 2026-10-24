@@ -165,6 +165,12 @@ object FirebaseAuth {
         }
     }
 
+    /** Takes over an account from a backup: the next request refreshes its token. */
+    fun adopt(uid: String, refresh: String) {
+        idToken = null; expires = 0
+        Secrets.set("fb.uid", uid); Secrets.set("fb.refresh", refresh)
+    }
+
     fun signOut() {
         idToken = null; expires = 0
         Secrets.set("fb.refresh", null); Secrets.set("fb.uid", null)
