@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.4.2",
+          "buildVersion": "23",
+          "date": "2026-10-24T22:23:41Z",
+          "localizedDescription": "BEHOBEN\n• „Aktualisieren“ in der App brach in SideStore mit „bundle ID does not match“ ab. Der Knopf heißt jetzt „SideStore öffnen“ und zeigt die Schritte: in SideStore unter „Meine Apps“ nach unten ziehen und bei Purrtion „Update“ tippen. Das Update läuft dann über die Quelle.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.4.2/Purrtion-2.4.2.ipa",
+          "size": 4172656,
+          "sha256": "2bc8369bd8a14cb5246ee2e58865602fa3ab2b7fc42fde3fbbe6b2c6c68a6b37",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.4.1",
           "buildVersion": "22",
           "date": "2026-10-24T22:14:31Z",
