@@ -28,6 +28,14 @@ object DayCloser {
         return HealthScore.microKeys.count { food.per100[it] != null } < COMPLETE_THRESHOLD
     }
 
+    /** Foods the databases cannot classify get an AI estimate of their fruit and vegetable share. */
+    fun needsFruitVeg(food: FoodItem): Boolean = food.fruitVegShare == null && !HealthScore.isClassifiedByDatabase(food)
+
+    private fun needsEstimate(food: FoodItem) = needsMicros(food) || needsFruitVeg(food)
+
+    /** What the AI returned for one food: micronutrients per 100 g and the fruit and vegetable share. */
+    private data class Estimate(val micros: Map<String, Double>?, val share: Double?)
+
     suspend fun close(day: LocalDate, goals: Goals, automatic: Boolean = false): DayReview {
         var entries = App.db.entries().day(day.toEpochDay())
         if (entries.isEmpty()) throw VisionException("Für diesen Tag gibt es noch keine Einträge.")
@@ -36,15 +44,15 @@ object DayCloser {
             throw VisionException("Für „Tag abschließen“ brauchst du einen KI-Anbieter. Wähle unter Einstellungen → KI-Modelle → Tagesanalyse Gemini, Claude oder OpenAI.")
         }
 
-        // 1) Fill in missing micronutrients.
+        // 1) Fill in missing micronutrients and estimate the fruit and vegetable share of foods without a database category.
         val missing = LinkedHashMap<String, FoodItem>()
         for (e in entries) {
-            if (e.isComposite) e.ingredients.filter { needsMicros(it.food) }.forEach { missing[it.food.id] = it.food }
-            else e.food?.takeIf(::needsMicros)?.let { missing[it.id] = it }
+            if (e.isComposite) e.ingredients.filter { needsEstimate(it.food) }.forEach { missing[it.food.id] = it.food }
+            else e.food?.takeIf(::needsEstimate)?.let { missing[it.id] = it }
         }
         if (missing.isNotEmpty()) {
-            val micros = estimateMicros(missing.values.toList(), provider)
-            entries = entries.map { apply(micros, it) }
+            val estimates = estimate(missing.values.toList(), provider)
+            entries = entries.map { apply(estimates, it) }
             App.db.entries().upsertAll(entries)
         }
 
@@ -68,32 +76,41 @@ object DayCloser {
     // MARK: Applying estimates
 
     /** Adds only values that are still missing – label and database values always win. */
-    private fun merge(food: FoodItem, micros: Map<String, Double>?): FoodItem? {
-        if (micros == null) return null
-        val added = (food.aiNutrientKeys ?: emptyList()).toMutableSet()
-        val extra = food.per100.extra.toMutableMap()
-        for ((k, v) in micros) if (extra[k] == null && v.isFinite() && v >= 0) { extra[k] = v; added += k }
-        val before = extra.keys.toSet()
-        val normalized = food.per100.copy(extra = extra).normalized()
-        added += normalized.extra.keys - before
-        return food.copy(per100 = normalized, aiNutrientKeys = added.sorted(), microsEstimated = true)
+    private fun merge(food: FoodItem, estimate: Estimate?): FoodItem? {
+        if (estimate == null) return null
+        var result = food
+        val micros = estimate.micros
+        if (micros != null && needsMicros(food)) {
+            val added = (food.aiNutrientKeys ?: emptyList()).toMutableSet()
+            val extra = food.per100.extra.toMutableMap()
+            for ((k, v) in micros) if (extra[k] == null && v.isFinite() && v >= 0) { extra[k] = v; added += k }
+            val before = extra.keys.toSet()
+            val normalized = food.per100.copy(extra = extra).normalized()
+            added += normalized.extra.keys - before
+            result = result.copy(per100 = normalized, aiNutrientKeys = added.sorted(), microsEstimated = true)
+        }
+        val share = estimate.share
+        if (share != null && needsFruitVeg(food)) result = result.copy(fruitVegShare = share)
+        return result.takeIf { it != food }
     }
 
-    private fun apply(micros: Map<String, Map<String, Double>>, entry: FoodEntry): FoodEntry {
+    private fun apply(estimates: Map<String, Estimate>, entry: FoodEntry): FoodEntry {
         if (entry.isComposite) {
             var changed = false
+            var microsChanged = false
             val list = entry.ingredients.map { ing ->
-                val f = merge(ing.food, micros[ing.food.id]) ?: return@map ing
+                val f = merge(ing.food, estimates[ing.food.id]) ?: return@map ing
                 changed = true
+                if (f.microsEstimated == true && ing.food.microsEstimated != true) microsChanged = true
                 ing.copy(food = f)
             }
             if (!changed) return entry
             val updated = entry.withIngredients(list)
             val meal = updated.food ?: return updated
-            return updated.copy(foodJson = JsonCache.encode(meal.copy(microsEstimated = true)))
+            return updated.copy(foodJson = JsonCache.encode(if (microsChanged) meal.copy(microsEstimated = true) else meal))
         }
         val food = entry.food ?: return entry
-        val f = merge(food, micros[food.id]) ?: return entry
+        val f = merge(food, estimates[food.id]) ?: return entry
         return entry.copy(foodJson = JsonCache.encode(f))
     }
 
@@ -113,8 +130,9 @@ object DayCloser {
                     putJsonObject("properties") {
                         putJsonObject("id") { put("type", "string") }
                         put("micronutrients_per_100g", CloudVision.micronutrientListSchema)
+                        putJsonObject("fruit_veg_share") { put("type", "number") }
                     }
-                    putJsonArray("required") { add(JsonPrimitive("id")); add(JsonPrimitive("micronutrients_per_100g")) }
+                    putJsonArray("required") { add(JsonPrimitive("id")); add(JsonPrimitive("micronutrients_per_100g")); add(JsonPrimitive("fruit_veg_share")) }
                     put("additionalProperties", false)
                 }
             }
@@ -134,9 +152,9 @@ object DayCloser {
         return parts.joinToString(" | ")
     }
 
-    /** Returns food id → micronutrients per 100 g. */
-    private suspend fun estimateMicros(foods: List<FoodItem>, provider: VisionProvider): Map<String, Map<String, Double>> {
-        val result = HashMap<String, Map<String, Double>>()
+    /** Returns food id → micronutrients per 100 g and fruit and vegetable share. */
+    private suspend fun estimate(foods: List<FoodItem>, provider: VisionProvider): Map<String, Estimate> {
+        val result = HashMap<String, Estimate>()
         for (batch in foods.chunked(20)) {
             val idMap = HashMap<String, String>()
             val lines = batch.mapIndexed { i, food ->
@@ -145,8 +163,9 @@ object DayCloser {
                 "- id $short: ${describe(food)}"
             }
             val text = """Du bist Ernährungswissenschaftlerin. Für die folgenden Lebensmittel aus einem Ernährungstagebuch fehlen Mikronährstoffangaben. Schätze für jedes Lebensmittel realistische Gehalte pro 100 g (bei Getränken pro 100 ml) auf Basis typischer Nährwerttabellen wie dem Bundeslebensmittelschlüssel oder der USDA-Datenbank. Nutze Name, Marke und Makronährstoffe, um das Lebensmittel genau einzuordnen (z. B. Vollkorn oder Weißmehl, angereichert oder nicht). Bereits bekannte Werte musst du nicht wiederholen. Gib nur Werte an, die du plausibel schätzen kannst; ist ein Lebensmittel nicht eindeutig erkennbar (z. B. "Schnell-Eintrag"), gib eine leere Liste zurück.
+Gib außerdem für jedes Lebensmittel `fruit_veg_share` an: den Anteil des Gewichts (0 bis 1), der Obst, Gemüse, Pilze oder Hülsenfrüchte ist, frisch, gegart oder tiefgekühlt. Beispiele: Salat oder Gurke 1, Gemüsesuppe etwa 0,6, Tomatensoße etwa 0,5, Gemüsepfanne mit Fleisch etwa 0,4. Kartoffeln, Pommes, Säfte, Trockenobst, Marmelade, Nüsse, Fleisch, Brot, Süßes und Getränke ohne Obst oder Gemüse sind 0. Bist du bei einem Lebensmittel nicht sicher oder es ist nicht erkennbar (z. B. "Schnell-Eintrag"), gib 0 an. Das gilt auch dann, wenn für das Lebensmittel keine Mikronährstoffe fehlen.
 Gültige Schlüssel mit Einheit: ${CloudVision.micronutrientHelp}.
-Antworte ausschließlich mit JSON: {"items": [{"id": "f1", "micronutrients_per_100g": [{"key": "vitaminC", "value": 12}, {"key": "fiber", "value": 2.5}]}]}
+Antworte ausschließlich mit JSON: {"items": [{"id": "f1", "fruit_veg_share": 0.4, "micronutrients_per_100g": [{"key": "vitaminC", "value": 12}, {"key": "fiber", "value": 2.5}]}]}
 
 Lebensmittel:
 ${lines.joinToString("\n")}"""
@@ -155,7 +174,7 @@ ${lines.joinToString("\n")}"""
             for (item in (json["items"] as? JsonArray) ?: JsonArray(emptyList())) {
                 val o = item as? JsonObject ?: continue
                 val id = idMap[CloudVision.str(o["id"])] ?: continue
-                result[id] = CloudVision.micros(o["micronutrients_per_100g"])
+                result[id] = Estimate(CloudVision.micros(o["micronutrients_per_100g"]), CloudVision.num(o["fruit_veg_share"])?.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0))
             }
         }
         return result

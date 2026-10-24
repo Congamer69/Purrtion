@@ -57,7 +57,7 @@ struct HealthScore: Equatable {
         var fruitVeg = 0.0
         for e in entries {
             total = total + (withoutAI ? e.nutrientsWithoutAI : e.nutrients)
-            if Self.isFruitOrVegetable(e.food) { fruitVeg += e.grams }
+            fruitVeg += Self.fruitVegGrams(e, withoutAI: withoutAI)
         }
         self.init(total: total, fruitVegGrams: fruitVeg, goalKcal: goalKcal, goalProtein: goalProtein)
     }
@@ -96,7 +96,7 @@ struct HealthScore: Equatable {
         let fvPts = 10 * min(1, fruitVegGrams / 400)
         c.append(Component(id: "fruitveg", title: "Obst & Gemüse", icon: "carrot.fill", points: fvPts, maxPoints: 10,
                            valueText: "\(Int(fruitVegGrams)) g", targetText: "≥ 400 g (WHO, „5 am Tag“)",
-                           explanation: "Mindestens 400 g Obst und Gemüse täglich sind mit geringerer Sterblichkeit verbunden (Aune et al., 2017). Gezählt werden Lebensmittel aus dem BLS und der Schweizer Nährwertdatenbank.",
+                           explanation: "Mindestens 400 g Obst und Gemüse täglich sind mit geringerer Sterblichkeit verbunden (Aune et al., 2017). Gezählt werden Lebensmittel aus dem BLS und der Schweizer Nährwertdatenbank. Bei gescannten, fotografierten und eigenen Gerichten schätzt die KI den Anteil an Obst und Gemüse (bei Fotos sofort, sonst bei „Tag abschließen“).",
                            tip: fruitVegGrams < 400 ? "Noch \(Int(max(0, 400 - fruitVegGrams))) g Obst oder Gemüse bis zum Ziel." : nil))
 
         // 5) Sugar – 10
@@ -158,6 +158,30 @@ struct HealthScore: Equatable {
         if x <= full { return 1 }
         if x >= zero { return 0 }
         return 1 - (x - full) / (zero - full)
+    }
+
+    /// Fraction of a food that counts as fruit or vegetables: the database category first, otherwise the AI's estimate.
+    static func fruitVegShare(_ food: FoodItem?, withoutAI: Bool = false) -> Double {
+        guard let food else { return 0 }
+        if isFruitOrVegetable(food) { return 1 }
+        if withoutAI { return 0 }
+        return min(1, max(0, food.fruitVegShare ?? 0))
+    }
+
+    /// Grams of fruit and vegetables in one entry. Recipes and AI meals are counted per ingredient.
+    static func fruitVegGrams(_ e: FoodEntry, withoutAI: Bool = false) -> Double {
+        if e.isComposite {
+            let list = e.ingredients
+            let total = list.reduce(0) { $0 + $1.grams }
+            guard total > 0 else { return 0 }
+            return list.reduce(0) { $0 + $1.grams * fruitVegShare($1.food, withoutAI: withoutAI) } * (e.grams / total)
+        }
+        return e.grams * fruitVegShare(e.food, withoutAI: withoutAI)
+    }
+
+    /// Whether the databases can say what this food is. If not, the AI estimates its fruit and vegetable share.
+    static func isClassifiedByDatabase(_ food: FoodItem) -> Bool {
+        (food.source == .bls && food.id.hasPrefix("bls-")) || (food.source == .swiss && food.id.hasPrefix("ch-"))
     }
 
     /// BLS groups F (fruit), G (vegetables), mushrooms (K7) and legumes (H7) – without juices and dried fruit.

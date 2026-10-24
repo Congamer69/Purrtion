@@ -133,7 +133,7 @@ struct FriendStats: Codable, Equatable {
                 let n = es.reduce(Nutrients()) { $0 + $1.nutrients }
                 protein += min(150, n.protein / max(t.protein, 1) * 100)
                 fiber += n[.fiber] ?? 0
-                fruitveg += es.filter { HealthScore.isFruitOrVegetable($0.food) }.reduce(0) { $0 + $1.grams }
+                fruitveg += es.reduce(0) { $0 + HealthScore.fruitVegGrams($1) }
             }
             let c = Double(logged7.count)
             s.score7 = (score / c).rounded()

@@ -120,7 +120,7 @@ data class FriendStats(
                     val n = Nutrients.sum(es.map { it.nutrients })
                     protein += min(150.0, n.protein / maxOf(t.protein, 1.0) * 100)
                     fiber += n[NutrientKey.fiber] ?: 0.0
-                    fv += es.filter { HealthScore.isFruitOrVegetable(it.food) }.sumOf { it.grams }
+                    fv += es.sumOf { HealthScore.fruitVegGrams(it) }
                 }
                 val c = logged7.size.toDouble()
                 s = s.copy(score7 = Math.round(score / c).toDouble(), protein7 = Math.round(protein / c).toDouble(),

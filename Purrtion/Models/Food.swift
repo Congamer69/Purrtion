@@ -52,6 +52,8 @@ struct FoodItem: Codable, Hashable, Identifiable {
     var microsEstimated: Bool? = nil
     /// Which nutrient keys in `per100` were added by the AI (so the score can be shown without them).
     var aiNutrientKeys: [String]? = nil
+    /// AI estimate (0 to 1) of how much of the weight is fruit, vegetables, mushrooms or legumes. Only for foods the databases cannot classify.
+    var fruitVegShare: Double? = nil
 
     /// Nutrients per 100 g as they came from label / database, without AI-added values.
     var per100WithoutAI: Nutrients {

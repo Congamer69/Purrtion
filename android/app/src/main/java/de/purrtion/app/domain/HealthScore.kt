@@ -52,7 +52,7 @@ class HealthScore private constructor(val components: List<Component>, val compl
             var fruitVeg = 0.0
             for (e in entries) {
                 total += if (withoutAI) e.nutrientsWithoutAI else e.nutrients
-                if (isFruitOrVegetable(e.food)) fruitVeg += e.grams
+                fruitVeg += fruitVegGrams(e, withoutAI)
             }
             return of(total, fruitVeg, goalKcal, goalProtein)
         }
@@ -97,7 +97,7 @@ class HealthScore private constructor(val components: List<Component>, val compl
             // 4) Fruit & vegetables – 10
             c += Component("fruitveg", "Obst & Gemüse", "carrot", 10 * min(1.0, fruitVegGrams / 400), 10.0,
                 "${fruitVegGrams.toInt()} g", "≥ 400 g (WHO, „5 am Tag“)",
-                "Mindestens 400 g Obst und Gemüse täglich sind mit geringerer Sterblichkeit verbunden (Aune et al., 2017). Gezählt werden Lebensmittel aus dem BLS und der Schweizer Nährwertdatenbank.",
+                "Mindestens 400 g Obst und Gemüse täglich sind mit geringerer Sterblichkeit verbunden (Aune et al., 2017). Gezählt werden Lebensmittel aus dem BLS und der Schweizer Nährwertdatenbank. Bei gescannten, fotografierten und eigenen Gerichten schätzt die KI den Anteil an Obst und Gemüse (bei Fotos sofort, sonst bei „Tag abschließen“).",
                 if (fruitVegGrams < 400) "Noch ${max(0.0, 400 - fruitVegGrams).toInt()} g Obst oder Gemüse bis zum Ziel." else null)
 
             // 5) Sugar – 10
@@ -143,6 +143,29 @@ class HealthScore private constructor(val components: List<Component>, val compl
             }
             return HealthScore(c, n.kcal / max(goalKcal, 1.0))
         }
+
+        /** Fraction of a food that counts as fruit or vegetables: the database category first, otherwise the AI's estimate. */
+        fun fruitVegShare(food: FoodItem?, withoutAI: Boolean = false): Double {
+            if (food == null) return 0.0
+            if (isFruitOrVegetable(food)) return 1.0
+            if (withoutAI) return 0.0
+            return (food.fruitVegShare ?: 0.0).coerceIn(0.0, 1.0)
+        }
+
+        /** Grams of fruit and vegetables in one entry. Recipes and AI meals are counted per ingredient. */
+        fun fruitVegGrams(e: FoodEntry, withoutAI: Boolean = false): Double {
+            if (e.isComposite) {
+                val list = e.ingredients
+                val total = list.sumOf { it.grams }
+                if (total <= 0) return 0.0
+                return list.sumOf { it.grams * fruitVegShare(it.food, withoutAI) } * (e.grams / total)
+            }
+            return e.grams * fruitVegShare(e.food, withoutAI)
+        }
+
+        /** Whether the databases can say what this food is. If not, the AI estimates its fruit and vegetable share. */
+        fun isClassifiedByDatabase(food: FoodItem): Boolean =
+            (food.source == FoodSource.bls && food.id.startsWith("bls-")) || (food.source == FoodSource.swiss && food.id.startsWith("ch-"))
 
         /** BLS groups F (fruit), G (vegetables), mushrooms (K7) and legumes (H7) – without juices and dried fruit. */
         fun isFruitOrVegetable(food: FoodItem?): Boolean {

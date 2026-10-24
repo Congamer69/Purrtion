@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2 – Gemüse zählt auch bei KI und Scans (iPhone und Android) – 24. Oktober 2026
+
+### Neu
+- **KI schätzt Obst und Gemüse:** Bei „Tag abschließen“ schätzt die KI für alle Lebensmittel, die die Datenbanken nicht einordnen können (gescannte Produkte, eigene Lebensmittel, Restaurant- und Schnell-Einträge), welcher Anteil des Gewichts Obst, Gemüse, Pilze oder Hülsenfrüchte ist. Kartoffeln, Pommes, Säfte, Trockenobst und Nüsse zählen nicht.
+- **Auch bei Foto und Beschreibung:** Die Fotoerkennung und die Text-Schätzung geben den Obst- und Gemüseanteil jedes Bestandteils gleich mit an (Gemini, Claude, OpenAI und Apple-KI).
+- **Aussagekräftiger Health Score:** Der Punkt „Obst & Gemüse“ nutzt diese Schätzungen. Der Vorher-Score bei „Tag abschließen“ rechnet ohne KI, der Nachher-Score mit.
+- **Freunde-Vergleich:** „Obst & Gemüse“ nutzt dieselbe Rechnung.
+
+### Verbessert
+- **Rezepte und KI-Gerichte** werden pro Zutat gezählt. Das Gemüse in einem Rezept aus Datenbank-Zutaten zählt jetzt mit.
+
 ## 2.1.1 – Absturzbericht und abgesicherter Modus (Android) – 24. Oktober 2026
 
 ### Neu

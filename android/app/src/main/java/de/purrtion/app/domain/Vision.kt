@@ -122,13 +122,13 @@ Benenne jeden Bestandteil mit einem einfachen deutschen Lebensmittelnamen wie in
 Schätze für jeden Bestandteil außerdem die Nährwerte pro 100 g. Die Werte werden direkt in ein Ernährungstagebuch übernommen: Kalorien sowie Protein, Kohlenhydrate und Fett müssen daher immer angegeben werden. Mikronährstoffe nur dann angeben, wenn sie für das konkrete Lebensmittel sinnvoll geschätzt werden können.
 Wichtig: Schätze zuerst die gesamte essbare Mahlzeit und zerlege sie danach in sich nicht überschneidende Bestandteile. Die Summe aller ausgegebenen Gramm, Kalorien und Makronährstoffe muss zu deiner Schätzung für die gesamte Portion passen. Gib niemals zusätzlich das ganze Gericht und gleichzeitig dessen einzelne Zutaten aus; jede Zutat darf nur genau einmal vorkommen."""
 
-    fun aiItem(name: String, grams: Double, confidence: String, per100: Nutrients): Item? {
+    fun aiItem(name: String, grams: Double, confidence: String, per100: Nutrients, fruitVegShare: Double? = null): Item? {
         if (grams <= 0 || !grams.isFinite()) return null
         if (per100.kcal <= 0 && per100.protein + per100.carbs + per100.fat <= 0) return null
         val clean = name.trim()
         if (clean.isEmpty()) return null
         val food = FoodItem(id = "ai-${newId()}", name = clean, source = FoodSource.ai, per100 = per100.normalized(),
-            unit = "g", origin = "KI-Schätzung · pro 100 g")
+            unit = "g", origin = "KI-Schätzung · pro 100 g", fruitVegShare = fruitVegShare?.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0))
         return Item(clean, min(grams, 3000.0), confidence, food, true)
     }
 }
@@ -138,8 +138,9 @@ object CloudVision {
     val micronutrientHelp: String = NutrientKey.entries.joinToString(", ") { "${it.key} (${it.unit})" }
 
     val jsonInstruction = """Antworte ausschließlich mit JSON in genau diesem Format:
-{"dish": "kurzer deutscher Name des Gerichts", "items": [{"name": "Lebensmittel", "grams": 150, "confidence": "hoch|mittel|niedrig", "nutrients_per_100g": {"kcal": 180, "protein": 12, "carbs": 8, "fat": 9, "micronutrients": [{"key": "fiber", "value": 2}]}}]}
+{"dish": "kurzer deutscher Name des Gerichts", "items": [{"name": "Lebensmittel", "grams": 150, "confidence": "hoch|mittel|niedrig", "fruit_veg_share": 0.0, "nutrients_per_100g": {"kcal": 180, "protein": 12, "carbs": 8, "fat": 9, "micronutrients": [{"key": "fiber", "value": 2}]}}]}
 Alle Nährwerte gelten pro 100 g (bei Getränken pro 100 ml). `micronutrients` ist eine Liste aus key/value-Paaren und enthält nur Werte, die du plausibel schätzen kannst; die gültigen Schlüssel mit ihrer Einheit sind: $micronutrientHelp.
+`fruit_veg_share` ist der Anteil des Gewichts (0 bis 1), der Obst, Gemüse, Pilze oder Hülsenfrüchte ist, frisch, gegart oder tiefgekühlt (Salat 1, Gemüsesuppe etwa 0,6, Pommes, Kartoffeln, Säfte, Trockenobst, Nüsse, Fleisch, Brot und Soßen 0). Gib ihn für jeden Bestandteil an.
 Wenn kein Essen zu sehen ist, gib eine leere items-Liste zurück."""
 
     /** Micronutrients as key/value list: stays within the structured-output limits of all providers. */
@@ -177,10 +178,11 @@ Wenn kein Essen zu sehen ist, gib eine leere items-Liste zurück."""
                     putJsonObject("properties") {
                         putJsonObject("name") { put("type", "string") }
                         putJsonObject("grams") { put("type", "number") }
+                        putJsonObject("fruit_veg_share") { put("type", "number") }
                         putJsonObject("confidence") { put("type", "string"); putJsonArray("enum") { listOf("hoch", "mittel", "niedrig").forEach { add(JsonPrimitive(it)) } } }
                         put("nutrients_per_100g", nutritionSchema)
                     }
-                    putJsonArray("required") { listOf("name", "grams", "confidence", "nutrients_per_100g").forEach { add(JsonPrimitive(it)) } }
+                    putJsonArray("required") { listOf("name", "grams", "confidence", "fruit_veg_share", "nutrients_per_100g").forEach { add(JsonPrimitive(it)) } }
                     put("additionalProperties", false)
                 }
             }
@@ -216,7 +218,7 @@ Wenn kein Essen zu sehen ist, gib eine leere items-Liste zurück."""
         val items = (json["items"] as? JsonArray)?.mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
             val n = o["nutrients_per_100g"] as? JsonObject ?: return@mapNotNull null
-            MealVision.aiItem(str(o["name"]) ?: "", Math.round(num(o["grams"]) ?: 0.0).toDouble(), str(o["confidence"]) ?: "mittel", nutrients(n))
+            MealVision.aiItem(str(o["name"]) ?: "", Math.round(num(o["grams"]) ?: 0.0).toDouble(), str(o["confidence"]) ?: "mittel", nutrients(n), num(o["fruit_veg_share"]))
         } ?: emptyList()
         if (items.isEmpty()) return null
         return MealVision.Result(str(json["dish"]) ?: "Mahlzeit", items)

@@ -73,14 +73,15 @@ enum MealVision {
     Nenne die Einträge mit kurzen deutschen Namen. Berücksichtige typische Zubereitung (Öl, Butter, Soße, Käse).
     """
 
-    static func aiItem(name: String, grams: Double, confidence: String, per100: Nutrients) -> Item? {
+    static func aiItem(name: String, grams: Double, confidence: String, per100: Nutrients, fruitVegShare: Double? = nil) -> Item? {
         guard grams > 0, grams.isFinite, per100.kcal > 0 || per100.protein + per100.carbs + per100.fat > 0 else { return nil }
         var nutrients = per100
         nutrients.normalize()
         let cleanedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedName.isEmpty else { return nil }
         let food = FoodItem(id: "ai-\(UUID().uuidString)", name: cleanedName, source: .ai,
-                            per100: nutrients, unit: "g", origin: "KI-Schätzung · pro 100 g")
+                            per100: nutrients, unit: "g", origin: "KI-Schätzung · pro 100 g",
+                            fruitVegShare: fruitVegShare.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil })
         return Item(name: cleanedName, grams: min(grams, 3000), confidence: confidence, food: food, isAIEstimate: true)
     }
 
@@ -125,10 +126,12 @@ enum CloudVision {
             let name: String
             let grams: Double
             let confidence: String?
+            let fruitVegShare: Double?
             let nutrientsPer100: NutritionPayload
 
             enum CodingKeys: String, CodingKey {
                 case name, grams, confidence
+                case fruitVegShare = "fruit_veg_share"
                 case nutrientsPer100 = "nutrients_per_100g"
             }
         }
@@ -159,9 +162,12 @@ enum CloudVision {
 
     static let jsonInstruction = """
     Antworte ausschließlich mit JSON in genau diesem Format:
-    {"dish": "kurzer deutscher Name des Gerichts", "items": [{"name": "Lebensmittel", "grams": 150, "confidence": "hoch|mittel|niedrig", "nutrients_per_100g": {"kcal": 180, "protein": 12, "carbs": 8, "fat": 9, "micronutrients": [{"key": "fiber", "value": 2}]}}]}
+    {"dish": "kurzer deutscher Name des Gerichts", "items": [{"name": "Lebensmittel", "grams": 150, "confidence": "hoch|mittel|niedrig", "fruit_veg_share": 0.0, "nutrients_per_100g": {"kcal": 180, "protein": 12, "carbs": 8, "fat": 9, "micronutrients": [{"key": "fiber", "value": 2}]}}]}
     Alle Nährwerte gelten pro 100 g (bei Getränken pro 100 ml). `micronutrients` ist eine Liste aus key/value-Paaren
     und enthält nur Werte, die du plausibel schätzen kannst; die gültigen Schlüssel mit ihrer Einheit sind: \(micronutrientHelp).
+    `fruit_veg_share` ist der Anteil des Gewichts (0 bis 1), der Obst, Gemüse, Pilze oder Hülsenfrüchte ist, frisch, gegart \
+    oder tiefgekühlt (Salat 1, Gemüsesuppe etwa 0,6, Pommes, Kartoffeln, Säfte, Trockenobst, Nüsse, Fleisch, Brot und Soßen 0). \
+    Gib ihn für jeden Bestandteil an.
     Wenn kein Essen zu sehen ist, gib eine leere items-Liste zurück.
     """
 
@@ -201,8 +207,9 @@ enum CloudVision {
                 "type": "object",
                 "properties": ["name": ["type": "string"], "grams": ["type": "number"],
                                "confidence": ["type": "string", "enum": ["hoch", "mittel", "niedrig"]],
+                               "fruit_veg_share": ["type": "number"],
                                "nutrients_per_100g": nutritionSchema],
-                "required": ["name", "grams", "confidence", "nutrients_per_100g"],
+                "required": ["name", "grams", "confidence", "fruit_veg_share", "nutrients_per_100g"],
                 "additionalProperties": false,
             ]],
         ],
@@ -220,7 +227,7 @@ enum CloudVision {
         guard let payload = decode(Payload.self, from: raw) else { throw MealVision.VisionError.failed("Antwort nicht lesbar") }
         let items = payload.items.compactMap {
             MealVision.aiItem(name: $0.name, grams: $0.grams.rounded(), confidence: $0.confidence ?? "mittel",
-                              per100: $0.nutrientsPer100.nutrients())
+                              per100: $0.nutrientsPer100.nutrients(), fruitVegShare: $0.fruitVegShare)
         }
         guard !items.isEmpty else { throw MealVision.VisionError.empty }
         return MealVision.Result(dish: payload.dish, items: items)
@@ -232,7 +239,7 @@ enum CloudVision {
         guard let payload = decode(Payload.self, from: raw) else { throw MealVision.VisionError.failed("Antwort nicht lesbar") }
         let items = payload.items.compactMap {
             MealVision.aiItem(name: $0.name, grams: $0.grams.rounded(), confidence: $0.confidence ?? "mittel",
-                              per100: $0.nutrientsPer100.nutrients())
+                              per100: $0.nutrientsPer100.nutrients(), fruitVegShare: $0.fruitVegShare)
         }
         guard !items.isEmpty else { throw MealVision.VisionError.failed("Dazu konnte ich nichts schätzen.") }
         return MealVision.Result(dish: payload.dish, items: items)
@@ -433,6 +440,8 @@ private enum AppleVision {
         var grams: Int
         @Guide(description: "Wie sicher die Erkennung ist", .anyOf(["hoch", "mittel", "niedrig"]))
         var confidence: String
+        @Guide(description: "Anteil des Gewichts in Prozent (0 bis 100), der Obst, Gemüse, Pilze oder Hülsenfrüchte ist. Salat 100, Gemüsesuppe etwa 60. Kartoffeln, Pommes, Säfte, Nüsse, Fleisch, Brot und Soßen 0.", .range(0...100))
+        var fruitVegPercent: Int
         @Guide(description: "Geschätzte Nährwerte dieses Lebensmittels pro 100 g, nicht für die ganze Portion")
         var nutrientsPer100: NutritionEstimate
     }
@@ -517,7 +526,8 @@ private enum AppleVision {
                                      carbs: Double(component.nutrientsPer100.carbs),
                                      fat: Double(component.nutrientsPer100.fat), extra: extras)
             return MealVision.aiItem(name: component.name, grams: Double(component.grams),
-                                     confidence: component.confidence, per100: nutrition)
+                                     confidence: component.confidence, per100: nutrition,
+                                     fruitVegShare: Double(component.fruitVegPercent) / 100)
         }
     }
 }

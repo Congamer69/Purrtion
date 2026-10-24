@@ -56,6 +56,8 @@ data class FoodItem(
     val microsEstimated: Boolean? = null,
     /** Which nutrient keys in [per100] were added by the AI. */
     val aiNutrientKeys: List<String>? = null,
+    /** AI estimate (0 to 1) of how much of the weight is fruit, vegetables, mushrooms or legumes. Only for foods the databases cannot classify. */
+    val fruitVegShare: Double? = null,
 ) {
     /** Nutrients per 100 g as they came from label / database, without AI-added values. */
     val per100WithoutAI: Nutrients

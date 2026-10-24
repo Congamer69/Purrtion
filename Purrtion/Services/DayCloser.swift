@@ -15,6 +15,19 @@ enum DayCloser {
         return HealthScore.microKeys.filter { food.per100[$0] != nil }.count < completeThreshold
     }
 
+    /// Foods the databases cannot classify get an AI estimate of their fruit and vegetable share.
+    static func needsFruitVeg(_ food: FoodItem) -> Bool {
+        food.fruitVegShare == nil && !HealthScore.isClassifiedByDatabase(food)
+    }
+
+    private static func needsEstimate(_ food: FoodItem) -> Bool { needsMicros(food) || needsFruitVeg(food) }
+
+    /// What the AI returned for one food: micronutrients per 100 g and the fruit and vegetable share.
+    struct Estimate {
+        var micros: [String: Double]?
+        var share: Double?
+    }
+
     static func close(day: Date, goals: Goals, ctx: ModelContext) async throws -> DayReview {
         let d = Calendar.current.startOfDay(for: day)
         let entries = try ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day == d },
@@ -22,18 +35,18 @@ enum DayCloser {
         guard !entries.isEmpty else { throw MealVision.VisionError.failed("Für diesen Tag gibt es noch keine Einträge.") }
         let provider = AITask.day.provider
 
-        // 1) Fill in missing micronutrients.
+        // 1) Fill in missing micronutrients and estimate the fruit and vegetable share of foods without a database category.
         var missing: [String: FoodItem] = [:]
         for entry in entries {
             if entry.isComposite {
-                for ing in entry.ingredients where needsMicros(ing.food) { missing[ing.food.id] = ing.food }
-            } else if let food = entry.food, needsMicros(food) {
+                for ing in entry.ingredients where needsEstimate(ing.food) { missing[ing.food.id] = ing.food }
+            } else if let food = entry.food, needsEstimate(food) {
                 missing[food.id] = food
             }
         }
         if !missing.isEmpty {
-            let micros = try await estimateMicros(Array(missing.values), provider: provider)
-            apply(micros, to: entries)
+            let estimates = try await estimate(Array(missing.values), provider: provider)
+            apply(estimates, to: entries)
             try? ctx.save()
         }
 
@@ -69,29 +82,39 @@ enum DayCloser {
     // MARK: Applying estimates
 
     /// Adds only values that are still missing – label and BLS data always win.
-    private static func merge(_ food: FoodItem, _ micros: [String: Double]?) -> FoodItem? {
-        guard let micros else { return nil }
+    private static func merge(_ food: FoodItem, _ estimate: Estimate?) -> FoodItem? {
+        guard let estimate else { return nil }
         var f = food
-        var added = Set(f.aiNutrientKeys ?? [])
-        for (key, value) in micros where f.per100.extra[key] == nil && value.isFinite && value >= 0 {
-            f.per100.extra[key] = value
-            added.insert(key)
+        var changed = false
+        if let micros = estimate.micros, needsMicros(food) {
+            var added = Set(f.aiNutrientKeys ?? [])
+            for (key, value) in micros where f.per100.extra[key] == nil && value.isFinite && value >= 0 {
+                f.per100.extra[key] = value
+                added.insert(key)
+            }
+            let before = Set(f.per100.extra.keys)
+            f.per100.normalize()
+            added.formUnion(Set(f.per100.extra.keys).subtracting(before))
+            f.aiNutrientKeys = added.sorted()
+            f.microsEstimated = true
+            changed = true
         }
-        let before = Set(f.per100.extra.keys)
-        f.per100.normalize()
-        added.formUnion(Set(f.per100.extra.keys).subtracting(before))
-        f.aiNutrientKeys = added.sorted()
-        f.microsEstimated = true
-        return f
+        if let share = estimate.share, needsFruitVeg(food) {
+            f.fruitVegShare = min(1, max(0, share))
+            changed = true
+        }
+        return changed ? f : nil
     }
 
-    private static func apply(_ micros: [String: [String: Double]], to entries: [FoodEntry]) {
+    private static func apply(_ estimates: [String: Estimate], to entries: [FoodEntry]) {
         for entry in entries {
             if entry.isComposite {
                 var changed = false
+                var microsChanged = false
                 let list = entry.ingredients.map { ing -> RecipeIngredient in
-                    guard let food = merge(ing.food, micros[ing.food.id]) else { return ing }
+                    guard let food = merge(ing.food, estimates[ing.food.id]) else { return ing }
                     changed = true
+                    if food.microsEstimated == true && ing.food.microsEstimated != true { microsChanged = true }
                     var updated = ing
                     updated.food = food
                     return updated
@@ -99,10 +122,10 @@ enum DayCloser {
                 guard changed else { continue }
                 entry.updateCompositeIngredients(list)
                 if var meal = entry.food {
-                    meal.microsEstimated = true
+                    if microsChanged { meal.microsEstimated = true }
                     entry.foodData = try? JSONEncoder().encode(meal)
                 }
-            } else if let food = entry.food, let updated = merge(food, micros[food.id]) {
+            } else if let food = entry.food, let updated = merge(food, estimates[food.id]) {
                 entry.foodData = try? JSONEncoder().encode(updated)
             }
         }
@@ -121,7 +144,8 @@ enum DayCloser {
         struct Item: Decodable {
             let id: String
             let micros: MicroList?
-            enum CodingKeys: String, CodingKey { case id, micros = "micronutrients_per_100g" }
+            let share: Double?
+            enum CodingKeys: String, CodingKey { case id, micros = "micronutrients_per_100g", share = "fruit_veg_share" }
         }
         let items: [Item]
     }
@@ -134,8 +158,9 @@ enum DayCloser {
                 "properties": [
                     "id": ["type": "string"],
                     "micronutrients_per_100g": CloudVision.micronutrientListSchema,
+                    "fruit_veg_share": ["type": "number"],
                 ],
-                "required": ["id", "micronutrients_per_100g"],
+                "required": ["id", "micronutrients_per_100g", "fruit_veg_share"],
                 "additionalProperties": false,
             ]],
         ],
@@ -154,17 +179,17 @@ enum DayCloser {
         return parts.joined(separator: " | ")
     }
 
-    /// Returns food id → micronutrients per 100 g.
-    private static func estimateMicros(_ foods: [FoodItem], provider: VisionProvider) async throws -> [String: [String: Double]] {
+    /// Returns food id → micronutrients per 100 g and fruit and vegetable share.
+    private static func estimate(_ foods: [FoodItem], provider: VisionProvider) async throws -> [String: Estimate] {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-fakeAI") {
             try await Task.sleep(for: .seconds(2))
-            return Dictionary(uniqueKeysWithValues: foods.map { ($0.id, ["vitaminC": 4, "magnesium": 60, "iron": 2.1, "zinc": 1.5,
-                                                                          "vitaminE": 3, "vitaminB1": 0.2, "folate": 30, "potassium": 300]) })
+            return Dictionary(uniqueKeysWithValues: foods.map { ($0.id, Estimate(micros: ["vitaminC": 4, "magnesium": 60, "iron": 2.1, "zinc": 1.5,
+                                                                          "vitaminE": 3, "vitaminB1": 0.2, "folate": 30, "potassium": 300], share: 0.4)) })
         }
         #endif
-        if provider == .apple { return try await AppleDayAI.estimateMicros(foods) }
-        var result: [String: [String: Double]] = [:]
+        if provider == .apple { return try await AppleDayAI.estimate(foods) }
+        var result: [String: Estimate] = [:]
         // Short ids keep the prompt small; batches keep each answer well within the output limit.
         for batch in stride(from: 0, to: foods.count, by: 20).map({ Array(foods[$0..<min($0 + 20, foods.count)]) }) {
             var idMap: [String: String] = [:]
@@ -181,8 +206,14 @@ enum DayCloser {
             Nutze Name, Marke und Makronährstoffe, um das Lebensmittel genau einzuordnen (z. B. Vollkorn oder Weißmehl, \
             angereichert oder nicht). Bereits bekannte Werte musst du nicht wiederholen. Gib nur Werte an, die du plausibel \
             schätzen kannst; ist ein Lebensmittel nicht eindeutig erkennbar (z. B. "Schnell-Eintrag"), gib eine leere Liste zurück.
+            Gib außerdem für jedes Lebensmittel `fruit_veg_share` an: den Anteil des Gewichts (0 bis 1), der Obst, Gemüse, Pilze \
+            oder Hülsenfrüchte ist, frisch, gegart oder tiefgekühlt. Beispiele: Salat oder Gurke 1, Gemüsesuppe etwa 0,6, \
+            Tomatensoße etwa 0,5, Gemüsepfanne mit Fleisch etwa 0,4. Kartoffeln, Pommes, Säfte, Trockenobst, Marmelade, Nüsse, \
+            Fleisch, Brot, Süßes und Getränke ohne Obst oder Gemüse sind 0. Bist du bei einem Lebensmittel nicht sicher oder \
+            es ist nicht erkennbar (z. B. "Schnell-Eintrag"), gib 0 an. Das gilt auch dann, wenn für das Lebensmittel keine \
+            Mikronährstoffe fehlen.
             Gültige Schlüssel mit Einheit: \(CloudVision.micronutrientHelp).
-            Antworte ausschließlich mit JSON: {"items": [{"id": "f1", "micronutrients_per_100g": [{"key": "vitaminC", "value": 12}, {"key": "fiber", "value": 2.5}]}]}
+            Antworte ausschließlich mit JSON: {"items": [{"id": "f1", "fruit_veg_share": 0.4, "micronutrients_per_100g": [{"key": "vitaminC", "value": 12}, {"key": "fiber", "value": 2.5}]}]}
 
             Lebensmittel:
             \(lines.joined(separator: "\n"))
@@ -194,7 +225,9 @@ enum DayCloser {
             let allowed = Set(NutrientKey.allCases.map(\.rawValue))
             for item in payload.items {
                 guard let id = idMap[item.id] else { continue }
-                result[id] = (item.micros?.values ?? [:]).filter { allowed.contains($0.key) && $0.value.isFinite && $0.value >= 0 }
+                let micros = (item.micros?.values ?? [:]).filter { allowed.contains($0.key) && $0.value.isFinite && $0.value >= 0 }
+                let share = item.share.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil }
+                result[id] = Estimate(micros: micros, share: share)
             }
         }
         return result
@@ -350,18 +383,30 @@ private enum AppleDayAI {
         return model
     }
 
-    static func estimateMicros(_ foods: [FoodItem]) async throws -> [String: [String: Double]] {
+    @Generable
+    struct FruitVegGuess {
+        @Guide(description: "Anteil des Gewichts in Prozent (0 bis 100), der Obst, Gemüse, Pilze oder Hülsenfrüchte ist. Kartoffeln, Pommes, Säfte, Trockenobst, Nüsse, Fleisch, Brot und Süßes zählen 0. Salat 100, Gemüsesuppe etwa 60.", .range(0...100)) var percent: Int
+    }
+
+    static func estimate(_ foods: [FoodItem]) async throws -> [String: DayCloser.Estimate] {
         let model = try model()
-        var result: [String: [String: Double]] = [:]
+        var result: [String: DayCloser.Estimate] = [:]
         for food in foods {
-            let session = LanguageModelSession(model: model, instructions: """
-            Du bist Ernährungswissenschaftlerin und schätzt Mikronährstoffe pro 100 g anhand typischer Nährwerttabellen. \
-            Lass Werte weg, die du nicht plausibel schätzen kannst.
-            """)
             let n = food.per100
             let prompt = "\(food.displayName)\(food.brand.map { " (\($0))" } ?? "") – pro 100 g: \(Int(n.kcal)) kcal, Protein \(n.protein.clean) g, Kohlenhydrate \(n.carbs.clean) g, Fett \(n.fat.clean) g."
-            guard let guess = try? await session.respond(to: prompt, generating: MicroGuess.self).content else { continue }
-            result[food.id] = guess.values
+            var estimate = DayCloser.Estimate(micros: nil, share: nil)
+            if DayCloser.needsMicros(food) {
+                let session = LanguageModelSession(model: model, instructions: """
+                Du bist Ernährungswissenschaftlerin und schätzt Mikronährstoffe pro 100 g anhand typischer Nährwerttabellen. \
+                Lass Werte weg, die du nicht plausibel schätzen kannst.
+                """)
+                if let guess = try? await session.respond(to: prompt, generating: MicroGuess.self).content { estimate.micros = guess.values }
+            }
+            if DayCloser.needsFruitVeg(food) {
+                let session = LanguageModelSession(model: model, instructions: "Du bist Ernährungswissenschaftlerin und schätzt, wie viel Prozent des Gewichts eines Lebensmittels Obst oder Gemüse ist.")
+                if let guess = try? await session.respond(to: prompt, generating: FruitVegGuess.self).content { estimate.share = Double(guess.percent) / 100 }
+            }
+            result[food.id] = estimate
         }
         return result
     }
