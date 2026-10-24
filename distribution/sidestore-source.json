@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.4.3",
+          "buildVersion": "24",
+          "date": "2026-10-24T22:32:03Z",
+          "localizedDescription": "BEHOBEN\n• Apple Health ging nach der SideStore-Installation nicht („Missing com.apple.developer.healthkit entitlement“): Das IPA war ganz ohne Berechtigungen gebaut, und SideStore übernimmt nur, was schon in der App steht. Jetzt tragen App und Widget ihre Berechtigungen (HealthKit, App-Gruppe) schon im IPA, SideStore ersetzt nur die Signatur. Nach dem Update in SideStore (My Apps → Update) funktioniert Health wieder, ohne Neuinstallation.\n\nNEU\n• Aktivitätskalorien unter Apple Health: Ob Purrtion deine aktiven Kalorien liest, stellst du jetzt unter Profil → Apple Health ein. Unter Ziele → Kalorien & Makros legst du nur noch fest, wie viel davon aufs Ziel angerechnet wird.\n• „Zugriff auf Health neu anfragen“: Knopf unter Profil → Apple Health. Er fragt Gewicht, Ernährung und Aktivität neu an und nennt bei einem Fehler den Grund.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.4.3/Purrtion-2.4.3.ipa",
+          "size": 4216745,
+          "sha256": "877be2811132d200447669b9c3c14cab5a7a9b72e3421a81f0aec007a46d5bc6",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.4.2",
           "buildVersion": "23",
           "date": "2026-10-24T22:23:41Z",
