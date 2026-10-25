@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "3.0",
+          "buildVersion": "30",
+          "date": "2026-10-25T17:11:51Z",
+          "localizedDescription": "NEU\n• Der Freunde-Server ist eingebaut. Kein Server-Code, kein Verbinden, kein eigener Server: Freunde-Code teilen oder eingeben, fertig. Die Optionen „Server-Code teilen“ und „Freunde-Server trennen“ gibt es nicht mehr. (Wer Purrtion selbst baut, kann weiter ein eigenes Firebase-Projekt eintragen, siehe `backend/README.md`.)\n• Konto (Einstellungen → Konto): Mit Google anmelden. Das Freunde-Konto wird mit dem Google-Konto verknüpft (gleiche Kennung, Freunde und Code bleiben). Auf einem neuen Gerät: mit dem gleichen Google-Konto anmelden, Freunde und Backup sind wieder da.\n• Server-Backup: Einträge, Rezepte, eigene Lebensmittel, Gewicht und Einstellungen liegen auf dem Server (gleiches Format wie die Sicherungsdatei, auch zwischen iPhone und Android nutzbar), bis zu 10 MB. Täglich automatisch, per „Jetzt sichern“ oder „Backup laden“. Zwei Speicherplätze wechseln sich ab, ein abgebrochener Upload zerstört das letzte Backup nicht. Ein fast leeres neues Gerät überschreibt ein größeres Server-Backup nicht ohne Nachfrage.\n• Die lokale Sicherung (Ordner, Datei, Passwort für das Freunde-Konto) funktioniert unverändert und ohne Google.\n\nGEÄNDERT\n• Beim Löschen der Freunde-Daten bleibt ein mit Google verknüpftes Konto bestehen.\n• Die Sicherung enthält keine Serverdaten mehr.\n• Die Release-Apps (IPA, APK) werden lokal gebaut, weil die Serverkonfiguration nicht im Repository liegt.\n\nBEHOBEN\n• Anmeldung mit Google: Die Antwort des Servers wird toleranter ausgewertet, Fehler nennen jetzt den Grund.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v3.0/Purrtion-3.0.ipa",
+          "size": 4705113,
+          "sha256": "3419ead584f2bd5994bdd1937650cd17a818c4fb674c2e121ba7650fca7b2ae0",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.7",
           "buildVersion": "29",
           "date": "2026-10-25T17:00:10Z",
