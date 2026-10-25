@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anmelden · Purrtion</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#FFF8F1;--card:#fff;--text:#2B2230;--muted:#7A7085;--accent:#FF8A4A}
+@media (prefers-color-scheme:dark){:root{--bg:#17151B;--card:#24212A;--text:#F4EFF6;--muted:#A49CAD}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px -apple-system,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:16px}
+.card{background:var(--card);border-radius:28px;padding:28px 22px;width:100%;max-width:420px;text-align:center}
+.cat{font-size:56px}h1{margin:.3em 0 .2em;font-size:24px}p{color:var(--muted);margin:.4em 0}
+.btn{display:block;margin:22px 0 6px;padding:16px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;text-decoration:none;border:0;width:100%;font-size:17px}
+</style></head><body><div class="card">
+<div class="cat">🐱</div>
+<h1 id="title">Anmelden mit Google</h1>
+<p id="msg">Einen Moment …</p>
+<a class="btn" id="back" href="#" hidden>Zurück zu Purrtion</a>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+// Opened by the Purrtion app: /auth/?k=<API key>&p=<project>&s=<state>. Signs in with Google through Firebase and hands the
+// Google ID token back to the app (purrtion://auth). The token is only valid for this project.
+var q = new URLSearchParams(location.search);
+var msg = document.getElementById('msg');
+function fail(text) { msg.textContent = text; }
+function back(params) {
+  var url = 'purrtion://auth?' + new URLSearchParams(params).toString();
+  var b = document.getElementById('back'); b.href = url; b.hidden = false;
+  msg.textContent = 'Fertig. Du wirst zurück zu Purrtion geleitet.';
+  location.href = url;
+}
+var state = (q.get('s') || '').slice(0, 64);
+// The state survives the round trip to Google in the session.
+if (q.get('k') && q.get('p')) {
+  sessionStorage.setItem('purrtion.auth', JSON.stringify({ k: q.get('k'), p: q.get('p'), s: state }));
+}
+var saved = {};
+try { saved = JSON.parse(sessionStorage.getItem('purrtion.auth') || '{}'); } catch (e) {}
+if (!saved.k || !saved.p) {
+  fail('Dieser Link funktioniert nur aus der Purrtion-App.');
+} else {
+  firebase.initializeApp({ apiKey: saved.k, projectId: saved.p, authDomain: location.host });
+  var auth = firebase.auth();
+  auth.getRedirectResult().then(function (res) {
+    if (res && res.credential && res.credential.idToken) {
+      var s = saved.s; sessionStorage.removeItem('purrtion.auth');
+      return back({ id: res.credential.idToken, s: s });
+    }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    return auth.signInWithRedirect(provider);
+  }).catch(function (e) {
+    var s = saved.s; sessionStorage.removeItem('purrtion.auth');
+    fail('Anmeldung fehlgeschlagen (' + (e.code || e.message) + ').');
+    back({ error: e.code || 'error', s: s });
+  });
+}
+</script></body></html>

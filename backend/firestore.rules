@@ -33,5 +33,25 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
       allow list, update: if false;
     }
+
+    // Server backup. Only for accounts signed in with Google, each person only reaches their own. The backup is cut
+    // into compressed parts (a document may hold about 1 MB); "backups/{uid}" says how many parts belong together.
+    function google(uid) {
+      return signedIn() && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    match /backups/{uid} {
+      allow get, delete: if google(uid);
+      allow create, update: if google(uid)
+        && request.resource.data.keys().hasOnly(['updated', 'parts', 'entries', 'size', 'slot', 'device', 'v'])
+        && request.resource.data.parts is number && request.resource.data.parts <= 15;
+      allow list: if false;
+
+      match /parts/{n} {
+        allow get, delete: if google(uid);
+        allow create, update: if google(uid) && request.resource.data.keys().hasOnly(['d']) && request.resource.data.d.size() <= 800000;
+        allow list: if false;
+      }
+    }
   }
 }

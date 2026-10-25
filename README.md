@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 2.6.1** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 2.7** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Installieren
 
@@ -32,6 +32,9 @@ Mehr (Release machen, Fehlersuche, Grenzen): [distribution/README.md](distributi
 
 ### Freunde-Server verbinden
 Die Apps enthalten keinen Server. Wer die Freunde-Seite nutzen will, fügt den Server-Code unter Einstellungen → Freunde ein (in beiden Apps gleich). Ohne Code ist die Seite ausgeblendet.
+
+### Konto und Server-Backup
+Unter Einstellungen → Konto meldest du dich nach dem Server-Code mit Google an. Das Freunde-Konto und ein Backup (täglich automatisch, bis 10 MB) liegen dann auf dem Server und sind auf einem neuen Gerät nach Server-Code und Google-Anmeldung wieder da. Die lokale Sicherung funktioniert weiter ohne Google.
 
 ### Sicherung und Umzug
 Einstellungen → Daten & Backup (iPhone) bzw. Sicherung (Android): Ordner wählen, täglich automatisch sichern, später wiederherstellen. Das Format ist auf beiden Systemen gleich, ein Umzug zwischen iPhone und Android geht also auch.

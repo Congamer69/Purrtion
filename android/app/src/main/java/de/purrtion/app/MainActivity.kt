@@ -69,6 +69,10 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch { de.purrtion.app.data.DemoData.seed(); WidgetBridge.update() }
         }
         intent.data?.let { uri ->
+            if (uri.scheme == "purrtion" && uri.host == "auth") {
+                lifecycleScope.launch { Diag.guard("Google-Anmeldung") { de.purrtion.app.domain.ServerAccount.complete(uri) } }
+                return@let
+            }
             if (FriendsStore.handle(uri)) {
                 App.prefs.set(FriendsStore.ENABLED_KEY, true)
                 openFriends = true
@@ -86,6 +90,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             Diag.guard("Widget") { WidgetBridge.update() }
             Diag.guard("Auto-Backup") { Backup.autoBackupIfNeeded(this@MainActivity) }
+            Diag.guard("Server-Backup") { de.purrtion.app.domain.ServerAccount.autoBackupIfNeeded() }
             Diag.guard("Health Connect Gewicht") { HealthConnect.importWeights() }
             Diag.guard("Health Connect Aktivität") { if (App.goals.activityEnabled && HealthConnect.refreshActivity(14)) App.goals.activityUpdated() }
             Diag.guard("Tagesabschluss planen") { AutoClose.schedule(this@MainActivity) }

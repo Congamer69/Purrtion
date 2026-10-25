@@ -92,6 +92,13 @@ struct SettingsView: View {
                 .listRowBackground(Theme.card)
 
                 Section {
+                    NavigationLink { AccountView() } label: {
+                        HStack {
+                            Label("Konto", systemImage: "person.crop.circle.fill")
+                            Spacer()
+                            Text(ServerAccount.shared.email ?? "").font(Theme.font(13)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        }
+                    }
                     NavigationLink { page("Freunde") { FriendsSettingsSection() } } label: {
                         HStack {
                             Label("Freunde", systemImage: "person.2.fill")

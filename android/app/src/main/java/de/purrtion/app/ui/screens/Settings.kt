@@ -234,6 +234,8 @@ fun SettingsScreen() {
             }
 
             FormSection {
+                FormRow("Konto", icon = Icons.Rounded.AccountCircle, value = de.purrtion.app.domain.ServerAccount.email, chevron = true, onClick = { Nav.push { Screen("Konto", back = true) { AccountSection() } } })
+                Divider()
                 FormRow("Freunde", icon = Icons.Rounded.Group, chevron = true, onClick = { Nav.push { Screen("Freunde", back = true) { FriendsSettingsSection() } } })
                 Divider()
                 FormRow("Daten & Backup", icon = Icons.Rounded.Storage, chevron = true, onClick = { Nav.push { DataPage() } })

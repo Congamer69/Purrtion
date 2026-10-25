@@ -108,7 +108,9 @@ object Backup {
     /** True when the backup file holds an encrypted friends login (the restore then asks for the password). */
     fun hasFriendsAccount(text: String): Boolean = runCatching { json.decodeFromString(Payload.serializer(), text).friendsAccount != null }.getOrDefault(false)
 
-    suspend fun data(): String = json.encodeToString(Payload.serializer(), makePayload())
+    suspend fun data(): String = encode(makePayload())
+
+    fun encode(p: Payload): String = json.encodeToString(Payload.serializer(), p)
 
     /** Replaces all local data with the backup. With a [password] the friends login is restored too; a wrong one throws before anything is replaced. */
     suspend fun restore(text: String, password: String? = null): Payload {

@@ -67,6 +67,14 @@ final class FriendsStore: ObservableObject {
         lastRefresh = defaults.object(forKey: "friends.lastRefresh") as? Date
     }
 
+    /// Forgets the cached profile and friends (another account took over); the profile is read from the server again.
+    func reloadAfterAccountChange() {
+        for k in ["friends.cache", "friends.me", "friends.lastRefresh", "friends.lastHash", "friends.lastUpload"] { defaults.removeObject(forKey: k) }
+        me = nil
+        people = []
+        lastRefresh = nil
+    }
+
     var isAvailable: Bool { FirebaseConfig.isAvailable }
     var isSetUp: Bool { me != nil && FirebaseAuth.shared.hasAccount }
     var uid: String? { FirebaseAuth.shared.uid }
@@ -290,9 +298,12 @@ final class FriendsStore: ObservableObject {
                 try? await FirebaseREST.delete("users/\(uid)")
                 if let code = me?.code { try? await FirebaseREST.delete("codes/\(code)") }
             }
-            await FirebaseAuth.shared.deleteAccount()
+            // A Google login also holds the server backup: only a plain anonymous account is deleted with the profile.
+            if !ServerAccount.shared.isLinked {
+                await FirebaseAuth.shared.deleteAccount()
+            }
         }
-        FirebaseAuth.shared.signOut()
+        if !ServerAccount.shared.isLinked { FirebaseAuth.shared.signOut() }
         me = nil
         people = []
         lastRefresh = nil

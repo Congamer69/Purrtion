@@ -94,10 +94,14 @@ enum Backup {
 
     @MainActor
     static func data(_ ctx: ModelContext) throws -> Data {
+        try encode(makePayload(ctx))
+    }
+
+    static func encode(_ payload: Payload) throws -> Data {
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         enc.outputFormatting = [.sortedKeys]
-        return try enc.encode(makePayload(ctx))
+        return try enc.encode(payload)
     }
 
     /// Replaces all local data with the backup.

@@ -165,6 +165,34 @@ object FirebaseAuth {
         }
     }
 
+    class GoogleResult(val idToken: String, val refresh: String, val uid: String, val email: String, val expiresIn: String?)
+
+    /**
+     * Signs in with a Google ID token. With [link] the current (anonymous) account gets the Google login and keeps its uid.
+     * Throws a [FirebaseException] mentioning ALREADY_LINKED when that Google account belongs to another uid.
+     */
+    suspend fun googleSignIn(googleIdToken: String, link: Boolean): GoogleResult {
+        val current = if (link) runCatching { token() }.getOrNull() else null
+        val body = buildJsonObject {
+            put("requestUri", "http://localhost")
+            put("postBody", "id_token=$googleIdToken&providerId=google.com")
+            put("returnSecureToken", true)
+            put("returnIdpCredential", true)
+            current?.let { put("idToken", it) }
+        }
+        val (status, text) = send { Http.request("https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FirebaseConfig.apiKey}", "POST", body.toString()) }
+        val json = Http.parseObject(text)
+        if (status !in 200..299) {
+            val message = (json?.get("error") as? JsonObject)?.str("message") ?: "HTTP $status"
+            throw FirebaseException("Serverfehler: $message")
+        }
+        return GoogleResult(json?.str("idToken") ?: throw FirebaseException("Anmeldung fehlgeschlagen"), json.str("refreshToken") ?: "",
+            json.str("localId") ?: "", json.str("email") ?: "", json.str("expiresIn"))
+    }
+
+    /** Makes a signed-in result the current account. */
+    fun use(r: GoogleResult) = store(r.idToken, r.refresh, r.uid, r.expiresIn)
+
     /** Takes over an account from a backup: the next request refreshes its token. */
     fun adopt(uid: String, refresh: String) {
         idToken = null; expires = 0
@@ -251,6 +279,7 @@ object FirebaseREST {
     fun encode(v: Any?): JsonObject = when (v) {
         null -> buildJsonObject { put("nullValue", JsonNull) }
         is String -> buildJsonObject { put("stringValue", v) }
+        is ByteArray -> buildJsonObject { put("bytesValue", android.util.Base64.encodeToString(v, android.util.Base64.NO_WRAP)) }
         is Boolean -> buildJsonObject { put("booleanValue", v) }
         is Int -> buildJsonObject { put("integerValue", v.toString()) }
         is Long -> buildJsonObject { put("integerValue", v.toString()) }
@@ -269,6 +298,7 @@ object FirebaseREST {
     fun decode(v: JsonObject?): Any? {
         if (v == null) return null
         v.str("stringValue")?.let { return it }
+        v.str("bytesValue")?.let { return runCatching { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }.getOrNull() }
         (v["booleanValue"] as? JsonPrimitive)?.booleanOrNull?.let { return it }
         v.str("integerValue")?.let { return it.toDoubleOrNull() }
         (v["doubleValue"] as? JsonPrimitive)?.doubleOrNull?.let { return it }

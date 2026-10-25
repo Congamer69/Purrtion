@@ -157,6 +157,7 @@ struct RootView: View {
             guard phase == .active else { return }
             WidgetBridge.update(ctx, goals: goals)
             Backup.autoBackupIfNeeded(ctx)
+            ServerAccount.shared.autoBackupIfNeeded(ctx)
             Task {
                 // After a re-sign (SideStore refresh) iOS may have forgotten the Health answers: ask again if so.
                 await HealthAccess.requestIfNeeded(activityEnabled: goals.activityEnabled)

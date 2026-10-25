@@ -169,6 +169,31 @@ final class FirebaseAuth {
         _ = try? await FirebaseREST.send(req)
     }
 
+    /// Signs in with a Google ID token. With `link`, the current (anonymous) account gets the Google login and keeps
+    /// its uid. Throws `.server("FEDERATED_USER_ID_ALREADY_LINKED")` when that Google account belongs to another uid.
+    func googleSignIn(googleIDToken: String, link: Bool) async throws -> GoogleResult {
+        guard let key = FirebaseConfig.apiKey else { throw FirebaseError.notConfigured }
+        var body: [String: Any] = ["requestUri": "http://localhost", "postBody": "id_token=\(googleIDToken)&providerId=google.com",
+                                   "returnSecureToken": true, "returnIdpCredential": true]
+        if link, let current = try? await token() { body["idToken"] = current }
+        var req = URLRequest(url: URL(string: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=\(key)")!)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let json = try await FirebaseREST.send(req)
+        guard let t = json["idToken"] as? String, let refresh = json["refreshToken"] as? String, let uid = json["localId"] as? String else {
+            throw FirebaseError.server("Anmeldung fehlgeschlagen")
+        }
+        return GoogleResult(idToken: t, refresh: refresh, uid: uid, email: json["email"] as? String ?? "", expiresIn: json["expiresIn"] as? String)
+    }
+
+    struct GoogleResult { let idToken: String; let refresh: String; let uid: String; let email: String; let expiresIn: String? }
+
+    /// Makes a signed-in result the current account.
+    func use(_ r: GoogleResult) {
+        store(token: r.idToken, refresh: r.refresh, uid: r.uid, expiresIn: r.expiresIn)
+    }
+
     /// Takes over an account from a backup: the next request refreshes its token.
     func adopt(uid: String, refresh: String) {
         idToken = nil
@@ -272,6 +297,7 @@ enum FirebaseREST {
     static func encode(_ v: Any) -> [String: Any] {
         switch v {
         case let s as String: return ["stringValue": s]
+        case let d as Data: return ["bytesValue": d.base64EncodedString()]
         case let b as Bool: return ["booleanValue": b]
         case let i as Int: return ["integerValue": String(i)]
         case let d as Double: return d.isFinite ? ["doubleValue": d] : ["nullValue": NSNull()]
@@ -289,6 +315,7 @@ enum FirebaseREST {
 
     static func decode(_ v: [String: Any]) -> Any? {
         if let s = v["stringValue"] as? String { return s }
+        if let b64 = v["bytesValue"] as? String { return Data(base64Encoded: b64) }
         if let b = v["booleanValue"] as? Bool { return b }
         if let i = v["integerValue"] as? String { return Double(i) }
         if let d = v["doubleValue"] as? Double { return d }

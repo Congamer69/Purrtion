@@ -14,6 +14,18 @@ Die App spricht Firebase direkt über REST an (kein SDK), damit sie klein bleibt
 Geteilt werden nur Kennzahlen (Serie, Zieltreue, Health Score, Protein-/Wasser-Anteil, Aktivität, Obst & Gemüse, Ballaststoffe) und die heutigen kcal mit Tagesziel,
 keine Mahlzeiten und kein Gewicht – den Gewichtstrend nur, wenn man ihn in den Einstellungen teilt.
 
+## Server-Konto und Backup
+Mit **Google-Login** (Einstellungen → Konto) wird das anonyme Konto mit einem Google-Konto verknüpft (`accounts:signInWithIdp` mit `idToken`, die uid bleibt). Der Login läuft über die Hosting-Seite `public/auth/index.html`: Die App öffnet `https://<projekt>.web.app/auth/?k=<API-Key>&p=<Projekt>&s=<zufälliger Wert>` (iPhone: `ASWebAuthenticationSession`, Android: Browser), die Seite meldet sich per Firebase Web SDK bei Google an und gibt das Google-ID-Token an `purrtion://auth?id=…&s=…` zurück. Die App prüft `s` und tauscht das Token gegen die Firebase-Anmeldung.
+
+| Pfad | Inhalt | Wer darf |
+|---|---|---|
+| `backups/{uid}` | `updated`, `parts`, `entries`, `slot` (a oder b), `size`, `device`, `v` | nur diese uid, nur mit Google-Anmeldung |
+| `backups/{uid}/parts/{slot}{n}` | `d`: komprimierte Bytes (raw deflate, höchstens 800 KB) | nur diese uid, nur mit Google-Anmeldung |
+
+Das Backup ist das JSON der Sicherungsdatei, komprimiert und in Teile zu 700 KB geschnitten (höchstens 15, also rund 10 MB; ein einzelnes Firestore-Dokument darf höchstens 1 MiB groß sein). Zwei Plätze wechseln sich ab: erst die Teile des anderen Platzes, dann zeigt `backups/{uid}` darauf, dann werden die alten Teile gelöscht.
+
+**Einmal einrichten:** Firebase-Konsole → Authentication → Anmeldemethode → **Google** aktivieren (Support-E-Mail wählen). Danach `cd backend && firebase deploy --only firestore:rules,hosting --project <id>`.
+
 ## Anfragen sparen
 - Eigene Daten: **ein** Dokument, geschrieben nur bei Änderungen (SHA-256 des Inhalts), Kennzahlen etwa 20 Sekunden nach einem Eintrag, höchstens alle 2 Minuten, beim Verlassen der App und beim Herunterziehen der Freunde-Seite.
 - Freunde & Anfragen: **eine** Abfrage für alle, höchstens alle 3 Minuten (Ziehen zum Aktualisieren erzwingt sie).

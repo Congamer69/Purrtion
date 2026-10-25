@@ -491,12 +491,20 @@ object FriendsStore {
                 runCatching { FirebaseREST.delete("users/$u") }
                 me?.code?.let { runCatching { FirebaseREST.delete("codes/$it") } }
             }
-            FirebaseAuth.deleteAccount()
+            // A Google login also holds the server backup: only a plain anonymous account is deleted with the profile.
+            if (!ServerAccount.isLinked) FirebaseAuth.deleteAccount()
         }
-        FirebaseAuth.signOut()
+        if (!ServerAccount.isLinked) FirebaseAuth.signOut()
         me = null; people = emptyList(); lastRefresh = null
         lastHash = ""; lastUpload = 0; needsUpload = false
         listOf("friends.me", "friends.cache", "friends.lastRefreshMillis").forEach(App.prefs::remove)
+    }
+
+    /** Forgets the cached profile and friends (another account took over); the profile is read from the server again. */
+    fun reloadAfterAccountChange() {
+        listOf("friends.cache", "friends.me", "friends.lastRefreshMillis", "friends.lastHash", "friends.lastUpload").forEach(App.prefs::remove)
+        me = null; people = emptyList(); lastRefresh = null
+        lastHash = ""; lastUpload = 0; needsUpload = false
     }
 
     /** purrtion://friend/ABCDEFGH?n=Name */

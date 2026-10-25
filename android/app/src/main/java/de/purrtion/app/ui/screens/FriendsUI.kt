@@ -1,6 +1,7 @@
 package de.purrtion.app.ui.screens
 
 import de.purrtion.app.domain.FirebaseConfig
+import de.purrtion.app.domain.ServerAccount
 import android.content.Context
 import android.content.ClipboardManager
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -580,7 +581,7 @@ fun FriendsSettingsSection() {
         dismissButton = { TextButton({ confirmDelete = false }) { Text("Abbrechen") } })
     if (confirmDisconnect) AlertDialog({ confirmDisconnect = false }, title = { Text("Vom Freunde-Server trennen?") },
         text = { Text("Dein Profil und dein Code werden von diesem Server gelöscht, deine Freunde dort sehen dich nicht mehr. Deine Einträge in Purrtion bleiben. Danach kannst du einen anderen Server-Code einfügen.") },
-        confirmButton = { TextButton({ confirmDisconnect = false; scope.launch { store.deleteAll(); FirebaseConfig.disconnect() } }) { Text("Trennen", color = Palette.danger) } },
+        confirmButton = { TextButton({ confirmDisconnect = false; scope.launch { store.deleteAll(); ServerAccount.signOutLocal(); FirebaseConfig.disconnect() } }) { Text("Trennen", color = Palette.danger) } },
         dismissButton = { TextButton({ confirmDisconnect = false }) { Text("Abbrechen") } })
 }
 
@@ -728,7 +729,7 @@ private fun MacroLine(title: String, value: Double, goal: Double, unit: String, 
 
 /** The friends server is not known yet: paste the server code (sent by whoever runs the server). */
 @Composable
-private fun ServerConnectSection() {
+fun ServerConnectSection() {
     val context = LocalContext.current
     val h = rememberHaptics()
     var text by remember { mutableStateOf("") }
@@ -738,13 +739,13 @@ private fun ServerConnectSection() {
     val scope = rememberCoroutineScope()
     // Was connected before (friends set up) but this version has no server built in: one paste restores everything.
     val wasConnected = App.prefs.optString("friends.me") != null
-    FormSection("Freunde", error ?: if (wasConnected)
-        "Seit dieser Version ist der Freunde-Server nicht mehr fest in der App. Füge den Server-Code einmal ein. Deine Freunde, dein Code und alle Einträge bleiben erhalten."
-    else "Für die Freunde-Seite brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Freunde → Server-Code teilen).") {
+    FormSection("Server", error ?: if (wasConnected)
+        "Seit dieser Version ist der Server nicht mehr fest in der App. Füge den Server-Code einmal ein. Deine Freunde, dein Code und alle Einträge bleiben erhalten."
+    else "Für Freunde und das Server-Backup brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Konto → Server-Code teilen).") {
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Group, null, Modifier.size(20.dp), tint = Palette.accentText)
             Spacer(Modifier.width(12.dp))
-            Text("Freunde-Server verbinden", style = font(16, FontWeight.SemiBold), color = C.textPrimary)
+            Text("Server verbinden", style = font(16, FontWeight.SemiBold), color = C.textPrimary)
         }
         TextInput(text, { text = it; error = null }, "purrtion-server:…", Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.cardAlt)
             .padding(horizontal = 12.dp, vertical = 12.dp), style = font(14), singleLine = false,
@@ -784,7 +785,7 @@ private fun ServerConnectSection() {
 
 /** Share the server code, so friends can connect their app to the same server. */
 @Composable
-private fun ServerCodeRow() {
+fun ServerCodeRow() {
     val context = LocalContext.current
     val code = FirebaseConfig.code ?: return
     FormRow("Server-Code teilen", icon = Icons.Rounded.Share, chevron = true, onClick = {
