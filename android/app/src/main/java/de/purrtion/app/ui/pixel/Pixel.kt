@@ -116,8 +116,10 @@ private object SpriteCache {
     fun get(sprite: PixelSprite, palette: CatPalette, dark: Boolean, outfit: Outfit): ImageBitmap {
         val key = listOf(sprite, palette.id, dark, outfit)
         cache.get(key)?.let { return it }
-        val dressed = if (outfit.isEmpty || palette.id == "dog") sprite else Diag.safe("Outfit", sprite) { Wardrobe.apply(outfit, sprite) }
-        val shown = if (palette.id == "dog") Diag.safe("Hundesprite", dressed) { DogSprites.convert(dressed) } else dressed
+        val shown = if (palette.id == "dog") {
+            val dog = Diag.safe("Hundesprite", sprite) { DogSprites.convert(sprite) }
+            if (outfit.isEmpty) dog else Diag.safe("Outfit", dog) { Wardrobe.apply(outfit, dog, dog = true) }
+        } else if (outfit.isEmpty) sprite else Diag.safe("Outfit", sprite) { Wardrobe.apply(outfit, sprite) }
         val bitmap = android.graphics.Bitmap.createBitmap(maxOf(shown.width, 1), maxOf(shown.height, 1), android.graphics.Bitmap.Config.ARGB_8888)
         for ((y, row) in shown.rows.withIndex()) for ((x, ch) in row.withIndex()) {
             palette.color(ch, dark)?.let { bitmap.setPixel(x, y, it.toArgb()) }
@@ -330,15 +332,18 @@ object Wardrobe {
         "scarf.red" to ('r' to 'R'), "scarf.blue" to ('b' to 'B'), "scarf.green" to ('g' to 'G'), "scarf.gold" to ('y' to 'Y'), "scarf.violet" to ('v' to 'V'),
     )
 
-    fun apply(outfit: Outfit, sprite: PixelSprite): PixelSprite {
-        if (outfit.isEmpty || sprite.rows.size != 16 || !sprite.rows[0].startsWith("..o.......o..") || !sprite.rows[4].startsWith("owwwswswswwwo")) return sprite
+    /** For the dog, pass the sprite after [DogSprites.convert]: its head is closed on top, so the hat covers the forehead. */
+    fun apply(outfit: Outfit, sprite: PixelSprite, dog: Boolean = false): PixelSprite {
+        if (outfit.isEmpty || sprite.rows.size != 16) return sprite
+        if (dog) { if (!sprite.rows[0].startsWith("..ooooooooo..")) return sprite }
+        else if (!sprite.rows[0].startsWith("..o.......o..") || !sprite.rows[4].startsWith("owwwswswswwwo")) return sprite
         val grid = sprite.rows.map { it.toCharArray() }
         fun put(row: Int, col: Int, ch: Char, onlyEmpty: Boolean = false) {
             if (ch == '.' || row >= grid.size || col >= grid[row].size) return
             if (onlyEmpty && grid[row][col] != '.') return
             grid[row][col] = ch
         }
-        hats[outfit.hat]?.forEachIndexed { r, line -> line.forEachIndexed { i, ch -> put(r, 3 + i, ch, onlyEmpty = true) } }
+        hats[outfit.hat]?.forEachIndexed { r, line -> line.forEachIndexed { i, ch -> put(r, 3 + i, ch, onlyEmpty = !dog) } }
         if (outfit.glasses == "glasses.round" || outfit.glasses == "glasses.sun") {
             val sun = outfit.glasses == "glasses.sun"
             val frame = if (sun) 'e' else 'B'

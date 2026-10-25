@@ -263,7 +263,11 @@ Wenn kein Essen zu sehen ist, gib eine leere items-Liste zurück."""
     }
 
     private suspend fun post(url: String, headers: Map<String, String>, body: JsonObject): JsonObject {
-        val (status, text) = Http.postJson(url, body, headers + ("content-type" to "application/json"))
+        val (status, text) = try {
+            Http.postJson(url, body, headers + ("content-type" to "application/json"))
+        } catch (e: java.io.IOException) {
+            throw VisionException("Keine Verbindung zum Server der KI. Prüf dein Internet und versuch es nochmal.")
+        }
         val json = Http.parseObject(text) ?: JsonObject(emptyMap())
         if (status !in 200..299) {
             val msg = ((json["error"] as? JsonObject)?.get("message") as? JsonPrimitive)?.contentOrNull ?: text.take(200)

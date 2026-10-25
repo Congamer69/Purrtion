@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.2 – Accessoires für Buddy, Tagesabschluss auf Android – 25. Oktober 2026
+
+### Behoben
+- **Tagesabschluss auf Android („Unable to resolve host generativelanguage.googleapis.com“):** Kann das System einen Servernamen nicht auflösen (kommt bei manchen Emulatoren, VPNs und Netzen mit privatem DNS vor), fragt die App ihn jetzt über Cloudflare per HTTPS nach. Alle Netzabfragen der App profitieren davon. Fehlt wirklich das Internet, steht jetzt „Keine Verbindung zum Server der KI“ statt der englischen Systemmeldung.
+
+### Geändert
+- **Accessoires gelten auch für Buddy (den geheimen Hund):** Hüte, Brillen und Schals aus dem Shop erscheinen auch auf dem Hund (iPhone und Android, auch bei Freunden). Der Hut sitzt auf der Stirn, weil der Hund keine spitzen Ohren hat.
+- **Daten & Backup:** Der Hinweistext nennt die lokale Sicherung jetzt ausdrücklich als Alternative zum Server-Backup mit Google-Konto, damit beides nicht verwechselt wird. Auch auf der Konto-Seite steht, dass die lokale Sicherung ohne Google weiter funktioniert.
+
 ## 3.0.1 – Anmeldung ohne Verlust des Freunde-Kontos – 25. Oktober 2026
 
 ### Behoben

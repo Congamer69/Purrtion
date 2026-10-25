@@ -1,7 +1,7 @@
 import Foundation
 
 /// What the cat wears (hat, glasses, scarf), picked in the streak shop. Drawn into the sprite's pixel rows, so it moves with
-/// every frame. Only the upright poses carry clothes; lying and walking poses stay bare.
+/// every frame. Only the upright poses carry clothes (cat and dog); lying and walking poses stay bare.
 struct Outfit: Equatable {
     var hat = ""
     var glasses = ""
@@ -33,8 +33,12 @@ enum Wardrobe {
         "scarf.red": ("r", "R"), "scarf.blue": ("b", "B"), "scarf.green": ("g", "G"), "scarf.gold": ("y", "Y"), "scarf.violet": ("v", "V"),
     ]
 
-    static func apply(_ outfit: Outfit, to sprite: PixelSprite) -> PixelSprite {
-        guard !outfit.isEmpty, sprite.rows.count == 16, sprite.rows[0].hasPrefix("..o.......o.."), sprite.rows[4].hasPrefix("owwwswswswwwo") else { return sprite }
+    /// For the dog, pass the sprite after `DogSprites.convert`: its head is closed on top, so the hat covers the forehead
+    /// instead of sitting between the ears.
+    static func apply(_ outfit: Outfit, to sprite: PixelSprite, dog: Bool = false) -> PixelSprite {
+        guard !outfit.isEmpty, sprite.rows.count == 16 else { return sprite }
+        if dog { guard sprite.rows[0].hasPrefix("..ooooooooo..") else { return sprite } }
+        else { guard sprite.rows[0].hasPrefix("..o.......o.."), sprite.rows[4].hasPrefix("owwwswswswwwo") else { return sprite } }
         var grid = sprite.rows.map { Array($0) }
         func put(_ row: Int, _ col: Int, _ ch: Character, onlyEmpty: Bool = false) {
             guard ch != ".", row < grid.count, col < grid[row].count else { return }
@@ -42,7 +46,7 @@ enum Wardrobe {
             grid[row][col] = ch
         }
         if let hat = hats[outfit.hat] {
-            for (r, line) in hat.enumerated() { for (i, ch) in line.enumerated() { put(r, 3 + i, ch, onlyEmpty: true) } }
+            for (r, line) in hat.enumerated() { for (i, ch) in line.enumerated() { put(r, 3 + i, ch, onlyEmpty: !dog) } }
         }
         if outfit.glasses == "glasses.round" || outfit.glasses == "glasses.sun" {
             let frame: Character = outfit.glasses == "glasses.sun" ? "e" : "B"

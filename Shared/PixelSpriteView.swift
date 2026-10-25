@@ -8,13 +8,13 @@ struct PixelSpriteView: View {
     var palette: CatPalette = .ginger
     /// Single-colour rendering (tinted / clear widgets): shades become opacity steps of white.
     var mono = false
-    /// Hat, glasses and scarf from the streak shop (not for the dog).
+    /// Hat, glasses and scarf from the streak shop (cat and dog).
     var outfit = Outfit()
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let dressed = outfit.isEmpty || palette.isDog ? self.sprite : Wardrobe.apply(outfit, to: self.sprite)
-        let sprite = palette.isDog ? DogSprites.convert(self.sprite) : dressed
+        let sprite = palette.isDog ? Wardrobe.apply(outfit, to: DogSprites.convert(self.sprite), dog: true)
+                                   : Wardrobe.apply(outfit, to: self.sprite)
         if !mono {
             return AnyView(
                 Image(uiImage: bitmap(sprite)).resizable().interpolation(.none)

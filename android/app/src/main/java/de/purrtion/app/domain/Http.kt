@@ -20,7 +20,40 @@ class HttpException(val status: Int, val body: String) : IOException("HTTP $stat
 
 /** Small coroutine wrapper around OkHttp. */
 object Http {
+    /**
+     * System DNS first. When it cannot resolve a name ("Unable to resolve host", seen with some emulators, VPNs and private
+     * DNS setups although other apps work), the name is asked from Cloudflare over HTTPS by IP address and cached.
+     */
+    private object FallbackDns : okhttp3.Dns {
+        private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<java.net.InetAddress>>>()
+        private val bootstrap = OkHttpClient.Builder().connectTimeout(6, TimeUnit.SECONDS).readTimeout(6, TimeUnit.SECONDS).build()
+
+        override fun lookup(hostname: String): List<java.net.InetAddress> {
+            try { return okhttp3.Dns.SYSTEM.lookup(hostname) } catch (e: java.net.UnknownHostException) {
+                cache[hostname]?.let { (at, list) -> if (System.currentTimeMillis() - at < 10 * 60_000) return list }
+                val list = runCatching { overHttps(hostname) }.getOrDefault(emptyList())
+                if (list.isEmpty()) throw e
+                cache[hostname] = System.currentTimeMillis() to list
+                return list
+            }
+        }
+
+        private fun overHttps(host: String): List<java.net.InetAddress> {
+            val req = Request.Builder().url("https://1.1.1.1/dns-query?name=$host&type=A").header("accept", "application/dns-json").build()
+            val text = bootstrap.newCall(req).execute().use { it.body?.string() ?: "" }
+            val answers = (Json.parseToJsonElement(text) as? JsonObject)?.get("Answer") as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+            return answers.mapNotNull { a ->
+                val o = a as? JsonObject ?: return@mapNotNull null
+                if ((o["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content != "1") return@mapNotNull null
+                val ip = (o["data"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+                // The literal address is parsed without another lookup; the host name is kept for TLS.
+                runCatching { java.net.InetAddress.getByAddress(host, java.net.InetAddress.getByName(ip).address) }.getOrNull()
+            }
+        }
+    }
+
     val client: OkHttpClient = OkHttpClient.Builder()
+        .dns(FallbackDns)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
