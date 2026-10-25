@@ -238,7 +238,7 @@ object Shop {
     private const val OWNED = "shop.owned"
     private const val EXTRAS_SPENT = "shop.extrasSpent"
 
-    /** 10 points for every logged day, 5 more for a day close to the goal, plus a bonus for each streak milestone reached. */
+    /** 5 points for every logged day, 10 more for a day close to the goal, plus a bonus for each streak milestone reached. */
     suspend fun earned(goals: Goals, bestStreak: Int): Int {
         val today = LocalDate.now()
         val entries = App.db.entries().range(today.minusDays(800).toEpochDay(), today.toEpochDay())
@@ -246,10 +246,10 @@ object Shop {
         for ((day, list) in entries.groupBy { it.day }) {
             val date = LocalDate.ofEpochDay(day)
             if (!date.isBefore(today)) continue
-            points += 10
+            points += 5
             val goal = goals.target(date).kcal
             val kcal = list.sumOf { it.kcal }
-            if (kcal >= goal * 0.7 && kcal <= goal * 1.05) points += 5
+            if (kcal >= goal * 0.7 && kcal <= goal * 1.05) points += 10
         }
         return points + milestoneBonus.filter { bestStreak >= it.first }.sumOf { it.second }
     }
@@ -269,6 +269,10 @@ object Shop {
         if (item.id !in owned) return
         if (isWorn(item)) App.prefs.set(k, if (item.kind == ShopItem.Kind.fur) "ginger" else "") else App.prefs.set(k, item.id)
     }
+
+    /** What the cat wears now. Friends always see it, whatever the shop switch says. */
+    val currentOutfit: de.purrtion.app.ui.pixel.Outfit
+        get() = de.purrtion.app.ui.pixel.Outfit(App.prefs.string("shop.hat", ""), App.prefs.string("shop.glasses", ""), App.prefs.string("shop.scarf", ""))
 
     fun takeOffAll() { listOf("shop.hat", "shop.glasses", "shop.scarf").forEach { App.prefs.set(it, "") } }
 

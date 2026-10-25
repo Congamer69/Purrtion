@@ -309,7 +309,12 @@ fun PixelText(text: String, pixel: Dp = 4.dp, color: Color = C.textPrimary, modi
 /** What the cat wears (hat, glasses, scarf), picked in the streak shop. Drawn into the pixel rows, only on the upright poses. */
 data class Outfit(val hat: String = "", val glasses: String = "", val scarf: String = "") {
     val isEmpty: Boolean get() = hat.isEmpty() && glasses.isEmpty() && scarf.isEmpty()
-    companion object { val None = Outfit() }
+    /** "hat,glasses,scarf" as sent to friends (null = nothing worn). */
+    val encoded: String? get() = if (isEmpty) null else listOf(hat, glasses, scarf).joinToString(",")
+    companion object {
+        val None = Outfit()
+        fun parse(text: String?): Outfit { val p = (text ?: "").split(","); return Outfit(p.getOrElse(0) { "" }, p.getOrElse(1) { "" }, p.getOrElse(2) { "" }) }
+    }
 }
 
 object Wardrobe {

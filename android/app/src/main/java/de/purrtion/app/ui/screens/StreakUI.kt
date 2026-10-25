@@ -466,7 +466,7 @@ private fun ShopCard(state: Streak.State) {
                 Text("$balance", style = font(15, FontWeight.ExtraBold), color = C.textPrimary)
             }
         }
-        Text("Punkte gibt es für jeden eingetragenen Tag (10), für Tage nahe am Ziel (+5) und für Meilensteine.", style = font(12), color = C.textSecondary)
+        Text("Punkte gibt es für jeden eingetragenen Tag (5), für Tage nahe am Ziel (+10) und für Meilensteine.", style = font(12), color = C.textSecondary)
         Row(Modifier.fillMaxWidth().clip(CircleShape).background(C.cardAlt).padding(3.dp)) {
             for (k in ShopItem.Kind.entries) {
                 val on = kind == k

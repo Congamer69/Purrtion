@@ -2,11 +2,27 @@ import Foundation
 
 /// Small summary of today that the app writes and the widgets read (via the shared App Group).
 struct WidgetSnapshot: Codable {
-    /// SideStore re-signs with a free Apple ID and renames the group. It records the real name under `ALTAppGroups` in each Info.plist.
+    /// The App Group shared by the app and the widgets. SideStore re-signs with a free Apple ID and renames the group
+    /// (it appends the team ID), so the name is not known at build time. Candidates, in order: what `ALTAppGroups` in the
+    /// Info.plist says, the groups in the embedded provisioning profile (that is what the signature really allows) and the
+    /// original name. The first one iOS gives a shared container for wins; app and widget find the same one.
     static let appGroup: String = {
-        let listed = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String]
-        return listed?.first ?? "group.com.const.purrtion"
+        let original = "group.com.const.purrtion"
+        var candidates = provisionedGroups()
+        candidates += (Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String]) ?? []
+        candidates.append(original)
+        for group in candidates where FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) != nil { return group }
+        return original
     }()
+
+    /// `com.apple.security.application-groups` from this bundle's embedded.mobileprovision (empty for builds without one).
+    private static func provisionedGroups() -> [String] {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"), let data = try? Data(contentsOf: url),
+              let start = data.range(of: Data("<?xml".utf8)), let end = data.range(of: Data("</plist>".utf8)),
+              let plist = try? PropertyListSerialization.propertyList(from: data[start.lowerBound..<end.upperBound], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any] else { return [] }
+        return entitlements["com.apple.security.application-groups"] as? [String] ?? []
+    }
     static let key = "widget.snapshot"
 
     var day: Date = Calendar.current.startOfDay(for: .now)

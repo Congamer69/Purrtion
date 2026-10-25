@@ -7,6 +7,16 @@ struct Outfit: Equatable {
     var glasses = ""
     var scarf = ""
     var isEmpty: Bool { hat.isEmpty && glasses.isEmpty && scarf.isEmpty }
+
+    /// "hat,glasses,scarf" as sent to friends (nil/empty = nothing worn).
+    var encoded: String? { isEmpty ? nil : [hat, glasses, scarf].joined(separator: ",") }
+
+    init(hat: String = "", glasses: String = "", scarf: String = "") { self.hat = hat; self.glasses = glasses; self.scarf = scarf }
+
+    init(encoded: String?) {
+        let p = (encoded ?? "").split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+        self.init(hat: p.count > 0 ? p[0] : "", glasses: p.count > 1 ? p[1] : "", scarf: p.count > 2 ? p[2] : "")
+    }
 }
 
 enum Wardrobe {

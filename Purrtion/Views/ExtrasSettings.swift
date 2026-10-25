@@ -15,6 +15,8 @@ struct ExtrasSection: View {
     @AppStorage(Extras.reminderMinutesKey) private var reminderMinutes = 12 * 60 + 30
     @AppStorage(Extras.shopKey) private var shop = true
     @State private var denied = false
+    @State private var goalText = ""
+    @FocusState private var goalFocused: Bool
 
     private var reminderTime: Binding<Date> {
         Binding(get: { Calendar.current.date(bySettingHour: reminderMinutes / 60, minute: reminderMinutes % 60, second: 0, of: .now) ?? .now },
@@ -36,13 +38,16 @@ struct ExtrasSection: View {
                 HStack {
                     Text("Zielgewicht").font(Theme.font(16))
                     Spacer()
-                    Text(goalWeight > 0 ? "\(goalWeight.formatted(.number.precision(.fractionLength(0...1)))) kg" : "nicht gesetzt")
-                        .foregroundStyle(goalWeight > 0 ? Theme.textPrimary : Theme.textSecondary)
-                    Stepper("", value: Binding(get: { goalWeight > 0 ? goalWeight : goals.weightKG },
-                                               set: { goalWeight = min(max($0, 30), 250) }), in: 30...250, step: 0.5)
-                        .labelsHidden()
+                    TextField("nicht gesetzt", text: $goalText)
+                        .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        .font(Theme.font(17, .bold)).frame(maxWidth: 120)
+                        .focused($goalFocused)
+                        .onChange(of: goalText) { _, text in
+                            let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
+                            goalWeight = value >= 30 && value <= 250 ? value : 0
+                        }
+                    Text("kg").foregroundStyle(Theme.textSecondary)
                 }
-                if goalWeight > 0 { Button("Zielgewicht entfernen") { goalWeight = 0 }.font(Theme.font(14)) }
             }
             Toggle(isOn: $reminder.animation()) {
                 Label {
@@ -67,6 +72,7 @@ struct ExtrasSection: View {
             Text("Wochenbudget: Ein Tag über oder unter dem Ziel verteilt sich auf die übrigen Tage der Woche, höchstens um den eingestellten Anteil pro Tag. Vergangene Tage behalten ihr damaliges Ziel. Vorschläge: zeigt beim Hinzufügen, was du um diese Zeit meistens isst. Mehrfach-Scan: beim Barcode die Taste „Weiteres scannen“. Prognose: aus deinem Gewichtstrend der letzten sechs Wochen. Erinnerung: nur solange heute noch nichts eingetragen ist. Shop: Punkte aus deiner Serie für Fellfarben, Hüte, Brillen und Schals (Serie → Shop).")
         }
         .listRowBackground(Theme.card)
+        .onAppear { if goalWeight > 0 { goalText = goalWeight.formatted(.number.precision(.fractionLength(0...1)).grouping(.never)) } }
     }
 
     private func refresh() {

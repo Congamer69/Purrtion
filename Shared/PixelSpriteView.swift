@@ -10,11 +10,18 @@ struct PixelSpriteView: View {
     var mono = false
     /// Hat, glasses and scarf from the streak shop (not for the dog).
     var outfit = Outfit()
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         let dressed = outfit.isEmpty || palette.isDog ? self.sprite : Wardrobe.apply(outfit, to: self.sprite)
         let sprite = palette.isDog ? DogSprites.convert(self.sprite) : dressed
-        return Canvas { ctx, _ in
+        if !mono {
+            return AnyView(
+                Image(uiImage: bitmap(sprite)).resizable().interpolation(.none)
+                    .frame(width: CGFloat(sprite.width) * pixel, height: CGFloat(sprite.height) * pixel)
+                    .accessibilityHidden(true))
+        }
+        return AnyView(Canvas { ctx, _ in
             if mono {
                 // Translucent pixels must not overlap, or the seams show up as a grid: draw each run of equal pixels once.
                 for (y, row) in sprite.rows.enumerated() {
@@ -42,7 +49,30 @@ struct PixelSpriteView: View {
             }
         }
         .frame(width: CGFloat(sprite.width) * pixel, height: CGFloat(sprite.height) * pixel)
-        .accessibilityHidden(true)
+        .accessibilityHidden(true))
+    }
+
+    /// The sprite as a ready-made bitmap (one pixel per cell, scaled up without smoothing). Drawing hundreds of little
+    /// rectangles for every frame made long lists of sprites (the shop, the streak page) slow; a cached image is one draw.
+    private func bitmap(_ shown: PixelSprite) -> UIImage {
+        let dark = scheme == .dark
+        let key = "\(shown.hashValue)|\(palette.id)|\(dark)" as NSString
+        if let cached = SpriteBitmapCache.cache.object(forKey: key) { return cached }
+        let traits = UITraitCollection(userInterfaceStyle: dark ? .dark : .light)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let image = UIGraphicsImageRenderer(size: CGSize(width: max(shown.width, 1), height: max(shown.height, 1)), format: format).image { ctx in
+            for (y, row) in shown.rows.enumerated() {
+                for (x, ch) in row.enumerated() {
+                    guard let color = palette.color(for: ch) else { continue }
+                    UIColor(color).resolvedColor(with: traits).setFill()
+                    ctx.fill(CGRect(x: x, y: y, width: 1, height: 1))
+                }
+            }
+        }
+        SpriteBitmapCache.cache.setObject(image, forKey: key)
+        return image
     }
 
     /// Same look as the system's lock screen rendering: every pixel becomes white with an opacity
@@ -54,4 +84,12 @@ struct PixelSpriteView: View {
         let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
         return Color.white.opacity(Double((0.12 + 0.88 * pow(luminance, 1.4)) * a))
     }
+}
+
+enum SpriteBitmapCache {
+    static let cache: NSCache<NSString, UIImage> = {
+        let c = NSCache<NSString, UIImage>()
+        c.countLimit = 400
+        return c
+    }()
 }

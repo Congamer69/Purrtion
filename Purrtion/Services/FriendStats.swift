@@ -41,6 +41,8 @@ struct FriendStats: Codable, Equatable {
     var week: [Double] = []
     var mood: String = "idle"
     var day: String = ""
+    /// What the cat wears ("hat,glasses,scarf", see `Outfit`); older app versions ignore it.
+    var outfit: String? = nil
 
     static func dayKey(_ d: Date) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
@@ -62,6 +64,7 @@ struct FriendStats: Codable, Equatable {
             "week": week, "mood": mood, "day": day,
         ]
         if let weightTrend { d["weightTrend"] = weightTrend }
+        if let outfit, !outfit.isEmpty { d["outfit"] = outfit }
         return d
     }
 
@@ -80,6 +83,7 @@ struct FriendStats: Codable, Equatable {
         week = d["week"] as? [Double] ?? []
         mood = d["mood"] as? String ?? "idle"
         day = d["day"] as? String ?? ""
+        outfit = d["outfit"] as? String
     }
 
     // MARK: Computing my own
@@ -172,6 +176,7 @@ struct FriendStats: Codable, Equatable {
         if !todays.isEmpty {
             s.todayScore = Double(HealthScore(entries: todays, goalKcal: t.kcal, goalProtein: t.protein).score)
         }
+        s.outfit = Shop.currentOutfit.encoded
         s.week = (0..<7).reversed().map { status(day($0)) }
         s.mood = CatMood.of(entries: todays, target: t, waterML: waterByDay[today] ?? 0, goals: goals, day: today,
                             promille: BloodAlcohol.make(entries: todays + (byDay[day(1)] ?? []), goals: goals, weight: nil).value(at: now)).key

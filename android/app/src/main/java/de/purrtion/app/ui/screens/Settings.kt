@@ -317,9 +317,16 @@ private fun ExtrasSection(notificationLauncher: () -> Unit, denied: Boolean) {
         Divider()
         FormToggle("Gewichts-Prognose", prefs.bool(Extras.FORECAST, true), { prefs.set(Extras.FORECAST, it) }, Icons.AutoMirrored.Rounded.TrendingUp)
         AnimatedVisibility(prefs.bool(Extras.FORECAST, true)) {
-            Column {
-                val goal = prefs.double(Extras.GOAL_WEIGHT, 0.0)
-                SliderField("Zielgewicht (0 = aus)", goal, 0.0..200.0, { prefs.set(Extras.GOAL_WEIGHT, if (it < 30) 0.0 else it) }, step = 0.5, unit = "kg", decimals = 1, stepper = true)
+            var text by remember { mutableStateOf(prefs.double(Extras.GOAL_WEIGHT, 0.0).takeIf { it > 0 }?.let { it.clean } ?: "") }
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Zielgewicht", style = font(16), color = C.textPrimary, modifier = Modifier.weight(1f))
+                TextInput(text, { new ->
+                    text = new.filter { it.isDigit() || it == '.' || it == ',' }.take(6)
+                    val value = text.replace(',', '.').toDoubleOrNull() ?: 0.0
+                    prefs.set(Extras.GOAL_WEIGHT, if (value in 30.0..250.0) value else 0.0)
+                }, "nicht gesetzt", Modifier.width(110.dp), keyboard = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+                Spacer(Modifier.width(6.dp))
+                Text("kg", style = font(16), color = C.textSecondary)
             }
         }
         Divider()

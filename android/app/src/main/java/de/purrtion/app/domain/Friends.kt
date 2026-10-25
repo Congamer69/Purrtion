@@ -50,6 +50,8 @@ data class FriendStats(
     val goalProtein: Double = -1.0,
     val goalCarbs: Double = -1.0,
     val goalFat: Double = -1.0,
+    /** What the cat wears ("hat,glasses,scarf"); older app versions ignore it. */
+    val outfit: String? = null,
 ) {
     val isToday: Boolean get() = day == LocalDate.now().toString()
     val hasMacros: Boolean get() = todayProtein >= 0 && goalProtein > 0
@@ -64,6 +66,7 @@ data class FriendStats(
             "goalProtein" to goalProtein, "goalCarbs" to goalCarbs, "goalFat" to goalFat,
         )
         weightTrend?.let { m["weightTrend"] = it }
+        outfit?.takeIf { it.isNotEmpty() }?.let { m["outfit"] = it }
         return m
     }
 
@@ -74,7 +77,7 @@ data class FriendStats(
                 n("fiber7"), n("fruitveg7"), n("logged30"), d["weightTrend"] as? Double, n("todayPct"), n("todayScore", -1.0),
                 n("todayEntries"), n("todayKcal", -1.0), n("todayGoal", -1.0),
                 (d["week"] as? List<*>)?.mapNotNull { it as? Double } ?: emptyList(), d["mood"] as? String ?: "idle", d["day"] as? String ?: "",
-                n("todayProtein", -1.0), n("todayCarbs", -1.0), n("todayFat", -1.0), n("goalProtein", -1.0), n("goalCarbs", -1.0), n("goalFat", -1.0))
+                n("todayProtein", -1.0), n("todayCarbs", -1.0), n("todayFat", -1.0), n("goalProtein", -1.0), n("goalCarbs", -1.0), n("goalFat", -1.0), d["outfit"] as? String)
         }
 
         /** Computes my own stats from the local data. */
@@ -153,6 +156,7 @@ data class FriendStats(
                 week = (6 downTo 0).map { status(day(it)) },
                 mood = catMood(todays, t, water[today.toEpochDay()] ?: 0, goals, today,
                     BloodAlcohol.make(todays + (byDay[today.minusDays(1).toEpochDay()] ?: emptyList()), goals, null).value(System.currentTimeMillis())).key,
+                outfit = Shop.currentOutfit.encoded,
             )
             return s
         }

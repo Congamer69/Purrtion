@@ -379,7 +379,7 @@ struct PersonCat: View {
 
     var body: some View {
         let mood: CatMood = person.stats.isToday ? CatMood(key: person.stats.mood) : .sleeping
-        AnimatedSprite(frames: mood.frames, fps: mood.fps, pixel: pixel, palette: CatPalette.byID(person.palette))
+        AnimatedSprite(frames: mood.frames, fps: mood.fps, pixel: pixel, palette: CatPalette.byID(person.palette), outfit: Outfit(encoded: person.stats.outfit))
             .frame(width: 21 * pixel, height: 16 * pixel)
     }
 }

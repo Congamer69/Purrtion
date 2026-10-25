@@ -97,6 +97,7 @@ import de.purrtion.app.ui.pixel.AnimatedSprite
 import de.purrtion.app.ui.pixel.CatMascot
 import de.purrtion.app.ui.pixel.CatMood
 import de.purrtion.app.ui.pixel.CatPalette
+import de.purrtion.app.ui.pixel.Outfit
 import de.purrtion.app.ui.theme.C
 import de.purrtion.app.ui.theme.Palette
 import de.purrtion.app.ui.theme.font
@@ -194,7 +195,7 @@ private fun Info(title: String, text: String) {
 fun PersonCat(person: FriendsStore.Person, pixel: Float = 2.4f) {
     val mood = if (person.stats.isToday) CatMood.entries.firstOrNull { it.key == person.stats.mood } ?: CatMood.idle else CatMood.sleeping
     Box(Modifier.size((21 * pixel).dp, (16 * pixel).dp), contentAlignment = Alignment.Center) {
-        AnimatedSprite(mood.frames, mood.fps, pixel.dp, CatPalette.byId(person.palette))
+        AnimatedSprite(mood.frames, mood.fps, pixel.dp, CatPalette.byId(person.palette), outfit = Outfit.parse(person.stats.outfit))
     }
 }
 

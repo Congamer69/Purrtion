@@ -36,7 +36,7 @@ enum Shop {
 
     private static let milestoneBonus: [(days: Int, points: Int)] = [(3, 20), (7, 50), (14, 100), (30, 200), (60, 400), (100, 800), (200, 1500), (365, 3000)]
 
-    /// 10 points for every logged day, 5 more when the day ended close to the goal, and a bonus for each streak milestone reached.
+    /// 5 points for every logged day, 10 more when the day ended close to the goal, and a bonus for each streak milestone reached.
     @MainActor
     static func earned(ctx: ModelContext, goals: Goals, bestStreak: Int) -> Int {
         let cal = Calendar.current
@@ -47,9 +47,9 @@ enum Shop {
         for e in entries { kcalByDay[e.day, default: 0] += e.kcal }
         var points = 0
         for (day, kcal) in kcalByDay where day < today {          // today counts once it is over
-            points += 10
+            points += 5
             let goal = goals.target(for: day).kcal
-            if kcal >= goal * 0.7 && kcal <= goal * 1.05 { points += 5 }
+            if kcal >= goal * 0.7 && kcal <= goal * 1.05 { points += 10 }
         }
         points += milestoneBonus.filter { bestStreak >= $0.days }.reduce(0) { $0 + $1.points }
         return points
@@ -105,6 +105,12 @@ enum Shop {
         guard let key = key(for: item.kind), owned.contains(item.id) else { return }
         let defaults = UserDefaults.standard
         if isWorn(item) { defaults.set(item.kind == .fur ? CatPalette.ginger.id : "", forKey: key) } else { defaults.set(item.id, forKey: key) }
+    }
+
+    /// What the cat wears now. Friends always see it, whatever the shop switch says.
+    static var currentOutfit: Outfit {
+        let d = UserDefaults.standard
+        return Outfit(hat: d.string(forKey: "shop.hat") ?? "", glasses: d.string(forKey: "shop.glasses") ?? "", scarf: d.string(forKey: "shop.scarf") ?? "")
     }
 
     static func takeOffAll() {

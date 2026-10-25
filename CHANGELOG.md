@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.6.1 – Widgets, Shop und Freunde (iPhone und Android) – 25. Oktober 2026
+
+### Behoben
+- **Widgets zeigten nur noch 2000 kcal (iPhone, SideStore):** SideStore benennt die App-Gruppe um und hängt die Team-ID an. Die App hat den neuen Namen nicht gefunden, deshalb teilten App und Widget keine Daten. Die App sucht den Namen jetzt in der Signatur der App und nimmt den, den iOS freigibt. Das gilt auch für die Widgets auf dem Sperrbildschirm.
+- **Shop und Serie-Seite ruckelten (iPhone):** Pixel-Katzen werden jetzt als fertige Bilder gezeichnet statt Pixel für Pixel in jedem Bild, der Shop hat eigenen Zustand (Kaufen und Kategorie wechseln zeichnet nicht mehr die ganze Seite neu) und der Kategoriewechsel läuft ohne Animation.
+
+### Geändert
+- **Punkte umgekehrt:** 5 Punkte für jeden eingetragenen Tag, 10 mehr für Tage nahe am Ziel. Meilensteine geben weiter Boni.
+- **Zielgewicht** hat jetzt ein Zahlenfeld statt Regler oder Tasten (iPhone und Android).
+
+### Neu
+- **Freunde sehen deine Outfits:** Hut, Brille, Schal und Fellfarbe aus dem Shop erscheinen bei deinen Freunden. Das ist immer aktiv und hängt nicht am Schalter für den Shop. Ältere App-Versionen ignorieren die Daten und zeigen die Katze ohne Kleidung.
+
 ## 2.6 – Extras, Shop, App-Symbole (iPhone und Android) – 25. Oktober 2026
 
 ### Neu (alles einzeln ein- und ausschaltbar unter Profil → Funktionen → Extras)
