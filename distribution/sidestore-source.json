@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "3.0.2",
+          "buildVersion": "32",
+          "date": "2026-10-25T21:56:41Z",
+          "localizedDescription": "BEHOBEN\n• Tagesabschluss auf Android („Unable to resolve host generativelanguage.googleapis.com“): Kann das System einen Servernamen nicht auflösen (kommt bei manchen Emulatoren, VPNs und Netzen mit privatem DNS vor), fragt die App ihn jetzt über Cloudflare per HTTPS nach. Alle Netzabfragen der App profitieren davon. Fehlt wirklich das Internet, steht jetzt „Keine Verbindung zum Server der KI“ statt der englischen Systemmeldung.\n\nGEÄNDERT\n• Accessoires gelten auch für Buddy (den geheimen Hund): Hüte, Brillen und Schals aus dem Shop erscheinen auch auf dem Hund (iPhone und Android, auch bei Freunden). Der Hut sitzt auf der Stirn, weil der Hund keine spitzen Ohren hat.\n• Daten & Backup: Der Hinweistext nennt die lokale Sicherung jetzt ausdrücklich als Alternative zum Server-Backup mit Google-Konto, damit beides nicht verwechselt wird. Auch auf der Konto-Seite steht, dass die lokale Sicherung ohne Google weiter funktioniert.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v3.0.2/Purrtion-3.0.2.ipa",
+          "size": 4709433,
+          "sha256": "dd247f29ff7b0031c843f51ee01ec5e4373755bc125b1d2704e341d324a7ade6",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "3.0.1",
           "buildVersion": "31",
           "date": "2026-10-25T17:29:54Z",
