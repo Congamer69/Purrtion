@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.6.1",
+          "buildVersion": "28",
+          "date": "2026-10-25T01:09:33Z",
+          "localizedDescription": "BEHOBEN\n• Widgets zeigten nur noch 2000 kcal (iPhone, SideStore): SideStore benennt die App-Gruppe um und hängt die Team-ID an. Die App hat den neuen Namen nicht gefunden, deshalb teilten App und Widget keine Daten. Die App sucht den Namen jetzt in der Signatur der App und nimmt den, den iOS freigibt. Das gilt auch für die Widgets auf dem Sperrbildschirm.\n• Shop und Serie-Seite ruckelten (iPhone): Pixel-Katzen werden jetzt als fertige Bilder gezeichnet statt Pixel für Pixel in jedem Bild, der Shop hat eigenen Zustand (Kaufen und Kategorie wechseln zeichnet nicht mehr die ganze Seite neu) und der Kategoriewechsel läuft ohne Animation.\n\nGEÄNDERT\n• Punkte umgekehrt: 5 Punkte für jeden eingetragenen Tag, 10 mehr für Tage nahe am Ziel. Meilensteine geben weiter Boni.\n• Zielgewicht hat jetzt ein Zahlenfeld statt Regler oder Tasten (iPhone und Android).\n\nNEU\n• Freunde sehen deine Outfits: Hut, Brille, Schal und Fellfarbe aus dem Shop erscheinen bei deinen Freunden. Das ist immer aktiv und hängt nicht am Schalter für den Shop. Ältere App-Versionen ignorieren die Daten und zeigen die Katze ohne Kleidung.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.6.1/Purrtion-2.6.1.ipa",
+          "size": 4643409,
+          "sha256": "f681c88348bc75358ac6428bebe8af6884c879546f8ef33f2f14e2ffbab7bc34",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.6",
           "buildVersion": "27",
           "date": "2026-10-25T00:36:35Z",
