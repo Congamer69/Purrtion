@@ -97,7 +97,7 @@ object Backup {
                 Review(isoDay(it.day), iso(it.createdAt), it.rating, it.tone, b64(it.pointsJson), it.signature, it.enrichedCount,
                     it.providerName, it.score, it.scoreBefore, it.automatic)
             },
-            settings = App.prefs.export(settingPrefixes).filterKeys { it != FOLDER_KEY },
+            settings = App.prefs.export(settingPrefixes).filterKeys { it != FOLDER_KEY && it != "friends.server" },
             friendsAccount = BackupVault.password?.let { password ->
                 val uid = Secrets.get("fb.uid"); val refresh = Secrets.get("fb.refresh")
                 if (uid != null && refresh != null) runCatching { BackupVault.seal(BackupVault.Account(uid, refresh), password) }.getOrNull() else null

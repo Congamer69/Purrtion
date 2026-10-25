@@ -54,15 +54,10 @@ fun AccountSection() {
     LaunchedEffect(account.isLinked) { account.refreshRemote() }
 
     if (!FirebaseConfig.isAvailable) {
-        ServerConnectSection()
+        FormSection("Konto", "Das Konto gibt es in diesem Build nicht.") {}
     } else {
-        FormSection("Server", "Freunde und das Server-Backup laufen über diesen Server. Trennen kannst du ihn unter Einstellungen → Freunde. Das lokale Backup funktioniert auch ohne Server.") {
-            FormRow("Server", value = FirebaseConfig.projectId)
-            Divider()
-            ServerCodeRow()
-        }
         if (!account.isLinked) {
-            FormSection("Google-Konto", "Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät: Server-Code einfügen, mit Google anmelden, alles ist wieder da. Ohne Anmeldung bleibt alles wie bisher.") {
+            FormSection("Google-Konto", "Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät einfach mit dem gleichen Google-Konto anmelden, dann ist alles wieder da. Ohne Anmeldung bleibt alles wie bisher.") {
                 FormRow("Mit Google anmelden", icon = Icons.Rounded.Login, onClick = { account.start(context) }, trailing = {
                     if (account.busy) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accentText, strokeWidth = 2.dp)
                 })

@@ -21,7 +21,6 @@ struct PurrtionApp: App {
     init() {
         // A server config built into this app is kept in the settings, so builds without one stay connected.
         ThemeSetting.migrate()
-        FirebaseConfig.persistBundled()
         BLSDatabase.shared.preload()
         SwissDatabase.shared.preload()
         RestaurantDatabase.shared.preload()

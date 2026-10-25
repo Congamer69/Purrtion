@@ -20,7 +20,7 @@ Der Link ist das offizielle Schema aus der SideStore-Doku ([URL Schema](https://
 3. Purrtion in der Quelle antippen und „Laden“. Danach erscheint Purrtion unter „Meine Apps“.
 4. Hattest du Purrtion bisher per Xcode installiert, ist das eine andere App (SideStore ändert die Bundle-ID für die Signatur). Sichere vorher unter Profil → Daten & Backup und stelle in der neuen App wieder her.
 
-Die Freunde-Seite ist im IPA nicht eingebaut. Verbinde sie in der App mit dem Server-Code (Einstellungen → Freunde). Der Code bleibt bei Updates erhalten.
+Freunde und Konto sind im IPA eingebaut (ab 3.0), es ist nichts zu verbinden.
 
 ## Release machen
 1. Version und Build in Xcode erhöhen (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`) und einen Abschnitt `## <Version> …` in `CHANGELOG.md` schreiben. Daraus werden die Release-Hinweise.
@@ -34,7 +34,7 @@ python3 tools/update_sidestore_source.py dist/Purrtion-2.3.ipa
 gh release create v2.3 dist/Purrtion-2.3.ipa --notes-file …   # oder gh release upload v2.3 … --clobber
 git add distribution/sidestore-source.json && git commit -m "SideStore-Quelle: 2.3" && git push
 ```
-`tools/build-ipa.sh` baut aus einem sauberen Export des Commits und bricht ab, wenn `Firebase.plist` oder ein API-Key im IPA steckt.
+`tools/build-ipa.sh` baut aus einem sauberen Export des Commits und legt die lokale, nicht eingecheckte `Purrtion/Resources/Firebase.plist` dazu; es bricht ab, wenn sie im IPA fehlt (`--no-server` baut ohne). Deshalb werden die Release-IPAs lokal gebaut, der GitHub-Workflow läuft nur noch auf Anfrage und ohne Server.
 
 `tools/build-ipa.sh` signiert App und Widget ad hoc (ohne Zertifikat), nur damit ihre Berechtigungen (HealthKit, App-Gruppe) im IPA stehen. Ohne sie fehlt nach SideStores Neu-Signieren HealthKit.
 

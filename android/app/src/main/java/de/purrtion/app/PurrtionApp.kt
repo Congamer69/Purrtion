@@ -26,7 +26,6 @@ class PurrtionApp : Application() {
         SafeMode.consume(this)
         App.init(this)
         // A server config built into this APK is kept in the settings, so updates without one stay connected.
-        Diag.guard("Server-Konfiguration") { de.purrtion.app.domain.FirebaseConfig.persistBundled() }
         if (!SafeMode.active) {
             // Load the food databases in the background so the first search is instant.
             Diag.guard("Datenbanken laden") { BlsDatabase.preload(); SwissDatabase.preload(); RestaurantDatabase.preload() }

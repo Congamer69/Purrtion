@@ -10,8 +10,8 @@ plugins {
 val iosResources = rootProject.file("../Purrtion/Resources")
 
 /**
- * Public builds (`-Ppurrtion.public=true`, used by build-apk.sh for GitHub releases) carry no server data:
- * the friends server is connected in the app with a server code instead.
+ * Builds with `-Ppurrtion.public=true` (build-apk.sh --no-server) carry no server data; release builds include the
+ * Firebase.plist server since 3.0.
  */
 val publicBuild = (findProperty("purrtion.public") as String?) == "true"
 

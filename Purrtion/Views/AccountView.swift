@@ -5,20 +5,19 @@ import SwiftData
 struct AccountView: View {
     @Environment(\.modelContext) private var ctx
     @ObservedObject private var account = ServerAccount.shared
-    @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
     @AppStorage(ServerAccount.emailKey) private var email = ""
     @State private var confirmRestore = false
     @State private var confirmSignOut = false
     @State private var confirmDelete = false
-    @State private var shareServer = false
 
     var body: some View {
         Form {
             if !FirebaseConfig.isAvailable {
-                ServerConnectSection()
+                Section { Text("Das Konto gibt es in diesem Build nicht.").foregroundStyle(Theme.textSecondary) }.listRowBackground(Theme.card)
+            } else if account.isLinked {
+                linkedSection
             } else {
-                serverSection
-                if account.isLinked { linkedSection } else { signInSection }
+                signInSection
             }
             if let status = account.status {
                 Section { Text(status).foregroundStyle(Theme.accentText) }.listRowBackground(Theme.card)
@@ -29,9 +28,6 @@ struct AccountView: View {
         .navigationTitle("Konto")
         .navigationBarTitleDisplayMode(.inline)
         .task { await account.refreshRemote() }
-        .sheet(isPresented: $shareServer) {
-            ShareSheet(items: ["Mit diesem Code verbindest du Purrtion mit unserem Server (Einstellungen → Konto):\n\n\(FirebaseConfig.code ?? "")"])
-        }
         .alert("Dieses Google-Konto gibt es schon", isPresented: Binding(get: { account.conflict != nil }, set: { _ in }), presenting: account.conflict) { c in
             if c.backup != nil {
                 Button("Backup laden", role: .destructive) { Task { await account.resolve(c, load: true, ctx: ctx) } }
@@ -63,16 +59,6 @@ struct AccountView: View {
         } message: { Text("Das Backup wird vom Server entfernt. Deine Daten auf diesem iPhone bleiben.") }
     }
 
-    private var serverSection: some View {
-        Section {
-            LabeledContent("Server", value: FirebaseConfig.projectID ?? "")
-            Button { shareServer = true } label: { Label("Server-Code teilen", systemImage: "square.and.arrow.up") }
-        } header: { Text("Server") } footer: {
-            Text("Freunde und das Server-Backup laufen über diesen Server. Trennen kannst du ihn unter Einstellungen → Freunde. Das lokale Backup funktioniert auch ohne Server.")
-        }
-        .listRowBackground(Theme.card)
-    }
-
     private var signInSection: some View {
         Section {
             Button { Task { await account.signIn() } } label: {
@@ -84,7 +70,7 @@ struct AccountView: View {
             }
             .disabled(account.busy)
         } header: { Text("Google-Konto") } footer: {
-            Text("Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät: Server-Code einfügen, mit Google anmelden, alles ist wieder da. Ohne Anmeldung bleibt alles wie bisher.")
+            Text("Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät einfach mit dem gleichen Google-Konto anmelden, dann ist alles wieder da. Ohne Anmeldung bleibt alles wie bisher.")
         }
         .listRowBackground(Theme.card)
     }

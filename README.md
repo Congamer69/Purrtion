@@ -5,7 +5,7 @@
 Kalorientracker für iPhone (SwiftUI, SwiftData, iOS 27+, optimiert für iPhone 17/18 Pro Max) und Android (Kotlin, Jetpack Compose, ab Android 9), komplett im Pixel-Katzen-Look.
 Keine laufenden Kosten, kein Account, alle Daten bleiben auf dem Gerät.
 
-**Version 2.7** – siehe [CHANGELOG.md](CHANGELOG.md).
+**Version 3.0** – siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Installieren
 
@@ -30,11 +30,8 @@ Mit einer normalen Apple-ID, ohne Entwicklerkonto. SideStore installiert das IPA
 
 Mehr (Release machen, Fehlersuche, Grenzen): [distribution/README.md](distribution/README.md). Auf Mac mit Xcode geht auch der Weg unten unter „Selbst bauen“. Eine Xcode-Installation und eine SideStore-Installation sind getrennte Apps mit getrennten Daten, nimm bei einem Wechsel die Sicherung.
 
-### Freunde-Server verbinden
-Die Apps enthalten keinen Server. Wer die Freunde-Seite nutzen will, fügt den Server-Code unter Einstellungen → Freunde ein (in beiden Apps gleich). Ohne Code ist die Seite ausgeblendet.
-
-### Konto und Server-Backup
-Unter Einstellungen → Konto meldest du dich nach dem Server-Code mit Google an. Das Freunde-Konto und ein Backup (täglich automatisch, bis 10 MB) liegen dann auf dem Server und sind auf einem neuen Gerät nach Server-Code und Google-Anmeldung wieder da. Die lokale Sicherung funktioniert weiter ohne Google.
+### Freunde und Konto
+Freunde und das Server-Backup sind ab 3.0 fest eingebaut, es gibt nichts zu verbinden. Freunde-Code teilen oder eingeben reicht. Unter Einstellungen → Konto meldest du dich mit Google an: Dein Freunde-Konto und ein Backup (täglich automatisch, bis 10 MB) liegen dann auf dem Server und sind auf einem neuen Gerät nach der Anmeldung mit dem gleichen Google-Konto wieder da. Die lokale Sicherung funktioniert weiter ohne Google.
 
 ### Sicherung und Umzug
 Einstellungen → Daten & Backup (iPhone) bzw. Sicherung (Android): Ordner wählen, täglich automatisch sichern, später wiederherstellen. Das Format ist auf beiden Systemen gleich, ein Umzug zwischen iPhone und Android geht also auch.
@@ -155,7 +152,7 @@ Vergleiche dich mit Freunden, ohne Account und ohne laufende Kosten.
 
 **Datenschutz:** Geteilt werden nur Kennzahlen und die Tageskalorien mit Ziel. Keine Mahlzeiten, kein Gewicht (den Gewichtstrend in kg pro Woche nur, wenn man ihn teilt). Die Firestore-Regeln erlauben das Lesen nur Personen, die man selbst hinzugefügt hat.
 
-**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden etwa 20 Sekunden nach einem neuen Eintrag geschrieben, höchstens alle 2 Minuten und nur bei Änderungen, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Die App verbindet sich über einen Server-Code (Einstellungen → Freunde → Server-Code einfügen); ohne ihn ist die Freunde-Seite ausgeblendet. Die Konfiguration `Purrtion/Resources/Firebase.plist` liegt nicht im Repository.
+**Backend:** Firebase im kostenlosen Spark-Tarif (anonyme Anmeldung, Firestore, Hosting), angesprochen per REST ohne SDK. Eigene Werte werden etwa 20 Sekunden nach einem neuen Eintrag geschrieben, höchstens alle 2 Minuten und nur bei Änderungen, alle Freunde kommen mit einer einzigen Abfrage. Aufbau, Regeln und Einrichtung für ein eigenes Projekt: [backend/README.md](backend/README.md). Der Server ist in den Release-Apps eingebaut (mein Firebase-Projekt, kein eigener Server nötig). Wer die App selbst baut, legt eine eigene `Purrtion/Resources/Firebase.plist` an, sie liegt nicht im Repository; ohne sie sind Freunde und Konto ausgeblendet.
 
 ## Mit Xcode auf dem iPhone (statt SideStore)
 In Xcode beim Ziel **Purrtion** und **PurrtionWidget** unter „Signing & Capabilities“ dein Team auswählen.
@@ -169,7 +166,7 @@ App Groups und HealthKit funktionieren auch mit einem kostenlosen Apple-Account.
 - `Purrtion/Views` – Heute, Suche, Detail, Barcode, Foto, Schnell-Eintrag, Verlauf, Freunde, Einstellungen
 - `android/` – die Android-App (Kotlin, Jetpack Compose), siehe [android/README.md](android/README.md)
 - `backend/` – Firebase-Regeln, Einladungsseite (Hosting) und Anleitung für die Freunde-Seite
-- `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import), `export_sprites_kotlin.py` (Sprites für Android), `server_code.py` (Server-Code für die Freunde-Seite)
+- `tools/` – `make_icon.py` (App-Icon), `preview_sprites.py` (Sprite-Vorschau), `convert_bls.py` (BLS-Import), `export_sprites_kotlin.py` (Sprites für Android)
 
 ## Lizenz & Hinweise
 Der Code steht unter der [MIT-Lizenz](LICENSE): frei nutzbar, veränderbar und weitergebbar, ohne Gewähr und ohne Haftung. Die Datenquellen haben eigene Lizenzen, siehe [NOTICE](NOTICE).

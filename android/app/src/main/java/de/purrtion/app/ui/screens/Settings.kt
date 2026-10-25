@@ -1013,7 +1013,7 @@ private fun AppUpdateSection() {
     val scope = rememberCoroutineScope()
     val u = AppUpdater
     val release = u.available
-    FormSection("App-Update", "Lädt neue Versionen direkt von GitHub. Vor der Installation sichert Purrtion alle Daten. Einträge, Rezepte, Gewicht, Einstellungen und die Verbindung zum Freunde-Server bleiben beim Update erhalten.") {
+    FormSection("App-Update", "Lädt neue Versionen direkt von GitHub. Vor der Installation sichert Purrtion alle Daten. Einträge, Rezepte, Gewicht, Einstellungen und dein Freunde-Konto bleiben beim Update erhalten.") {
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             IconTile(Icons.Rounded.SystemUpdate)
             Spacer(Modifier.width(12.dp))

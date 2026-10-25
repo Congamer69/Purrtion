@@ -45,12 +45,8 @@ object FirebaseConfig {
     private val raw: String? get() = App.prefs.optString(KEY)
     private val stored: Server? get() = raw?.let(::decode)
 
-    /** Keeps a built-in config for later versions without one. Called on every start (cheap). */
-    fun persistBundled() {
-        if (raw == null && bundled != null) App.prefs.set(KEY, encode(bundled))
-    }
-
-    val server: Server? get() = if (raw == OFF) null else stored ?: bundled
+    /** The built-in server (public builds carry it); a server stored by an older version is only used without one. */
+    val server: Server? get() = bundled ?: if (raw == OFF) null else stored
     val apiKey: String get() = server?.k ?: ""
     val projectId: String get() = server?.p ?: ""
     val inviteUrl: String get() = server?.i ?: ""
@@ -186,8 +182,14 @@ object FirebaseAuth {
             val message = (json?.get("error") as? JsonObject)?.str("message") ?: "HTTP $status"
             throw FirebaseException("Serverfehler: $message")
         }
-        return GoogleResult(json?.str("idToken") ?: throw FirebaseException("Anmeldung fehlgeschlagen"), json.str("refreshToken") ?: "",
-            json.str("localId") ?: "", json.str("email") ?: "", json.str("expiresIn"))
+        // Linking keeps the refresh token valid, so a reply without a new one is fine in that case.
+        val t = json?.str("idToken"); val uid = json?.str("localId")
+        val refresh = json?.str("refreshToken") ?: if (link) Secrets.get("fb.refresh") else null
+        if (t == null || uid == null || refresh == null) {
+            val detail = json?.str("errorMessage") ?: if (json?.str("needConfirmation") == "true") "needConfirmation" else json?.keys?.sorted()?.joinToString(",") ?: ""
+            throw FirebaseException("Serverfehler: Anmeldung fehlgeschlagen ($detail)")
+        }
+        return GoogleResult(t, refresh, uid, json.str("email") ?: "", json.str("expiresIn"))
     }
 
     /** Makes a signed-in result the current account. */

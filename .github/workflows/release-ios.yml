@@ -2,10 +2,9 @@ name: iPhone-Release (SideStore)
 
 # Baut ein unsigniertes IPA, hängt es an das GitHub-Release und trägt die Version in die SideStore-Quelle ein.
 # SideStore signiert das IPA auf dem iPhone mit der eigenen Apple-ID, deshalb braucht dieser Workflow keine Secrets.
-# Das IPA enthält keine Freunde-Server-Daten: Purrtion/Resources/Firebase.plist liegt nicht im Repository.
+# Achtung: Die Release-IPAs ab 3.0 werden lokal gebaut (tools/build-ipa.sh), weil die Serverkonfiguration
+# Purrtion/Resources/Firebase.plist nicht im Repository liegt. Dieser Workflow baut deshalb nur auf Anfrage und ohne Server.
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -36,7 +35,7 @@ jobs:
         run: xcodebuild -version
       - name: IPA bauen
         if: steps.done.outputs.skip != 'true'
-        run: tools/build-ipa.sh
+        run: tools/build-ipa.sh --no-server
       - name: Release anlegen und IPA hochladen
         if: steps.done.outputs.skip != 'true'
         env:

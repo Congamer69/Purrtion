@@ -45,9 +45,7 @@ Der Code lässt sich in der App auch von Hand eingeben.
 4. `Firebase.example.plist` nach `Purrtion/Resources/Firebase.plist` kopieren und API-Key (`firebase apps:sdkconfig WEB …`),
    Projekt-ID und Einladungs-URL eintragen. Die Datei ist in `.gitignore`.
 
-## Server-Code
-Die App braucht keine eingebaute Konfiguration. Ein Server-Code `purrtion-server:<base64url von {"k":API-Key,"p":Projekt-ID,"i":Einladungs-URL}>`
-wird in Einstellungen → Freunde eingefügt und unter `friends.server` gespeichert (auch in der Sicherung enthalten).
-- `python3 tools/server_code.py` gibt den Code aus `Firebase.plist` aus. Verbundene Apps können ihn unter „Server-Code teilen“ weitergeben.
-- Builds mit eingebauter `Firebase.plist` (iOS, Android `--private`) speichern ihre Werte beim ersten Start ebenfalls dort, damit sie ein Update auf eine Version ohne eingebaute Werte überstehen.
-- Der API-Key ist ein öffentlicher Web-Key, geschützt wird über die Firestore-Regeln. Trotzdem gehört er nicht ins Repository.
+## Server in der App
+Seit 3.0 steckt die Konfiguration in den Release-Apps (iPhone: `Purrtion/Resources/Firebase.plist`, Android: wird beim Bauen aus derselben Datei gelesen). Es gibt keinen Server-Code mehr, niemand muss etwas verbinden oder selbst hosten. Der API-Key ist ein öffentlicher Web-Key; geschützt wird über die Firestore-Regeln. Die Datei liegt nicht im Repository, `tools/build-ipa.sh` und `android/build-apk.sh` fügen sie beim Bauen der Releases hinzu.
+- Eigener Server: Projekt wie oben einrichten, `Firebase.example.plist` nach `Purrtion/Resources/Firebase.plist` kopieren und die App selbst bauen.
+- Ältere Versionen, die einen Server-Code eingefügt hatten, lesen ihn weiter, wenn die App keinen eingebauten Server hat.

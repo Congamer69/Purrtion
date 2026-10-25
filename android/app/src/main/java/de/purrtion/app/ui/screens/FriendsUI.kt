@@ -154,7 +154,7 @@ fun FriendsScreen() {
                 }
             }
             when {
-                !store.isAvailable -> Info("Nicht eingerichtet", "Verbinde zuerst den Freunde-Server: Einstellungen → Freunde → Server-Code einfügen.")
+                !store.isAvailable -> Info("Nicht eingerichtet", "Freunde gibt es in diesem Build nicht.")
                 !store.isSetUp -> FriendsSetupCard()
                 else -> {
                     MeCard()
@@ -530,13 +530,12 @@ private fun CompareBar(who: String, v: Double?, scale: Double, m: FriendMetric, 
 @Composable
 fun FriendsSettingsSection() {
     val store = FriendsStore
-    if (!store.isAvailable) { ServerConnectSection(); return }
+    if (!store.isAvailable) { FormSection("Freunde", "Freunde gibt es in diesem Build nicht.") {}; return }
     val prefs = App.prefs
     val scope = rememberCoroutineScope()
     val enabled = prefs.bool(FriendsStore.ENABLED_KEY, true)
     var draft by remember { mutableStateOf(store.name) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var confirmDisconnect by remember { mutableStateOf(false) }
     fun push() { if (store.isSetUp) scope.launch { runCatching { store.upload(forced = true) } } }
     fun saveName() {
         val clean = draft.trim().take(30)
@@ -566,23 +565,15 @@ fun FriendsSettingsSection() {
                     Divider()
                     FormRow("Dein Code", value = store.me?.code ?: "–")
                     Divider()
-                    ServerCodeRow()
-                    Divider()
                     FormRow("Freunde-Daten löschen", titleColor = Palette.danger, onClick = { confirmDelete = true })
                 }
             }
         }
-        Divider()
-        FormRow("Freunde-Server trennen", titleColor = Palette.danger, onClick = { confirmDisconnect = true })
     }
     if (confirmDelete) AlertDialog({ confirmDelete = false }, title = { Text("Freunde-Daten löschen?") },
         text = { Text("Dein Profil und dein Code werden vom Server gelöscht, deine Freunde sehen dich nicht mehr. Deine Einträge in Purrtion bleiben.") },
         confirmButton = { TextButton({ confirmDelete = false; scope.launch { store.deleteAll() } }) { Text("Löschen", color = Palette.danger) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text("Abbrechen") } })
-    if (confirmDisconnect) AlertDialog({ confirmDisconnect = false }, title = { Text("Vom Freunde-Server trennen?") },
-        text = { Text("Dein Profil und dein Code werden von diesem Server gelöscht, deine Freunde dort sehen dich nicht mehr. Deine Einträge in Purrtion bleiben. Danach kannst du einen anderen Server-Code einfügen.") },
-        confirmButton = { TextButton({ confirmDisconnect = false; scope.launch { store.deleteAll(); ServerAccount.signOutLocal(); FirebaseConfig.disconnect() } }) { Text("Trennen", color = Palette.danger) } },
-        dismissButton = { TextButton({ confirmDisconnect = false }) { Text("Abbrechen") } })
 }
 
 /**
@@ -727,72 +718,6 @@ private fun MacroLine(title: String, value: Double, goal: Double, unit: String, 
     }
 }
 
-/** The friends server is not known yet: paste the server code (sent by whoever runs the server). */
-@Composable
-fun ServerConnectSection() {
-    val context = LocalContext.current
-    val h = rememberHaptics()
-    var text by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var checking by remember { mutableStateOf(false) }
-    var connected by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    // Was connected before (friends set up) but this version has no server built in: one paste restores everything.
-    val wasConnected = App.prefs.optString("friends.me") != null
-    FormSection("Server", error ?: if (wasConnected)
-        "Seit dieser Version ist der Server nicht mehr fest in der App. Füge den Server-Code einmal ein. Deine Freunde, dein Code und alle Einträge bleiben erhalten."
-    else "Für Freunde und das Server-Backup brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Konto → Server-Code teilen).") {
-        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Group, null, Modifier.size(20.dp), tint = Palette.accentText)
-            Spacer(Modifier.width(12.dp))
-            Text("Server verbinden", style = font(16, FontWeight.SemiBold), color = C.textPrimary)
-        }
-        TextInput(text, { text = it; error = null }, "purrtion-server:…", Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.cardAlt)
-            .padding(horizontal = 12.dp, vertical = 12.dp), style = font(14), singleLine = false,
-            keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
-        when {
-            // The code is checked with the server first, so a wrong code never looks connected.
-            checking || connected -> Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (connected) Icon(Icons.Rounded.CheckCircle, null, Modifier.size(22.dp), tint = Palette.fiber)
-                else CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accentText, strokeWidth = 2.dp)
-                Spacer(Modifier.width(12.dp))
-                Text(if (connected) "Verbunden" else "Verbinde mit dem Server …", style = font(16, if (connected) FontWeight.Bold else FontWeight.Normal),
-                    color = if (connected) Palette.fiber else C.textSecondary)
-            }
-            else -> Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PillButton("Einfügen", Modifier.weight(1f), filled = false) {
-                    val clip = (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip
-                    text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
-                }
-                PillButton("Verbinden", Modifier.weight(1f), enabled = text.isNotBlank()) {
-                    val code = text
-                    error = null; checking = true
-                    scope.launch {
-                        val wait = async { delay(700) }
-                        val problem = FirebaseConfig.verify(code)
-                        wait.await()
-                        checking = false
-                        if (problem != null) { h.warning(); error = problem; return@launch }
-                        h.success(); connected = true
-                        delay(1200)
-                        FirebaseConfig.connect(code)
-                    }
-                }
-            }
-        }
-    }
-}
 
-/** Share the server code, so friends can connect their app to the same server. */
-@Composable
-fun ServerCodeRow() {
-    val context = LocalContext.current
-    val code = FirebaseConfig.code ?: return
-    FormRow("Server-Code teilen", icon = Icons.Rounded.Share, chevron = true, onClick = {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Mit diesem Code verbindest du Purrtion mit unserem Freunde-Server (Einstellungen → Freunde):\n\n$code")
-        }
-        context.startActivity(Intent.createChooser(send, "Server-Code teilen"))
-    })
-}
+
+

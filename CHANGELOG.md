@@ -1,14 +1,20 @@
 # Changelog
 
-## 2.7 – Server-Konto mit Google (iPhone und Android) – 25. Oktober 2026
+## 3.0 – Konto mit Google, Freunde-Server eingebaut (iPhone und Android) – 25. Oktober 2026
 
 ### Neu
-- **Konto (Einstellungen → Konto):** Server-Code eintragen, mit Google anmelden. Das Freunde-Konto wird dabei mit dem Google-Konto verknüpft (gleiche Kennung, Freunde und Code bleiben). Auf einem neuen Gerät: Server-Code einfügen, mit Google anmelden, Freunde und Backup sind wieder da.
-- **Server-Backup:** Einträge, Rezepte, eigene Lebensmittel, Gewicht und Einstellungen liegen auf dem Server (gleiches Format wie die Sicherungsdatei, also auch zwischen iPhone und Android nutzbar). Täglich automatisch, per „Jetzt sichern“ oder „Backup laden“. Zwei Speicherplätze wechseln sich ab, ein abgebrochener Upload zerstört das letzte Backup nicht. Ein fast leeres neues Gerät überschreibt ein größeres Server-Backup nicht ohne Nachfrage.
+- **Der Freunde-Server ist eingebaut.** Kein Server-Code, kein Verbinden, kein eigener Server: Freunde-Code teilen oder eingeben, fertig. Die Optionen „Server-Code teilen“ und „Freunde-Server trennen“ gibt es nicht mehr. (Wer Purrtion selbst baut, kann weiter ein eigenes Firebase-Projekt eintragen, siehe `backend/README.md`.)
+- **Konto (Einstellungen → Konto):** Mit Google anmelden. Das Freunde-Konto wird mit dem Google-Konto verknüpft (gleiche Kennung, Freunde und Code bleiben). Auf einem neuen Gerät: mit dem gleichen Google-Konto anmelden, Freunde und Backup sind wieder da.
+- **Server-Backup:** Einträge, Rezepte, eigene Lebensmittel, Gewicht und Einstellungen liegen auf dem Server (gleiches Format wie die Sicherungsdatei, auch zwischen iPhone und Android nutzbar), bis zu 10 MB. Täglich automatisch, per „Jetzt sichern“ oder „Backup laden“. Zwei Speicherplätze wechseln sich ab, ein abgebrochener Upload zerstört das letzte Backup nicht. Ein fast leeres neues Gerät überschreibt ein größeres Server-Backup nicht ohne Nachfrage.
 - Die lokale Sicherung (Ordner, Datei, Passwort für das Freunde-Konto) funktioniert unverändert und ohne Google.
 
 ### Geändert
-- „Freunde-Server“ heißt jetzt einfach „Server“. Beim Trennen vom Server oder Löschen der Freunde-Daten bleibt ein mit Google verknüpftes Konto bestehen.
+- Beim Löschen der Freunde-Daten bleibt ein mit Google verknüpftes Konto bestehen.
+- Die Sicherung enthält keine Serverdaten mehr.
+- Die Release-Apps (IPA, APK) werden lokal gebaut, weil die Serverkonfiguration nicht im Repository liegt.
+
+### Behoben
+- Anmeldung mit Google: Die Antwort des Servers wird toleranter ausgewertet, Fehler nennen jetzt den Grund.
 
 ## 2.6.1 – Widgets, Shop und Freunde (iPhone und Android) – 25. Oktober 2026
 

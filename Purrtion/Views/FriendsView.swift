@@ -21,7 +21,7 @@ struct FriendsView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     if !store.isAvailable {
-                        info("Nicht eingerichtet", "Verbinde zuerst den Freunde-Server: Einstellungen → Freunde → Server-Code einfügen.")
+                        info("Nicht verfügbar", "Freunde gibt es in diesem Build nicht.")
                     } else if !store.isSetUp {
                         FriendsSetupCard()
                     } else {
@@ -605,78 +605,6 @@ struct FriendDetailSheet: View {
     }
 }
 
-/// Paste the server code (sent by whoever runs the server). Used in Einstellungen → Konto and → Freunde.
-struct ServerConnectSection: View {
-    @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
-    @State private var pasted = ""
-    @State private var serverError: String?
-    @State private var serverCheck = ServerCheck.idle
-    private enum ServerCheck { case idle, checking, connected }
-
-    var body: some View {
-        Section {
-            TextField("purrtion-server:…", text: $pasted, axis: .vertical)
-                .font(Theme.font(14)).lineLimit(1...4)
-                .autocorrectionDisabled().textInputAutocapitalization(.never)
-                .onChange(of: pasted) { _, _ in serverError = nil }
-            HStack {
-                switch serverCheck {
-                case .checking:
-                    ProgressView().tint(Theme.accent)
-                    Text("Verbinde mit dem Server …").foregroundStyle(Theme.textSecondary)
-                    Spacer()
-                case .connected:
-                    Label("Verbunden", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(Theme.fiber).fontWeight(.bold)
-                        .transition(.scale.combined(with: .opacity))
-                    Spacer()
-                case .idle:
-                    Button("Einfügen") { pasted = UIPasteboard.general.string ?? "" }
-                        .buttonStyle(.borderless)
-                    Spacer()
-                    Button("Verbinden", action: connectServer)
-                        .fontWeight(.bold).buttonStyle(.borderless)
-                        .disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-            .animation(Motion.quick, value: serverCheck)
-        } header: { Text("Server verbinden") } footer: {
-            if let serverError { Text(serverError).foregroundStyle(Theme.danger) }
-            else {
-                Text(UserDefaults.standard.data(forKey: "friends.me") != nil
-                     ? "Füge den Server-Code einmal ein. Danach kannst du dich mit Google anmelden und deine Daten sichern."
-                     : "Für Freunde und das Server-Backup brauchst du den Server-Code. Ihn bekommst du von der Person, die dich eingeladen hat (Einstellungen → Konto → Server-Code teilen).")
-            }
-        }
-        .listRowBackground(Theme.card)
-    }
-
-    /// Checks the code with the server first (short loading animation), so a wrong code never looks connected.
-    private func connectServer() {
-        let code = pasted
-        serverError = nil
-        serverCheck = .checking
-        Task {
-            async let wait: Void = Task.sleep(for: .seconds(0.7))
-            let problem = await FirebaseConfig.verify(code)
-            try? await wait
-            if let problem {
-                Haptics.warning()
-                serverCheck = .idle
-                serverError = problem
-                return
-            }
-            Haptics.success()
-            serverCheck = .connected
-            try? await Task.sleep(for: .seconds(1.2))
-            FirebaseConfig.connect(code)
-            serverCode = UserDefaults.standard.string(forKey: FirebaseConfig.storageKey) ?? ""
-            pasted = ""
-            serverCheck = .idle
-        }
-    }
-}
-
 /// Settings: show/hide the page, name, weight trend, delete data.
 struct FriendsSettingsSection: View {
     @EnvironmentObject private var goals: Goals
@@ -688,14 +616,11 @@ struct FriendsSettingsSection: View {
     @State private var draft = ""
     @State private var confirmDelete = false
     @State private var showManage = false
-    @State private var shareServer = false
-    @State private var confirmDisconnect = false
-    @AppStorage(FirebaseConfig.storageKey) private var serverCode = ""
 
     var body: some View {
         if !FirebaseConfig.isAvailable {
-            // No server known yet: paste the server code (sent by whoever runs the server).
-            ServerConnectSection()
+            Section { Text("Freunde gibt es in diesem Build nicht.").foregroundStyle(Theme.textSecondary) }
+                .listRowBackground(Theme.card)
         } else {
             Section {
                 Toggle(isOn: $enabled.animation()) { Label("Freunde-Seite anzeigen", systemImage: "person.2.fill") }
@@ -719,15 +644,9 @@ struct FriendsSettingsSection: View {
                             }
                         }
                         LabeledContent("Dein Code", value: store.me?.code ?? "–")
-                        if FirebaseConfig.code != nil {
-                            Button { shareServer = true } label: {
-                                Label("Server-Code teilen", systemImage: "square.and.arrow.up")
-                            }
-                        }
                         Button("Freunde-Daten löschen", role: .destructive) { confirmDelete = true }
                     }
                 }
-                Button("Freunde-Server trennen", role: .destructive) { confirmDisconnect = true }
             } header: { Text("Freunde") } footer: {
                 Text(enabled
                      ? "Freunde sehen nur Kennzahlen (Serie, Zieltreue, Score, Protein, Wasser, Aktivität, Obst & Gemüse) und deine Tageskalorien und Makros mit Ziel. Keine Mahlzeiten, kein Gewicht. Den Gewichtstrend (kg pro Woche) nur, wenn du ihn teilst."
@@ -735,9 +654,6 @@ struct FriendsSettingsSection: View {
             }
             .listRowBackground(Theme.card)
             .sheet(isPresented: $showManage) { FriendsManageView() }
-            .sheet(isPresented: $shareServer) {
-                ShareSheet(items: ["Mit diesem Code verbindest du Purrtion mit unserem Freunde-Server (Einstellungen → Freunde):\n\n\(FirebaseConfig.code ?? "")"])
-            }
             .onAppear { draft = name }
             .onChange(of: draft) { _, _ in
                 // Save shortly after typing stops.
@@ -751,18 +667,6 @@ struct FriendsSettingsSection: View {
                 Button("Löschen", role: .destructive) { Task { await store.deleteAll() } }
             } message: {
                 Text("Dein Profil und dein Code werden vom Server gelöscht, deine Freunde sehen dich nicht mehr. Deine Einträge in Purrtion bleiben.")
-            }
-            .confirmationDialog("Vom Freunde-Server trennen?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
-                Button("Trennen", role: .destructive) {
-                    Task {
-                        await store.deleteAll()
-                        ServerAccount.shared.signOutLocal()
-                        FirebaseConfig.disconnect()
-                        serverCode = UserDefaults.standard.string(forKey: FirebaseConfig.storageKey) ?? ""
-                    }
-                }
-            } message: {
-                Text("Dein Profil und dein Code werden von diesem Server gelöscht, deine Freunde dort sehen dich nicht mehr. Deine Einträge in Purrtion bleiben. Danach kannst du einen anderen Server-Code einfügen.")
             }
         }
     }
