@@ -74,12 +74,20 @@ object ServerAccount {
     private suspend fun finish(googleToken: String) {
         val previous = if (FirebaseAuth.hasAccount) (FirebaseAuth.uid ?: "") to (Secrets.get("fb.refresh") ?: "") else null
         val hadFriends = FriendsStore.me != null
-        val result = try {
+        var result = try {
             FirebaseAuth.googleSignIn(googleToken, link = previous != null)
         } catch (e: FirebaseException) {
             if (e.message?.contains("ALREADY_LINKED") == true) FirebaseAuth.googleSignIn(googleToken, link = false) else throw e
         }
         FirebaseAuth.use(result)
+        // The Google account already had a login on the server, but without any data (for example from an earlier,
+        // interrupted sign-in): drop that empty login and link Google to this device's account instead, so nothing is lost.
+        if (previous != null && previous.first != result.uid && isEmptyAccount()) {
+            FirebaseAuth.deleteAccount()
+            FirebaseAuth.adopt(previous.first, previous.second)
+            result = FirebaseAuth.googleSignIn(googleToken, link = true)
+            FirebaseAuth.use(result)
+        }
         App.prefs.set(EMAIL_KEY, result.email.ifEmpty { "Google" })
         if (previous?.first == result.uid) {
             // Linked: same account, friends and code stay.
@@ -92,6 +100,13 @@ object ServerAccount {
         remote = backup
         if (backup != null || (previous != null && hadFriends)) conflict = Conflict(backup, previous, previous != null && hadFriends)
         else takeOver()
+    }
+
+    /** True when the signed-in account has neither a friends profile nor a backup on the server. */
+    private suspend fun isEmptyAccount(): Boolean {
+        try { if (ServerBackup.meta() != null) return false } catch (e: Exception) { return false }
+        val uid = FirebaseAuth.uid ?: return false
+        return try { FirebaseREST.get("users/$uid"); false } catch (e: FirebaseException) { e === FirebaseException.notFound }
     }
 
     /** The Google account's data replaces what the old account had on this device (friends are read from the server). */

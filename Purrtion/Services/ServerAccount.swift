@@ -94,13 +94,21 @@ final class ServerAccount: NSObject, ObservableObject, ASWebAuthenticationPresen
         let auth = FirebaseAuth.shared
         let previous: (uid: String, refresh: String)? = auth.hasAccount ? (auth.uid ?? "", Keychain.get("fb.refresh") ?? "") : nil
         let hadFriends = FriendsStore.shared.me != nil
-        let result: FirebaseAuth.GoogleResult
+        var result: FirebaseAuth.GoogleResult
         do {
             result = try await auth.googleSignIn(googleIDToken: googleToken, link: previous != nil)
         } catch FirebaseError.server(let message) where message.contains("ALREADY_LINKED") {
             result = try await auth.googleSignIn(googleIDToken: googleToken, link: false)
         }
         auth.use(result)
+        // The Google account already had a login on the server, but without any data (for example from an earlier,
+        // interrupted sign-in): drop that empty login and link Google to this device's account instead, so nothing is lost.
+        if let previous, previous.uid != result.uid, await isEmptyAccount() {
+            await auth.deleteAccount()
+            auth.adopt(uid: previous.uid, refresh: previous.refresh)
+            result = try await auth.googleSignIn(googleIDToken: googleToken, link: true)
+            auth.use(result)
+        }
         setEmail(result.email.isEmpty ? "Google" : result.email)
         if previous?.uid == result.uid {
             // Linked: same account, friends and code stay.
@@ -116,6 +124,13 @@ final class ServerAccount: NSObject, ObservableObject, ASWebAuthenticationPresen
         } else {
             takeOver()
         }
+    }
+
+    /// True when the signed-in account has neither a friends profile nor a backup on the server.
+    private func isEmptyAccount() async -> Bool {
+        do { if try await ServerBackup.meta() != nil { return false } } catch { return false }
+        guard let uid = FirebaseAuth.shared.uid else { return false }
+        do { _ = try await FirebaseREST.get("users/\(uid)"); return false } catch FirebaseError.notFound { return true } catch { return false }
     }
 
     /// The Google account's data replaces what the old account had on this device (friends are read from the server).

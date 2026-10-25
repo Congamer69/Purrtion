@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.1 – Anmeldung ohne Verlust des Freunde-Kontos – 25. Oktober 2026
+
+### Behoben
+- **Google-Anmeldung ersetzte das Freunde-Profil**, obwohl das Google-Konto neu war. Ursache: Ein früherer, abgebrochener Anmeldeversuch hatte auf dem Server schon ein leeres Konto für das Google-Konto angelegt. Ein solches leeres Konto (ohne Freunde-Profil und ohne Backup) wird jetzt gelöscht und das Google-Konto an dein Freunde-Konto gehängt. Nur wenn das Google-Konto wirklich schon Daten hat, fragt die App nach.
+- Die Anmelde- und die Einladungsseite zeigen die Purrtion-Katze statt eines Emojis.
+
 ## 3.0 – Konto mit Google, Freunde-Server eingebaut (iPhone und Android) – 25. Oktober 2026
 
 ### Neu
