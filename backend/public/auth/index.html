@@ -21,6 +21,10 @@ body{margin:0;background:var(--bg);color:var(--text);font:17px -apple-system,sys
 <script>
 // Opened by the Purrtion app: /auth/?k=<API key>&p=<project>&s=<state>. Signs in with Google through Firebase and hands the
 // Google ID token back to the app (purrtion://auth). The token is only valid for this project.
+// Google only accepts the sign-in return address of the firebaseapp.com domain, which serves this same site.
+if (/\.web\.app$/.test(location.host) && location.search) {
+  location.replace('https://' + location.host.replace(/\.web\.app$/, '.firebaseapp.com') + location.pathname + location.search);
+}
 var q = new URLSearchParams(location.search);
 var msg = document.getElementById('msg');
 function fail(text) { msg.textContent = text; }
