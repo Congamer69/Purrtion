@@ -6,6 +6,7 @@ import AppIntents
 struct PurrtionWidgets: WidgetBundle {
     var body: some Widget {
         TodayWidget()
+        MacroWidget()
         QuickAddWidget()
         LockScreenWidget()
     }
@@ -444,6 +445,66 @@ struct QuickAddView: View {
                 HStack(spacing: 8) { tile(buttons[0]); tile(buttons[1]) }
                 HStack(spacing: 8) { tile(buttons[2]); tile(buttons[3]) }
             }
+        }
+    }
+}
+
+// MARK: - Macros (square)
+
+/// A square widget with the numbers: remaining kcal, eaten against goal, and protein, carbs and fat with amounts.
+struct MacroWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "PurrtionMacros", provider: SnapshotProvider()) { entry in
+            MacroWidgetView(s: entry.snapshot)
+                .containerBackground(Theme.card, for: .widget)
+        }
+        .configurationDisplayName("Makros")
+        .description("Übrige kcal, gegessen und Protein, Kohlenhydrate und Fett mit Mengen.")
+        .supportedFamilies([.systemSmall])
+    }
+}
+
+struct MacroWidgetView: View {
+    let s: WidgetSnapshot
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    private var mono: Bool { renderingMode != .fullColor }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(abs(s.remaining).formatted(.number.precision(.fractionLength(0))))
+                    .font(Theme.font(28, .heavy))
+                    .foregroundStyle(mono ? Color.white : (s.remaining >= 0 ? Theme.textPrimary : Theme.danger))
+                    .minimumScaleFactor(0.6).lineLimit(1).widgetAccentable()
+                Text(s.remaining >= 0 ? "übrig" : "drüber").font(Theme.font(12, .semibold)).foregroundStyle(Theme.textSecondary)
+            }
+            Text("\(Int(s.kcal)) von \(Int(s.kcalGoal)) kcal").font(Theme.font(11, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).minimumScaleFactor(0.7)
+            bar(s.kcal, s.kcalGoal, mono ? .white : (s.progress > 1.08 ? Theme.danger : s.accent), height: 6)
+            Spacer(minLength: 2)
+            row("Protein", s.protein, s.proteinGoal, Theme.protein)
+            row("Kohlenh.", s.carbs, s.carbsGoal, Theme.carbs)
+            row("Fett", s.fat, s.fatGoal, Theme.fat)
+        }
+    }
+
+    private func bar(_ value: Double, _ goal: Double, _ color: Color, height: CGFloat) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(mono ? Color.white.opacity(0.22) : Theme.track(color))
+                Capsule().fill(color).frame(width: max(height, geo.size.width * min(value / max(goal, 0.01), 1))).widgetAccentable()
+            }
+        }
+        .frame(height: height)
+    }
+
+    private func row(_ title: String, _ value: Double, _ goal: Double, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title).font(Theme.font(11, .bold)).foregroundStyle(mono ? Color.white : color)
+                Spacer()
+                Text("\(Int(value)) / \(Int(goal)) g").font(Theme.font(11, .semibold)).foregroundStyle(Theme.textSecondary)
+            }
+            bar(value, goal, mono ? .white : color, height: 4)
         }
     }
 }

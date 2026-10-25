@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
@@ -90,7 +91,9 @@ sealed interface DetailMode {
 /** Amount picker + nutrients of one food. Used to log, edit an entry or pick an ingredient. */
 @Composable
 fun FoodDetailScreen(food: FoodItem, mode: DetailMode, preset: Pair<Double, ServingOption>? = null, back: Boolean = true,
-                     onDone: ((String) -> Unit)? = null) {
+                     onDone: ((String) -> Unit)? = null,
+                     /** Multi scan: logs the food and goes back to the scanner. */
+                     onAddAnother: ((String) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val h = rememberHaptics()
     val initial = remember {
@@ -113,7 +116,7 @@ fun FoodDetailScreen(food: FoodItem, mode: DetailMode, preset: Pair<Double, Serv
     val step = if (serving.grams == 1.0) (if (food.unit == "ml") 50.0 else 10.0) else 0.5
     fun setQuantity(v: Double) { quantity = max(0.0, Math.round(v * 100) / 100.0); quantityText = quantity.clean }
 
-    fun commit() {
+    fun commit(another: Boolean = false) {
         scope.launch {
             when (mode) {
                 is DetailMode.Add -> Store.log(food, quantity, serving, mode.day)
@@ -122,6 +125,7 @@ fun FoodDetailScreen(food: FoodItem, mode: DetailMode, preset: Pair<Double, Serv
                 is DetailMode.Pick -> { mode.onPick(food, quantity, serving); return@launch }
             }
             h.success()
+            if (another && onAddAnother != null) { onAddAnother(food.displayName); return@launch }
             if (onDone != null) onDone(food.displayName) else Nav.pop()
         }
     }
@@ -143,7 +147,12 @@ fun FoodDetailScreen(food: FoodItem, mode: DetailMode, preset: Pair<Double, Serv
             }
         },
         bottom = {
-            PillButton(buttonTitle, icon = if (mode is DetailMode.Edit || mode is DetailMode.Ingredient) Icons.Rounded.Check else Icons.Rounded.Pets,
+            if (onAddAnother != null && mode is DetailMode.Add) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PillButton("Weiteres scannen", Modifier.weight(1f), icon = Icons.Rounded.QrCodeScanner, filled = false, enabled = grams > 0) { commit(another = true) }
+                    PillButton("Eintragen", Modifier.weight(1f), icon = Icons.Rounded.Pets, enabled = grams > 0) { commit() }
+                }
+            } else PillButton(buttonTitle, icon = if (mode is DetailMode.Edit || mode is DetailMode.Ingredient) Icons.Rounded.Check else Icons.Rounded.Pets,
                 enabled = grams > 0) { commit() }
         },
     ) {

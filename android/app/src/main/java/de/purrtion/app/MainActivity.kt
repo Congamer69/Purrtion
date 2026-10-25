@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import de.purrtion.app.domain.AutoClose
+import de.purrtion.app.domain.GentleReminder
 import de.purrtion.app.domain.Backup
 import de.purrtion.app.domain.Diag
 import de.purrtion.app.domain.SafeMode
@@ -88,6 +89,7 @@ class MainActivity : ComponentActivity() {
             Diag.guard("Health Connect Gewicht") { HealthConnect.importWeights() }
             Diag.guard("Health Connect Aktivität") { if (App.goals.activityEnabled && HealthConnect.refreshActivity(14)) App.goals.activityUpdated() }
             Diag.guard("Tagesabschluss planen") { AutoClose.schedule(this@MainActivity) }
+            Diag.guard("Erinnerung planen") { GentleReminder.createChannel(this@MainActivity); GentleReminder.schedule(this@MainActivity) }
             Diag.guard("Ernährung synchronisieren") { NutritionSync.syncRecent(3) }
             Diag.guard("Datenbank-Update") { DatabaseUpdater.autoUpdateIfNeeded() }
             Diag.guard("App-Update prüfen") { de.purrtion.app.domain.AppUpdater.checkDaily() }

@@ -64,6 +64,14 @@ import de.purrtion.app.data.FoodEntry
 import de.purrtion.app.data.UndoStore
 import de.purrtion.app.domain.GoalStatus
 import de.purrtion.app.domain.Streak
+import de.purrtion.app.domain.Extras
+import de.purrtion.app.domain.Shop
+import de.purrtion.app.ui.theme.RadiusSmall
+import de.purrtion.app.domain.ShopItem
+import de.purrtion.app.ui.pixel.CatPalette
+import de.purrtion.app.ui.pixel.Outfit
+import de.purrtion.app.ui.pixel.PixelSpriteView
+import de.purrtion.app.ui.pixel.Sprites
 import de.purrtion.app.model.mondayOfWeek
 import de.purrtion.app.model.weekdayShort
 import de.purrtion.app.ui.Nav
@@ -240,6 +248,7 @@ fun StreakSheet() {
     Screen("Serie", leading = null, trailing = { TopTextButton("Fertig") { Nav.pop() } }) {
         StreakHero(state)
         StreakStats(state, logged.count { !it.isAfter(today) })
+        if (App.prefs.bool(Extras.SHOP, true)) ShopCard(state)
         MilestonesCard(state)
         FreezeCard(state)
         StreakCalendar(state, logged, gridStart)
@@ -429,5 +438,84 @@ private fun Legend(color: Color, text: String) {
         Box(Modifier.size(12.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(6.dp))
         Text(text, style = font(12), color = C.textSecondary)
+    }
+}
+
+// MARK: Shop
+
+/** Streak shop: points buy fur colours, hats, glasses, scarves and an extra freeze. */
+@Composable
+private fun ShopCard(state: Streak.State) {
+    val h = rememberHaptics()
+    var earned by remember { mutableStateOf(0) }
+    LaunchedEffect(state.best, state.count) { earned = Diag.safe("Punkte berechnen", 0) { Shop.earned(App.goals, maxOf(state.best, state.count)) } }
+    var kind by remember { mutableStateOf(ShopItem.Kind.fur) }
+    var toast by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(toast) { if (toast != null) { kotlinx.coroutines.delay(1800); toast = null } }
+    val owned = Shop.owned
+    val balance = Shop.balance(earned)
+    val freezes = App.prefs.int("streak.freezes", 1)
+    val anyWorn = listOf("shop.hat", "shop.glasses", "shop.scarf").any { App.prefs.string(it, "").isNotEmpty() }
+    Column(Modifier.fillMaxWidth().card(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Shop", style = font(17, FontWeight.Bold), color = C.textPrimary)
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.clip(CircleShape).background(C.accentSoft).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                PixelSpriteView(Sprites.paw, 2.dp)
+                Spacer(Modifier.width(5.dp))
+                Text("$balance", style = font(15, FontWeight.ExtraBold), color = C.textPrimary)
+            }
+        }
+        Text("Punkte gibt es für jeden eingetragenen Tag (10), für Tage nahe am Ziel (+5) und für Meilensteine.", style = font(12), color = C.textSecondary)
+        Row(Modifier.fillMaxWidth().clip(CircleShape).background(C.cardAlt).padding(3.dp)) {
+            for (k in ShopItem.Kind.entries) {
+                val on = kind == k
+                Box(Modifier.weight(1f).height(34.dp).clip(CircleShape).background(if (on) Palette.accent else Color.Transparent).clickable { h.tap(); kind = k },
+                    contentAlignment = Alignment.Center) {
+                    Text(k.title, style = font(12, FontWeight.SemiBold), color = if (on) Color.White else C.textSecondary, maxLines = 1)
+                }
+            }
+        }
+        Shop.items.filter { it.kind == kind }.chunked(3).forEach { rowItems ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (item in rowItems) {
+                    val has = item.id in owned
+                    val worn = Shop.isWorn(item)
+                    val affordable = balance >= item.price
+                    val freezeFull = item.kind == ShopItem.Kind.extra && freezes >= Streak.MAX_FREEZES
+                    var outfit = Outfit.None
+                    var palette: CatPalette? = null
+                    when (item.kind) {
+                        ShopItem.Kind.fur -> palette = CatPalette.byId(item.id)
+                        ShopItem.Kind.hat -> outfit = Outfit(hat = item.id)
+                        ShopItem.Kind.glasses -> outfit = Outfit(glasses = item.id)
+                        ShopItem.Kind.scarf -> outfit = Outfit(scarf = item.id)
+                        ShopItem.Kind.extra -> {}
+                    }
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(RadiusSmall)).background(if (worn) C.accentSoft else C.cardAlt)
+                        .then(if (worn) Modifier.border(2.dp, Palette.accent, RoundedCornerShape(RadiusSmall)) else Modifier)
+                        .squishClick {
+                            when {
+                                has -> { Shop.equip(item); h.tap() }
+                                freezeFull -> toast = "Du hast schon alle Freezes."
+                                Shop.buy(item, balance) -> { h.success(); toast = if (item.kind == ShopItem.Kind.extra) "Freeze gekauft" else "${item.name} gekauft" }
+                                else -> { h.warning(); toast = "Dir fehlen ${item.price - balance} Punkte." }
+                            }
+                        }.padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(Modifier.height(58.dp), contentAlignment = Alignment.Center) {
+                            if (item.kind == ShopItem.Kind.extra) Icon(Icons.Rounded.AcUnit, null, Modifier.size(30.dp), tint = Palette.water)
+                            else PixelSpriteView(Sprites.sit, 3.4.dp, palette ?: CatPalette.byId(App.prefs.string("catPalette", "ginger")), outfit = outfit)
+                        }
+                        Text(item.name, style = font(12, FontWeight.Bold), color = C.textPrimary, maxLines = 1)
+                        Text(if (worn) "Getragen" else if (has) "Anziehen" else "${item.price}", style = font(12, FontWeight.ExtraBold),
+                            color = if (worn) Palette.accentText else if (has || (affordable && !freezeFull)) C.textPrimary else C.textSecondary.copy(alpha = 0.7f))
+                    }
+                }
+                repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        if (anyWorn) Text("Alles ausziehen", style = font(14, FontWeight.SemiBold), color = Palette.accentText, modifier = Modifier.clickable { Shop.takeOffAll(); h.tap() })
+        toast?.let { Text(it, style = font(13, FontWeight.Bold), color = Palette.accentText) }
     }
 }

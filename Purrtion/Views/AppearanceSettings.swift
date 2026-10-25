@@ -7,6 +7,8 @@ struct AppearanceSettingsView: View {
     @AppStorage("profile.name") private var profileName = ""
     @AppStorage(ThemeSetting.accentKey) private var accent = ThemeAccent.orange
     @AppStorage(ThemeSetting.customKey) private var customColorHex = ""
+    @State private var showWheel = false
+    @State private var currentIcon = UIApplication.shared.alternateIconName
     @AppStorage(ThemeSetting.cornersKey) private var corners = ThemeCorners.normal
     @AppStorage(ThemeSetting.cardsKey) private var cardStyle = ThemeCards.shadow
     @AppStorage(ThemeSetting.backgroundKey) private var backgroundTone = ThemeBackground.warm
@@ -28,26 +30,33 @@ struct AppearanceSettingsView: View {
             .animation(Motion.smooth, value: accent)
     }
 
-    /// The last swatch: a rainbow circle (the picked colour once chosen) that opens the system colour wheel.
+    /// The last swatch: a rainbow circle (the picked colour once chosen) that opens the system colour wheel in a sheet.
     private var customSwatch: some View {
         let on = accent == .custom
-        let binding = Binding<Color>(
-            get: { Color(hex: ThemeSetting.customHex) },
-            set: { color in
+        return Button {
+            Haptics.tap()
+            accent = .custom
+            showWheel = true
+        } label: {
+            Circle()
+                .fill(on ? AnyShapeStyle(Color(hex: ThemeSetting.customHex)) : AnyShapeStyle(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center)))
+                .frame(height: 40)
+                .overlay { if on { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
+                .overlay(Circle().stroke(Theme.textPrimary.opacity(on ? 0.9 : 0), lineWidth: 2).padding(-4))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Eigene Farbe")
+        .sheet(isPresented: $showWheel) {
+            SystemColorWheel(initial: UIColor(Color(hex: ThemeSetting.customHex))) { color in
                 var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+                color.getRed(&r, green: &g, blue: &b, alpha: &a)
                 customColorHex = String(format: "%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
                 accent = .custom
-            })
-        return Circle()
-            .fill(on ? AnyShapeStyle(Color(hex: ThemeSetting.customHex)) : AnyShapeStyle(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center)))
-            .frame(height: 40)
-            .overlay { if on { Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)).foregroundStyle(.white) } }
-            .overlay(Circle().stroke(Theme.textPrimary.opacity(on ? 0.9 : 0), lineWidth: 2).padding(-4))
-            // The system colour picker sits invisibly on top, so a tap anywhere on the circle opens the wheel.
-            .overlay { ColorPicker("Eigene Farbe", selection: binding, supportsOpacity: false).labelsHidden().scaleEffect(1.7).opacity(0.02) }
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Eigene Farbe")
+            }
+            .ignoresSafeArea()
+            .presentationDetents([.medium, .large])
+        }
     }
 
     /// A small Today screen built from the real card styles, so every choice below is visible right here.
@@ -136,9 +145,9 @@ struct AppearanceSettingsView: View {
         .listRowBackground(Theme.card)
 
                 Section {
-                    HStack(spacing: 16) {
-                        // The dog is a secret and never listed; while it is active no cat is selected.
-                        ForEach(CatPalette.all) { p in
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 12) {
+                        // The dog is a secret and never listed; while it is active no cat is selected. Fur colours from the shop show up once bought.
+                        ForEach(Shop.palettes) { p in
                             Button {
                                 Haptics.tap()
                                 withAnimation(Motion.playful) { paletteID = p.id }
@@ -161,6 +170,35 @@ struct AppearanceSettingsView: View {
                     .pickerStyle(.segmented)
                 } header: { Text(paletteID == CatPalette.dog.id ? "Dein Hund & Look" : "Deine Katze & Look") }
                 .listRowBackground(Theme.card)
+
+        Section {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 12) {
+                ForEach(AppIconChoice.all) { choice in
+                    Button {
+                        Haptics.tap()
+                        UIApplication.shared.setAlternateIconName(choice.assetName) { _ in
+                            DispatchQueue.main.async { currentIcon = UIApplication.shared.alternateIconName }
+                        }
+                        currentIcon = choice.assetName
+                    } label: {
+                        VStack(spacing: 5) {
+                            Image(choice.preview).resizable().interpolation(.none).scaledToFit()
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(currentIcon == choice.assetName ? Theme.accent : Theme.line, lineWidth: currentIcon == choice.assetName ? 3 : 1))
+                            Text(choice.name).font(Theme.font(11, currentIcon == choice.assetName ? .bold : .regular))
+                                .foregroundStyle(currentIcon == choice.assetName ? Theme.accentText : Theme.textSecondary).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("App-Symbol \(choice.name)")
+                    .accessibilityAddTraits(currentIcon == choice.assetName ? .isSelected : [])
+                }
+            }
+            .padding(.vertical, 6)
+        } header: { Text("App-Symbol") } footer: {
+            Text("Jedes Symbol gibt es hell, dunkel und eingefärbt. Auf dem Home-Bildschirm passt es sich automatisch an.")
+        }
+        .listRowBackground(Theme.card)
 
         Section {
             Picker("Ecken", selection: $corners) { ForEach(ThemeCorners.allCases) { Text($0.name).tag($0) } }
@@ -186,4 +224,46 @@ struct AppearanceSettingsView: View {
         }
         .listRowBackground(Theme.card)
     }
+}
+
+/// The system colour wheel (spectrum, grid and sliders). Opened directly, so it appears on every tap.
+struct SystemColorWheel: UIViewControllerRepresentable {
+    let initial: UIColor
+    let onChange: (UIColor) -> Void
+
+    func makeUIViewController(context: Context) -> UIColorPickerViewController {
+        let vc = UIColorPickerViewController()
+        vc.selectedColor = initial
+        vc.supportsAlpha = false
+        vc.delegate = context.coordinator
+        return vc
+    }
+
+    func updateUIViewController(_ vc: UIColorPickerViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(onChange) }
+
+    final class Coordinator: NSObject, UIColorPickerViewControllerDelegate {
+        let onChange: (UIColor) -> Void
+        init(_ onChange: @escaping (UIColor) -> Void) { self.onChange = onChange }
+        func colorPickerViewController(_ vc: UIColorPickerViewController, didSelect color: UIColor, continuously: Bool) { onChange(color) }
+    }
+}
+
+/// The app icons that can be picked (the first one is the default icon).
+struct AppIconChoice: Identifiable {
+    let assetName: String?
+    let name: String
+    let preview: String
+    var id: String { assetName ?? "default" }
+
+    static let all: [AppIconChoice] = [
+        .init(assetName: nil, name: "Standard", preview: "PreviewDefault"),
+        .init(assetName: "IconMidnight", name: "Mitternacht", preview: "PreviewMidnight"),
+        .init(assetName: "IconMint", name: "Minze", preview: "PreviewMint"),
+        .init(assetName: "IconSakura", name: "Sakura", preview: "PreviewSakura"),
+        .init(assetName: "IconRetro", name: "Retro", preview: "PreviewRetro"),
+        .init(assetName: "IconDusk", name: "Dämmerung", preview: "PreviewDusk"),
+        .init(assetName: "IconNoir", name: "Noir", preview: "PreviewNoir"),
+        .init(assetName: "IconBerry", name: "Blaubeere", preview: "PreviewBerry"),
+    ]
 }

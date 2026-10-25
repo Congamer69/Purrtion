@@ -82,6 +82,8 @@ data class DayTarget(
     val activityBonus: Double,
     /** Share of tracked activity credited on that day (the setting valid back then). */
     val activityPercent: Double = 0.0,
+    /** Weekly budget: kcal moved to or from this day because earlier days of the week went over or under. */
+    val weekAdjust: Double = 0.0,
 )
 
 /** Daily targets + body profile, persisted in the shared settings. */
@@ -192,7 +194,19 @@ class Goals(private val prefs: Prefs) {
 
     // MARK: Goal of a day
 
+    /** The goal of a day including the weekly budget (when switched on). */
     fun target(day: LocalDate): DayTarget {
+        val t = coreTarget(day)
+        val adj = WeekBudget.adjustment(day) { coreTarget(it).kcal }
+        if (adj == 0.0) return t
+        // Protein stays; carbs and fat take the difference in their usual ratio.
+        val rest = t.kcal - t.protein * 4
+        val factor = if (rest > 0) max(0.0, (rest + adj) / rest) else 1.0
+        return t.copy(kcal = t.kcal + adj, carbs = Math.round(t.carbs * factor).toDouble(), fat = Math.round(t.fat * factor).toDouble(), weekAdjust = adj)
+    }
+
+    /** The goal of a day without the weekly budget. */
+    private fun coreTarget(day: LocalDate): DayTarget {
         val plan = if (!day.isBefore(LocalDate.now())) currentPlan(day)
             else history.lastOrNull { !it.fromDate.isAfter(day) } ?: history.firstOrNull() ?: currentPlan(day)
         val base = plan.weekdayKcal[day.iosWeekday] ?: plan.kcal

@@ -27,8 +27,16 @@ struct CatPalette: Hashable, Identifiable {
     /// The secret dog. Not part of `all`: it is unlocked by tapping the logo in the settings.
     static let dog = CatPalette(id: "dog", name: "Buddy", fur: Color(hex: 0xC98B4F), furLight: Color(hex: 0xF4E0BE), stripe: Color(hex: 0x8B5A33))
 
+    // Fur colours from the streak shop.
+    static let moon = CatPalette(id: "moon", name: "Mondschein", fur: Color(hex: 0xB9C6EC), furLight: Color(hex: 0xF3F6FF), stripe: Color(hex: 0x8D9CCF))
+    static let cinnamon = CatPalette(id: "cinnamon", name: "Zimt", fur: Color(hex: 0xC4693B), furLight: Color(hex: 0xF5D5B7), stripe: Color(hex: 0x8F4626))
+    static let sakura = CatPalette(id: "sakura", name: "Sakura", fur: Color(hex: 0xF5AACB), furLight: Color(hex: 0xFFEAF2), stripe: Color(hex: 0xD97BA3))
+    static let mint = CatPalette(id: "mint", name: "Minze", fur: Color(hex: 0x86D9BC), furLight: Color(hex: 0xE6FBF3), stripe: Color(hex: 0x4FB08E))
+    static let galaxy = CatPalette(id: "galaxy", name: "Galaxie", fur: Color(hex: 0x6F54D8), furLight: Color(hex: 0xCDBFFF), stripe: Color(hex: 0x4A34A3))
+    static let shop: [CatPalette] = [.moon, .cinnamon, .sakura, .mint, .galaxy]
+
     static let all: [CatPalette] = [.ginger, .grey, .black, .cream]
-    static func byID(_ id: String) -> CatPalette { (all + [dog]).first { $0.id == id } ?? .ginger }
+    static func byID(_ id: String) -> CatPalette { (all + shop + [dog]).first { $0.id == id } ?? .ginger }
     var isDog: Bool { id == "dog" }
 
     func color(for c: Character) -> Color? {
@@ -58,6 +66,8 @@ struct CatPalette: Hashable, Identifiable {
         case "m": return Color(hex: 0xE08A6A)   // cooked meat
         case "M": return Color(hex: 0xB8583C)   // dark meat
         case "Y": return Color(hex: 0xE0A22E)   // dark yellow
+        case "v": return Color(hex: 0x9B7BFF)   // violet
+        case "V": return Color(hex: 0x6C4FD6)   // dark violet
         default: return nil
         }
     }

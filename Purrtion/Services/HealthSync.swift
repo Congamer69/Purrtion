@@ -66,6 +66,13 @@ enum WidgetBridge {
         for (day, ml) in WidgetSnapshot.takePendingWater() where ml > 0 { ctx.insert(WaterLog(day: day, ml: ml)) }
         try? ctx.save()
         let today = Calendar.current.startOfDay(for: .now)
+        // The weekly budget looks at what the days of this week added up to.
+        let weekFrom = Calendar.current.date(byAdding: .day, value: -14, to: today)!
+        let recentAll = (try? ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day >= weekFrom }))) ?? []
+        var dayTotals: [Date: Double] = [:]
+        for i in 0...14 { if let d = Calendar.current.date(byAdding: .day, value: -i, to: today) { dayTotals[d] = 0 } }   // deleted entries count as 0
+        for e in recentAll { dayTotals[e.day, default: 0] += e.kcal }
+        if WeekBudget.record(totals: dayTotals) { goals.activityUpdated() }
         let entries = (try? ctx.fetch(FetchDescriptor<FoodEntry>(predicate: #Predicate { $0.day == today }))) ?? []
         let water = (try? ctx.fetch(FetchDescriptor<WaterLog>(predicate: #Predicate { $0.day == today }))) ?? []
         var s = WidgetSnapshot()
@@ -101,5 +108,6 @@ enum WidgetBridge {
         }
         s.save()
         WidgetCenter.shared.reloadAllTimelines()
+        if GentleReminder.enabled { Task { await GentleReminder.reschedule(ctx: ctx) } }
     }
 }

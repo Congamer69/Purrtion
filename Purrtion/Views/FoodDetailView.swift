@@ -14,6 +14,8 @@ struct FoodDetailView: View {
     @State var food: FoodItem
     let mode: Mode
     var onDone: ((String) -> Void)? = nil
+    /// Multi scan: logs the food and goes back to the scanner (gets the name of the logged food).
+    var onAddAnother: ((String) -> Void)? = nil
 
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
@@ -23,10 +25,12 @@ struct FoodDetailView: View {
     @State private var quantityText = "100"
     @FocusState private var amountFocused: Bool
 
-    init(food: FoodItem, mode: Mode, preset: (quantity: Double, serving: ServingOption)? = nil, onDone: ((String) -> Void)? = nil) {
+    init(food: FoodItem, mode: Mode, preset: (quantity: Double, serving: ServingOption)? = nil, onDone: ((String) -> Void)? = nil,
+         onAddAnother: ((String) -> Void)? = nil) {
         _food = State(initialValue: food)
         self.mode = mode
         self.onDone = onDone
+        self.onAddAnother = onAddAnother
         let key = food.id
         _saved = Query(filter: #Predicate<SavedFood> { $0.key == key })
         if case .edit(let entry) = mode {
@@ -113,13 +117,24 @@ struct FoodDetailView: View {
                 .padding(.vertical, 8)
                 .background(Theme.background)
             } else {
-                Button(action: commit) {
-                    HStack {
-                        Image(systemName: "pawprint.fill")
-                        Text(buttonTitle)
+                HStack(spacing: 10) {
+                    if onAddAnother != nil, case .add = mode {
+                        Button { commit(scanAnother: true) } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "barcode.viewfinder")
+                                Text("Weiteres scannen").lineLimit(1).minimumScaleFactor(0.7)
+                            }
+                        }
+                        .buttonStyle(PillButtonStyle(color: Theme.accentText, filled: false))
                     }
+                    Button { commit() } label: {
+                        HStack {
+                            Image(systemName: "pawprint.fill")
+                            Text(onAddAnother != nil ? "Hinzufügen" : buttonTitle).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                    }
+                    .buttonStyle(PillButtonStyle())
                 }
-                .buttonStyle(PillButtonStyle())
                 .disabled(grams <= 0)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -273,7 +288,7 @@ struct FoodDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func commit() {
+    private func commit(scanAnother: Bool = false) {
         switch mode {
         case .add(let day):
             ctx.log(food, quantity: quantity, serving: serving, day: day)
@@ -289,6 +304,7 @@ struct FoodDetailView: View {
             return
         }
         Haptics.success()
+        if scanAnother, let onAddAnother { onAddAnother(food.displayName); return }
         if let onDone { onDone(food.displayName) } else { dismiss() }
     }
 

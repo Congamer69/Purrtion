@@ -6,7 +6,13 @@ struct StreakSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Query private var entries: [FoodEntry]
+    @EnvironmentObject private var goals: Goals
     @State private var state = Streak.State()
+    @State private var points = 0
+    @State private var shopKind = ShopItem.Kind.fur
+    @State private var shopTick = 0
+    @State private var toast: String?
+    @AppStorage(Extras.shopKey) private var shopOn = true
 
     private let cal = Calendar.mondayFirst
     private var today: Date { Calendar.current.startOfDay(for: .now) }
@@ -25,6 +31,7 @@ struct StreakSheet: View {
                 VStack(spacing: Theme.Space.l) {
                     hero
                     statsRow
+                    if shopOn { shopCard }
                     milestonesCard
                     freezeCard
                     calendarCard
@@ -38,8 +45,115 @@ struct StreakSheet: View {
             .navigationTitle("Serie")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
-            .task { state = Streak.refresh(ctx: ctx) }
+            .task {
+                state = Streak.refresh(ctx: ctx)
+                points = Shop.earned(ctx: ctx, goals: goals, bestStreak: max(state.best, state.count))
+            }
+            .overlay(alignment: .bottom) {
+                if let toast {
+                    Text(toast).font(Theme.font(14, .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 10).background(Theme.accent, in: Capsule())
+                        .padding(.bottom, 24).transition(.scale(scale: 0.85).combined(with: .opacity))
+                }
+            }
         }
+    }
+
+    // MARK: Shop
+
+    private var balance: Int { _ = shopTick; return Shop.balance(earned: points) }
+
+    private var shopCard: some View {
+        let items = Shop.items.filter { $0.kind == shopKind }
+        return VStack(alignment: .leading, spacing: Theme.Space.m) {
+            HStack {
+                Text("Shop").font(Theme.font(17, .bold)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                HStack(spacing: 5) {
+                    PixelSpriteView(sprite: Sprites.paw, pixel: 2)
+                    Text("\(balance)").font(Theme.font(15, .heavy)).foregroundStyle(Theme.textPrimary).contentTransition(.numericText(value: Double(balance)))
+                }
+                .padding(.horizontal, 10).padding(.vertical, 5).background(Theme.accentSoft, in: Capsule())
+            }
+            Text("Punkte gibt es für jeden eingetragenen Tag (10), für Tage nahe am Ziel (+5) und für Meilensteine.")
+                .font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+            Picker("Kategorie", selection: $shopKind.animation(Motion.quick)) {
+                ForEach(ShopItem.Kind.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Theme.Space.s), count: 3), spacing: Theme.Space.s) {
+                ForEach(items) { shopTile($0) }
+            }
+            if !(UserDefaults.standard.string(forKey: "shop.hat") ?? "").isEmpty || !(UserDefaults.standard.string(forKey: "shop.glasses") ?? "").isEmpty
+                || !(UserDefaults.standard.string(forKey: "shop.scarf") ?? "").isEmpty {
+                Button("Alles ausziehen") { Shop.takeOffAll(); shopTick += 1; Haptics.tap() }.font(Theme.font(14, .semibold))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private func preview(_ item: ShopItem) -> some View {
+        var outfit = Outfit()
+        var palette = CatPalette.byID(UserDefaults.standard.string(forKey: "catPalette") ?? CatPalette.ginger.id)
+        switch item.kind {
+        case .fur: palette = CatPalette.byID(item.id)
+        case .hat: outfit.hat = item.id
+        case .glasses: outfit.glasses = item.id
+        case .scarf: outfit.scarf = item.id
+        case .extra: break
+        }
+        return Group {
+            if item.kind == .extra {
+                Image(systemName: "snowflake").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.water).frame(width: 56, height: 56)
+            } else {
+                PixelSpriteView(sprite: Sprites.sit, pixel: 3.4, palette: palette, outfit: outfit)
+            }
+        }
+    }
+
+    private func shopTile(_ item: ShopItem) -> some View {
+        _ = shopTick
+        let owned = Shop.owned.contains(item.id)
+        let worn = Shop.isWorn(item)
+        let affordable = balance >= item.price
+        let freezeFull = item.kind == .extra && (UserDefaults.standard.object(forKey: "streak.freezes") as? Int ?? 1) >= Streak.maxFreezes
+        return Button {
+            if owned {
+                Shop.equip(item); Haptics.tap()
+            } else if freezeFull {
+                flash("Du hast schon alle Freezes.")
+            } else if Shop.buy(item, balance: balance) {
+                Haptics.success()
+                state = Streak.refresh(ctx: ctx)
+                flash(item.kind == .extra ? "Freeze gekauft" : "\(item.name) gekauft")
+            } else {
+                Haptics.warning()
+                flash("Dir fehlen \(item.price - balance) Punkte.")
+            }
+            shopTick += 1
+        } label: {
+            VStack(spacing: 6) {
+                preview(item).frame(height: 58)
+                Text(item.name).font(Theme.font(12, .bold)).foregroundStyle(Theme.textPrimary).lineLimit(1).minimumScaleFactor(0.8)
+                Group {
+                    if worn { Text("Getragen").foregroundStyle(Theme.accentText) }
+                    else if owned { Text("Anziehen").foregroundStyle(Theme.textSecondary) }
+                    else { Text("\(item.price)").foregroundStyle(affordable && !freezeFull ? Theme.textPrimary : Theme.textSecondary.opacity(0.7)) }
+                }
+                .font(Theme.font(12, .heavy))
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 10)
+            .background(worn ? Theme.accentSoft : Theme.cardAlt, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous).stroke(worn ? Theme.accent : .clear, lineWidth: 2))
+            .opacity(owned || affordable ? 1 : 0.7)
+        }
+        .buttonStyle(SquishButtonStyle())
+    }
+
+    private func flash(_ text: String) {
+        withAnimation(Motion.quick) { toast = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { withAnimation(Motion.quick) { toast = nil } }
     }
 
     private var active: Bool { state.loggedToday }

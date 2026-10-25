@@ -73,7 +73,7 @@ struct SettingsView: View {
                             Label("Darstellung", systemImage: "paintpalette.fill")
                         }
                     }
-                    NavigationLink { page("Funktionen") { featuresSection } } label: {
+                    NavigationLink { page("Funktionen") { featuresSection; ExtrasSection() } } label: {
                         HStack {
                             Label("Funktionen", systemImage: "slider.horizontal.3")
                         }

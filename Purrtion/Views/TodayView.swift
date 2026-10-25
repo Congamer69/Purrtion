@@ -1063,6 +1063,18 @@ struct SummaryCard: View {
                             .lineLimit(1).fixedSize()
                         }
                     }
+                    if target.weekAdjust != 0 {
+                        // Weekly budget: what earlier days of the week moved onto today.
+                        HStack(spacing: 3) {
+                            Image(systemName: "calendar").font(.system(size: 9, weight: .bold))
+                            Text("\(target.weekAdjust > 0 ? "+" : "−")\(abs(target.weekAdjust).kcalString) Wochenausgleich").font(Theme.font(11, .bold))
+                        }
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Theme.cardAlt, in: Capsule())
+                        .lineLimit(1).fixedSize()
+                        .padding(.top, 4)
+                    }
                 }
                 HStack(spacing: 12) {
                     stat("Gegessen", total.kcal)

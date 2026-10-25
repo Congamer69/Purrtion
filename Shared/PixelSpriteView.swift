@@ -8,9 +8,12 @@ struct PixelSpriteView: View {
     var palette: CatPalette = .ginger
     /// Single-colour rendering (tinted / clear widgets): shades become opacity steps of white.
     var mono = false
+    /// Hat, glasses and scarf from the streak shop (not for the dog).
+    var outfit = Outfit()
 
     var body: some View {
-        let sprite = palette.isDog ? DogSprites.convert(self.sprite) : self.sprite
+        let dressed = outfit.isEmpty || palette.isDog ? self.sprite : Wardrobe.apply(outfit, to: self.sprite)
+        let sprite = palette.isDog ? DogSprites.convert(self.sprite) : dressed
         return Canvas { ctx, _ in
             if mono {
                 // Translucent pixels must not overlap, or the seams show up as a grid: draw each run of equal pixels once.

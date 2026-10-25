@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.6 – Extras, Shop, App-Symbole (iPhone und Android) – 25. Oktober 2026
+
+### Neu (alles einzeln ein- und ausschaltbar unter Profil → Funktionen → Extras)
+- **Wochenbudget:** Ein Tag über oder unter dem Ziel verteilt sich auf die übrigen Tage der Woche (Montag bis Sonntag), höchstens um den eingestellten Anteil pro Tag (5 bis 30 %, Standard 15 %). Auf „Heute“ steht, was dazukommt oder abgezogen wird. Vergangene Tage behalten ihr damaliges Ziel.
+- **Vorschläge zur Uhrzeit:** Beim Hinzufügen steht oben „Um diese Zeit“: was du in den letzten 60 Tagen um diese Uhrzeit (±90 Minuten) am häufigsten gegessen hast. Ein Tipp trägt es ein.
+- **Mehrfach-Scan:** Nach dem Barcode gibt es neben „Hinzufügen“ die Taste „Weiteres scannen“. Sie trägt ein und geht zurück zur Kamera.
+- **Gewichts-Prognose:** Mit Zielgewicht zeigt das Gewichtsdiagramm eine gestrichelte Linie und ein Datum mit Spanne („voraussichtlich 12. Dezember, 28. Nov bis 3. Jan“). Sie nutzt den robusten Trend der letzten sechs Wochen, braucht drei Wägungen über mindestens zehn Tage und sagt es, wenn der Trend vom Ziel wegzeigt oder flach ist.
+- **Sanfte Erinnerung:** Eine Mitteilung der Katze zu deiner Uhrzeit, nur wenn heute noch nichts eingetragen ist. Auf Android prüft sie das beim Auslösen, auf dem iPhone wird die heutige gestrichen, sobald du etwas einträgst.
+- **Shop und Outfits:** In der Serie gibt es Punkte (10 pro eingetragenem Tag, +5 für Tage nahe am Ziel, Boni für Meilensteine). Dafür gibt es fünf Fellfarben, fünf Hüte, zwei Brillen, fünf Schals und einen Extra-Freeze, alles in Pixeln auf der Katze. Gekaufte Fellfarben erscheinen unter Darstellung.
+- **App-Symbole (iPhone):** Acht Symbole (Standard, Mitternacht, Minze, Sakura, Retro, Dämmerung, Noir, Blaubeere) unter Profil → Darstellung, jeweils hell, dunkel und eingefärbt.
+- **Widget „Makros“ (iPhone):** Quadratisch, mit übrigen kcal, gegessen von Ziel und Protein, Kohlenhydraten und Fett in Gramm.
+
+### Verbessert
+- Farbrad: Das Farbrad öffnet sich jetzt zuverlässig als eigenes Fenster (vorher nur manchmal).
+- Die Sicherung enthält die neuen Einstellungen (Extras, Zielgewicht, gekaufte Dinge).
+
 ## 2.5 – Eigene Farbe, mehr Widgets (iPhone und Android) – 25. Oktober 2026
 
 ### Neu

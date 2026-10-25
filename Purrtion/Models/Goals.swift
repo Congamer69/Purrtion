@@ -34,6 +34,8 @@ struct DayTarget: Equatable {
     var activityBonus: Double
     /// Share of Health activity credited on that day (the setting valid back then).
     var activityPercent: Double = 0
+    /// Weekly budget: kcal moved to or from this day because earlier days of the week went over or under.
+    var weekAdjust: Double = 0
 }
 
 /// Daily targets + body profile, persisted in UserDefaults.
@@ -132,7 +134,23 @@ final class Goals: ObservableObject {
 
     // MARK: Goal of a day
 
+    /// The goal of a day including the weekly budget (when switched on).
     func target(for day: Date) -> DayTarget {
+        var t = coreTarget(for: day)
+        let adj = WeekBudget.adjustment(for: day) { coreTarget(for: $0).kcal }
+        guard adj != 0 else { return t }
+        // Protein stays; carbs and fat take the difference in their usual ratio.
+        let rest = t.kcal - t.protein * 4
+        let factor = rest > 0 ? max(0, (rest + adj) / rest) : 1
+        t.kcal += adj
+        t.carbs = (t.carbs * factor).rounded()
+        t.fat = (t.fat * factor).rounded()
+        t.weekAdjust = adj
+        return t
+    }
+
+    /// The goal of a day without the weekly budget.
+    private func coreTarget(for day: Date) -> DayTarget {
         let cal = Calendar.current
         let d = cal.startOfDay(for: day)
         let plan: GoalPlan = d >= cal.startOfDay(for: .now)

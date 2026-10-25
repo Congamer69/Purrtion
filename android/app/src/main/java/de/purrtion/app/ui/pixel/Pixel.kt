@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
 import de.purrtion.app.domain.Diag
+import de.purrtion.app.domain.Extras
 import de.purrtion.app.ui.theme.C
 import de.purrtion.app.ui.theme.Palette
 import de.purrtion.app.ui.theme.font
@@ -84,6 +85,8 @@ data class CatPalette(val id: String, val name: String, val fur: Color, val furL
         'm' -> Color(0xFFE08A6A)
         'M' -> Color(0xFFB8583C)
         'Y' -> Color(0xFFE0A22E)
+        'v' -> Color(0xFF9B7BFF)
+        'V' -> Color(0xFF6C4FD6)
         else -> null
     }
 
@@ -94,19 +97,27 @@ data class CatPalette(val id: String, val name: String, val fur: Color, val furL
         val cream = CatPalette("cream", "Keks", Color(0xFFF3DDBE), Color(0xFFFFF6EA), Color(0xFFD9B88E))
         /** The secret dog. Not part of [all]: it is unlocked by tapping the logo in the settings. */
         val dog = CatPalette("dog", "Buddy", Color(0xFFC98B4F), Color(0xFFF4E0BE), Color(0xFF8B5A33))
+        // Fur colours from the streak shop.
+        val moon = CatPalette("moon", "Mondschein", Color(0xFFB9C6EC), Color(0xFFF3F6FF), Color(0xFF8D9CCF))
+        val cinnamon = CatPalette("cinnamon", "Zimt", Color(0xFFC4693B), Color(0xFFF5D5B7), Color(0xFF8F4626))
+        val sakura = CatPalette("sakura", "Sakura", Color(0xFFF5AACB), Color(0xFFFFEAF2), Color(0xFFD97BA3))
+        val mint = CatPalette("mint", "Minze", Color(0xFF86D9BC), Color(0xFFE6FBF3), Color(0xFF4FB08E))
+        val galaxy = CatPalette("galaxy", "Galaxie", Color(0xFF6F54D8), Color(0xFFCDBFFF), Color(0xFF4A34A3))
+        val shop = listOf(moon, cinnamon, sakura, mint, galaxy)
         val all = listOf(ginger, grey, black, cream)
-        fun byId(id: String) = (all + dog).firstOrNull { it.id == id } ?: ginger
+        fun byId(id: String) = (all + shop + dog).firstOrNull { it.id == id } ?: ginger
     }
 }
 
 /** Sprites rendered once at one pixel per cell. Drawing scales them up without smoothing, so a frame is a single image draw. */
 private object SpriteCache {
-    private val cache = android.util.LruCache<Triple<PixelSprite, String, Boolean>, ImageBitmap>(256)
+    private val cache = android.util.LruCache<List<Any>, ImageBitmap>(256)
 
-    fun get(sprite: PixelSprite, palette: CatPalette, dark: Boolean): ImageBitmap {
-        val key = Triple(sprite, palette.id, dark)
+    fun get(sprite: PixelSprite, palette: CatPalette, dark: Boolean, outfit: Outfit): ImageBitmap {
+        val key = listOf(sprite, palette.id, dark, outfit)
         cache.get(key)?.let { return it }
-        val shown = if (palette.id == "dog") Diag.safe("Hundesprite", sprite) { DogSprites.convert(sprite) } else sprite
+        val dressed = if (outfit.isEmpty || palette.id == "dog") sprite else Diag.safe("Outfit", sprite) { Wardrobe.apply(outfit, sprite) }
+        val shown = if (palette.id == "dog") Diag.safe("Hundesprite", dressed) { DogSprites.convert(dressed) } else dressed
         val bitmap = android.graphics.Bitmap.createBitmap(maxOf(shown.width, 1), maxOf(shown.height, 1), android.graphics.Bitmap.Config.ARGB_8888)
         for ((y, row) in shown.rows.withIndex()) for ((x, ch) in row.withIndex()) {
             palette.color(ch, dark)?.let { bitmap.setPixel(x, y, it.toArgb()) }
@@ -117,10 +128,10 @@ private object SpriteCache {
 
 /** Draws a [PixelSprite] crisp (nearest-neighbour scaling of a cached bitmap). */
 @Composable
-fun PixelSpriteView(sprite: PixelSprite, pixel: Dp = 4.dp, palette: CatPalette? = null, modifier: Modifier = Modifier) {
+fun PixelSpriteView(sprite: PixelSprite, pixel: Dp = 4.dp, palette: CatPalette? = null, modifier: Modifier = Modifier, outfit: Outfit = Outfit.None) {
     val pal = palette ?: CatPalette.byId(App.prefs.string("catPalette", "ginger"))
     val dark = C.dark
-    val image = remember(sprite, pal.id, dark) { SpriteCache.get(sprite, pal, dark) }
+    val image = remember(sprite, pal.id, dark, outfit) { SpriteCache.get(sprite, pal, dark, outfit) }
     Canvas(modifier.size(pixel * sprite.width, pixel * sprite.height)) {
         drawImage(image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None)
     }
@@ -165,7 +176,7 @@ enum class CatMood(val key: String) {
 
 /** Cycles through frames. */
 @Composable
-fun AnimatedSprite(frames: List<PixelSprite>, fps: Double = 4.0, pixel: Dp = 4.dp, palette: CatPalette? = null, modifier: Modifier = Modifier) {
+fun AnimatedSprite(frames: List<PixelSprite>, fps: Double = 4.0, pixel: Dp = 4.dp, palette: CatPalette? = null, modifier: Modifier = Modifier, outfit: Outfit = Outfit.None) {
     var index by remember(frames) { mutableStateOf(0) }
     LaunchedEffect(frames, fps) {
         while (true) {
@@ -176,7 +187,7 @@ fun AnimatedSprite(frames: List<PixelSprite>, fps: Double = 4.0, pixel: Dp = 4.d
     val w = frames.maxOf { it.width }
     val h = frames.maxOf { it.height }
     Box(modifier.size(pixel * w, pixel * h), contentAlignment = Alignment.BottomStart) {
-        PixelSpriteView(frames[index.coerceIn(0, frames.size - 1)], pixel, palette)
+        PixelSpriteView(frames[index.coerceIn(0, frames.size - 1)], pixel, palette, outfit = outfit)
     }
 }
 
@@ -190,8 +201,9 @@ fun CatMascot(mood: CatMood, pixel: Dp = 5.dp, palette: CatPalette? = null, modi
         }
     }
     val lift by animateFloatAsState(if (bounced) -2f else 0f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessMedium), label = "bounce")
+    val outfit = if (App.prefs.bool(Extras.SHOP, true)) Outfit(App.prefs.string("shop.hat", ""), App.prefs.string("shop.glasses", ""), App.prefs.string("shop.scarf", "")) else Outfit.None
     Box(modifier) {
-        AnimatedSprite(mood.frames, mood.fps, pixel, palette, Modifier.offset(y = pixel * lift))
+        AnimatedSprite(mood.frames, mood.fps, pixel, palette, Modifier.offset(y = pixel * lift), outfit)
         if (mood == CatMood.sleeping) FloatingZs(pixel * 0.6f, Modifier.align(Alignment.TopEnd).offset(x = pixel * 2, y = -pixel * 4))
     }
 }
@@ -291,5 +303,51 @@ fun PixelText(text: String, pixel: Dp = 4.dp, color: Color = C.textPrimary, modi
                 for ((y, row) in g.withIndex()) for ((x, c) in row.withIndex()) if (c == 'x') drawRect(color, Offset(x * p, y * p), Size(p, p))
             }
         }
+    }
+}
+
+/** What the cat wears (hat, glasses, scarf), picked in the streak shop. Drawn into the pixel rows, only on the upright poses. */
+data class Outfit(val hat: String = "", val glasses: String = "", val scarf: String = "") {
+    val isEmpty: Boolean get() = hat.isEmpty() && glasses.isEmpty() && scarf.isEmpty()
+    companion object { val None = Outfit() }
+}
+
+object Wardrobe {
+    /** Hats fill the gap between the ears: columns 3-9 of rows 0-2, painted onto empty cells only. */
+    private val hats = mapOf(
+        "hat.party" to listOf("...y...", "..rWr..", ".rWrWr."),
+        "hat.beanie" to listOf("...W...", "..bbb..", "..BbB.."),
+        "hat.top" to listOf("..eee..", "..eRe..", "..eee.."),
+        "hat.crown" to listOf(".y.y.y.", ".yyyyy.", "..yYy.."),
+        "hat.wizard" to listOf("...B...", "..ByB..", ".BvBvB."),
+    )
+    private val scarves = mapOf(
+        "scarf.red" to ('r' to 'R'), "scarf.blue" to ('b' to 'B'), "scarf.green" to ('g' to 'G'), "scarf.gold" to ('y' to 'Y'), "scarf.violet" to ('v' to 'V'),
+    )
+
+    fun apply(outfit: Outfit, sprite: PixelSprite): PixelSprite {
+        if (outfit.isEmpty || sprite.rows.size != 16 || !sprite.rows[0].startsWith("..o.......o..") || !sprite.rows[4].startsWith("owwwswswswwwo")) return sprite
+        val grid = sprite.rows.map { it.toCharArray() }
+        fun put(row: Int, col: Int, ch: Char, onlyEmpty: Boolean = false) {
+            if (ch == '.' || row >= grid.size || col >= grid[row].size) return
+            if (onlyEmpty && grid[row][col] != '.') return
+            grid[row][col] = ch
+        }
+        hats[outfit.hat]?.forEachIndexed { r, line -> line.forEachIndexed { i, ch -> put(r, 3 + i, ch, onlyEmpty = true) } }
+        if (outfit.glasses == "glasses.round" || outfit.glasses == "glasses.sun") {
+            val sun = outfit.glasses == "glasses.sun"
+            val frame = if (sun) 'e' else 'B'
+            for (start in listOf(2, 7)) {
+                for (c in start..start + 3) { put(4, c, frame); put(7, c, frame) }
+                for (r in 5..6) { put(r, start, frame); put(r, start + 3, frame) }
+                if (sun) for (r in 5..6) { put(r, start + 1, 'e'); put(r, start + 2, 'e') }
+            }
+            put(5, 6, frame)
+        }
+        scarves[outfit.scarf]?.let { (a, b) ->
+            for ((i, c) in (2..10).withIndex()) put(9, c, if (i % 2 == 0) a else b)
+            put(10, 5, a); put(10, 6, b); put(11, 5, b)
+        }
+        return PixelSprite(grid.map { String(it) })
     }
 }

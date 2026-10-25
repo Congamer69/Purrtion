@@ -7,11 +7,12 @@ struct AnimatedSprite: View {
     var fps: Double = 4
     var pixel: CGFloat = 4
     var palette: CatPalette = .ginger
+    var outfit = Outfit()
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1 / fps)) { ctx in
             let i = Int(ctx.date.timeIntervalSinceReferenceDate * fps) % max(frames.count, 1)
-            PixelSpriteView(sprite: frames[i], pixel: pixel, palette: palette)
+            PixelSpriteView(sprite: frames[i], pixel: pixel, palette: palette, outfit: outfit)
         }
     }
 }
@@ -55,11 +56,16 @@ struct CatMascot: View {
     var mood: CatMood
     var pixel: CGFloat = 5
     @AppStorage("catPalette") private var paletteID = CatPalette.ginger.id
+    @AppStorage(Extras.shopKey) private var shopOn = true
+    @AppStorage("shop.hat") private var hat = ""
+    @AppStorage("shop.glasses") private var glasses = ""
+    @AppStorage("shop.scarf") private var scarf = ""
     @State private var bounce = false
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            AnimatedSprite(frames: mood.frames, fps: mood.fps, pixel: pixel, palette: CatPalette.byID(paletteID))
+            AnimatedSprite(frames: mood.frames, fps: mood.fps, pixel: pixel, palette: CatPalette.byID(paletteID),
+                           outfit: shopOn ? Outfit(hat: hat, glasses: glasses, scarf: scarf) : Outfit())
                 .offset(y: bounce ? -pixel * 2 : 0)
             if mood == .sleeping { FloatingZs(pixel: pixel * 0.6).offset(x: pixel * 2, y: -pixel * 4) }
         }

@@ -3,6 +3,8 @@ package de.purrtion.app.ui.screens
 import de.purrtion.app.ui.RoundIconButton
 import androidx.compose.material.icons.rounded.History
 import de.purrtion.app.domain.BloodAlcohol
+import de.purrtion.app.domain.Extras
+import de.purrtion.app.domain.TimeSuggestions
 import de.purrtion.app.domain.RestaurantDatabase
 import androidx.compose.material.icons.rounded.Fastfood
 import androidx.compose.foundation.background
@@ -124,6 +126,9 @@ fun AddFoodSheet(day: LocalDate) {
     val focus = remember { FocusRequester() }
     val aiEnabled = SearchSource.ai.isEnabled
 
+    var timeSuggestions by remember { mutableStateOf<List<TimeSuggestions.Suggestion>>(emptyList()) }
+    val suggestOn = App.prefs.bool(Extras.TIME_SUGGEST, true)
+    LaunchedEffect(suggestOn) { timeSuggestions = if (suggestOn) runCatching { TimeSuggestions.suggestions() }.getOrDefault(emptyList()) else emptyList() }
     LaunchedEffect(Unit) { delay(350); runCatching { focus.requestFocus() } }
     LaunchedEffect(toast) { if (toast != null) { delay(if (toast!!.contains("🌙")) 2600 else 1600); toast = null } }
 
@@ -162,6 +167,19 @@ fun AddFoodSheet(day: LocalDate) {
                                 Text("Vorschläge aus Favoriten & Rezepten", style = font(12), color = C.textSecondary)
                             }
                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = C.textSecondary)
+                        }
+                    }
+                    if (timeSuggestions.isNotEmpty()) {
+                        item {
+                            Text("UM DIESE ZEIT", style = font(12, FontWeight.Bold), color = C.textSecondary, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
+                        }
+                        items(timeSuggestions, key = { "time-" + it.name }) { sug ->
+                            FoodRow(sug.food, Modifier.clickable { openFood(sug.food) }, subtitle = if (sug.days > 1) "meistens um diese Zeit" else "zuletzt um diese Zeit",
+                                amountGrams = sug.quantity * sug.serving.grams) {
+                                Box(Modifier.size(34.dp).clip(CircleShape).background(Palette.accent).squishClick {
+                                    scope.launch { Store.log(sug.food, sug.quantity, sug.serving, day); flash(sug.food.displayName); timeSuggestions = timeSuggestions.filter { it.name != sug.name } }
+                                }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Add, "Eintragen", tint = Color.White) }
+                            }
                         }
                     }
                     item {

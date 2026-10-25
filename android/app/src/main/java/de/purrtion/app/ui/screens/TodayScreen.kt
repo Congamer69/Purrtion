@@ -572,6 +572,14 @@ fun SummaryCard(total: Nutrients, mood: CatMood, burst: Int, target: DayTarget, 
                         }
                     }
                 }
+                if (target.weekAdjust != 0.0) {
+                    // Weekly budget: what earlier days of the week moved onto today.
+                    Row(Modifier.padding(top = 4.dp).clip(CircleShape).background(C.cardAlt).padding(horizontal = 7.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(10.dp), tint = C.textSecondary)
+                        Spacer(Modifier.width(3.dp))
+                        Text("${if (target.weekAdjust > 0) "+" else "−"}${abs(target.weekAdjust).kcalString} Wochenausgleich", style = font(11, FontWeight.Bold), color = C.textSecondary, maxLines = 1)
+                    }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Stat("Gegessen", total.kcal.kcalString)

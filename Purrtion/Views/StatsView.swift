@@ -600,6 +600,52 @@ struct StatsView: View {
         .card()
     }
 
+    // MARK: Weight forecast
+
+    private var forecastResult: WeightForecast.Result? {
+        guard WeightForecast.enabled, WeightForecast.goalWeight > 0 else { return nil }
+        return WeightForecast.forecast(weights: weights.map { (date: $0.date, kg: $0.kg) }, goal: WeightForecast.goalWeight)
+    }
+
+    private var projection: (from: Date, fromKg: Double, to: Date, toKg: Double)? {
+        guard let r = forecastResult, case .onTrack(let date, _, _) = r.outcome, let trend = r.trendKg,
+              date.timeIntervalSinceNow < 150 * 86400 else { return nil }
+        return (.now, trend, date, WeightForecast.goalWeight)
+    }
+
+    private var projectionGoal: Double? { forecastResult == nil ? nil : WeightForecast.goalWeight }
+
+    @ViewBuilder private var forecastNote: some View {
+        if let r = forecastResult {
+            let goalText = "\(WeightForecast.goalWeight.formatted(.number.precision(.fractionLength(0...1)))) kg"
+            let perWeek = r.perWeek.map { "\($0 <= 0 ? "−" : "+")\(abs($0).formatted(.number.precision(.fractionLength(2)))) kg pro Woche" }
+            VStack(alignment: .leading, spacing: 3) {
+                switch r.outcome {
+                case .reached:
+                    Label("Ziel \(goalText) erreicht. Dein Trend liegt bei \((r.trendKg ?? 0).formatted(.number.precision(.fractionLength(1)))) kg.", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(Theme.fiber)
+                case .onTrack(let date, let early, let late):
+                    Label("Zielgewicht \(goalText): voraussichtlich \(date.formatted(.dateTime.day().month(.wide)))", systemImage: "flag.checkered")
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("\(perWeek ?? "") · \(early.formatted(.dateTime.day().month(.abbreviated))) bis \(late.map { $0.formatted(.dateTime.day().month(.abbreviated)) } ?? "offen")")
+                        .foregroundStyle(Theme.textSecondary)
+                case .wrongDirection:
+                    Label("Dein Trend (\(perWeek ?? "")) geht gerade von \(goalText) weg.", systemImage: "arrow.uturn.left.circle")
+                        .foregroundStyle(Theme.textSecondary)
+                case .flat:
+                    Label("Dein Gewicht ist stabil. Ohne Trend gibt es keine Prognose für \(goalText).", systemImage: "equal.circle")
+                        .foregroundStyle(Theme.textSecondary)
+                case .needsData:
+                    Label("Für die Prognose braucht es drei Wägungen aus den letzten sechs Wochen, die mindestens zehn Tage auseinanderliegen.", systemImage: "scalemass")
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .font(Theme.font(12, .semibold))
+        } else if WeightForecast.enabled, WeightForecast.goalWeight == 0 {
+            Text("Zielgewicht setzen (Profil → Funktionen → Extras) für eine Prognose.").font(Theme.font(12)).foregroundStyle(Theme.textSecondary)
+        }
+    }
+
     private var weightCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -621,7 +667,8 @@ struct StatsView: View {
             let shown = weights.filter { $0.date >= cal.date(byAdding: .day, value: -max(range, 30), to: .now)! }
             if shown.count >= 2 {
                 let lo = (shown.map(\.kg).min() ?? 0) - 1, hi = (shown.map(\.kg).max() ?? 0) + 1
-                Chart(shown) { w in
+                Chart {
+                    ForEach(shown) { w in
                     LineMark(x: .value("Datum", w.date), y: .value("kg", w.kg))
                         .interpolationMethod(.catmullRom).foregroundStyle(Theme.accentText).lineStyle(StrokeStyle(lineWidth: 3))
                     PointMark(x: .value("Datum", w.date), y: .value("kg", w.kg)).foregroundStyle(Theme.accent)
@@ -637,8 +684,16 @@ struct StatsView: View {
                                 .background(Theme.cardAlt, in: RoundedRectangle(cornerRadius: 8))
                             }
                     }
+                                    }
+                    if let p = projection {
+                        LineMark(x: .value("Datum", p.from), y: .value("kg", p.fromKg), series: .value("Serie", "Prognose"))
+                            .foregroundStyle(Theme.accent.opacity(0.8)).lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                        LineMark(x: .value("Datum", p.to), y: .value("kg", p.toKg), series: .value("Serie", "Prognose"))
+                            .foregroundStyle(Theme.accent.opacity(0.8)).lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                        PointMark(x: .value("Datum", p.to), y: .value("kg", p.toKg)).foregroundStyle(Theme.fiber).symbolSize(70)
+                    }
                 }
-                .chartYScale(domain: lo...hi)
+                .chartYScale(domain: min(lo, projectionGoal ?? lo)...max(hi, projectionGoal ?? hi))
                 .chartScrub($scrubWeight) { raw in
                     shown.min { abs($0.date.timeIntervalSince(raw)) < abs($1.date.timeIntervalSince(raw)) }?.date
                 }
@@ -648,6 +703,7 @@ struct StatsView: View {
                     Text("\(diff <= 0 ? "−" : "+")\(abs(diff).formatted(.number.precision(.fractionLength(1)))) kg seit \(first.date.formatted(.dateTime.day().month(.abbreviated)))")
                         .font(Theme.font(12)).foregroundStyle(diff <= 0 ? Theme.fiber : Theme.textSecondary)
                 }
+                forecastNote
             } else {
                 Text("Trag dein Gewicht regelmäßig ein oder verbinde Apple Health im Profil.")
                     .font(Theme.font(14)).foregroundStyle(Theme.textSecondary)

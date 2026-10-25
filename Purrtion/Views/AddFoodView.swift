@@ -182,6 +182,30 @@ struct AddFoodView: View {
         switch t { case .recent: recents.count; case .favorites: favorites.count; case .mine: customFoods.count }
     }
 
+    /// "Um diese Zeit": what you usually eat around now, one tap to log it again.
+    @ViewBuilder
+    private var timeSuggestionRows: some View {
+        let list = TimeSuggestions.enabled ? TimeSuggestions.suggestions(ctx: ctx) : []
+        if !list.isEmpty {
+            Text("Um diese Zeit").font(Theme.font(12, .bold)).foregroundStyle(Theme.textSecondary).textCase(.uppercase)
+                .plainRow().listRowSeparator(.hidden)
+            ForEach(list) { s in
+                HStack(spacing: 8) {
+                    FoodRow(food: s.food, subtitle: s.days > 1 ? "meistens um diese Zeit" : "zuletzt um diese Zeit", amountGrams: s.quantity * s.serving.grams)
+                    Button {
+                        ctx.log(s.food, quantity: s.quantity, serving: s.serving, day: day)
+                        flashAdded(s.food.displayName)
+                    } label: {
+                        Image(systemName: "plus").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 34, height: 34).background(Theme.accent, in: Circle())
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                }
+                .plainRow()
+            }
+        }
+    }
+
     private func methodTile(_ icon: String, _ title: String, _ action: @escaping () -> Void) -> some View {
         Button {
             Haptics.tap()
@@ -227,6 +251,7 @@ struct AddFoodView: View {
         .buttonStyle(SquishButtonStyle())
         .plainRow()
         .listRowSeparator(.hidden)
+        timeSuggestionRows
         tabBar
         switch tab {
         case .recent:

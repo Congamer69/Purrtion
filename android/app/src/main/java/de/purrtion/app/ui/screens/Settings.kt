@@ -108,6 +108,14 @@ import de.purrtion.app.domain.AITask
 import de.purrtion.app.domain.ActivityStore
 import de.purrtion.app.domain.AutoClose
 import de.purrtion.app.domain.Backup
+import de.purrtion.app.domain.Extras
+import de.purrtion.app.domain.GentleReminder
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.ShoppingBag
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import de.purrtion.app.domain.BackupVault
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.OutlinedTextField
@@ -287,6 +295,46 @@ private fun FunctionsPage() {
                 else if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }, Icons.Rounded.Bedtime, subtitle = if (notificationsDenied) "Mitteilungen sind aus. In den Android-Einstellungen erlauben." else null)
         }
+        ExtrasSection(notificationLauncher = { if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }, denied = notificationsDenied)
+    }
+}
+
+/** Funktionen → Extras: each 2.6 extra has its own switch. */
+@Composable
+private fun ExtrasSection(notificationLauncher: () -> Unit, denied: Boolean) {
+    val goals = App.goals
+    val prefs = App.prefs
+    val context = LocalContext.current
+    FormSection("Extras", "Wochenbudget: Ein Tag über oder unter dem Ziel verteilt sich auf die übrigen Tage der Woche, höchstens um den eingestellten Anteil pro Tag. Vergangene Tage behalten ihr damaliges Ziel. Vorschläge: zeigt beim Hinzufügen, was du um diese Zeit meistens isst. Mehrfach-Scan: beim Barcode die Taste „Weiteres scannen“. Prognose: aus deinem Gewichtstrend der letzten sechs Wochen. Erinnerung: nur wenn heute noch nichts eingetragen ist. Shop: Punkte aus deiner Serie für Fellfarben, Hüte, Brillen und Schals (Serie → Shop).") {
+        FormToggle("Wochenbudget", prefs.bool(Extras.WEEK_BUDGET, false), { prefs.set(Extras.WEEK_BUDGET, it) }, Icons.Rounded.CalendarMonth)
+        AnimatedVisibility(prefs.bool(Extras.WEEK_BUDGET, false)) {
+            SliderField("Ausgleich pro Tag", prefs.double(Extras.WEEK_BUDGET_PCT, 15.0), 5.0..30.0, { prefs.set(Extras.WEEK_BUDGET_PCT, it) }, step = 5.0, unit = "%")
+        }
+        Divider()
+        FormToggle("Vorschläge zur Uhrzeit", prefs.bool(Extras.TIME_SUGGEST, true), { prefs.set(Extras.TIME_SUGGEST, it) }, Icons.Rounded.Schedule)
+        Divider()
+        FormToggle("Mehrfach-Scan", prefs.bool(Extras.MULTI_SCAN, true), { prefs.set(Extras.MULTI_SCAN, it) }, Icons.Rounded.QrCodeScanner)
+        Divider()
+        FormToggle("Gewichts-Prognose", prefs.bool(Extras.FORECAST, true), { prefs.set(Extras.FORECAST, it) }, Icons.AutoMirrored.Rounded.TrendingUp)
+        AnimatedVisibility(prefs.bool(Extras.FORECAST, true)) {
+            Column {
+                val goal = prefs.double(Extras.GOAL_WEIGHT, 0.0)
+                SliderField("Zielgewicht (0 = aus)", goal, 0.0..200.0, { prefs.set(Extras.GOAL_WEIGHT, if (it < 30) 0.0 else it) }, step = 0.5, unit = "kg", decimals = 1, stepper = true)
+            }
+        }
+        Divider()
+        FormToggle("Sanfte Erinnerung", prefs.bool(Extras.REMINDER, false), { on ->
+            prefs.set(Extras.REMINDER, on)
+            GentleReminder.createChannel(context)
+            GentleReminder.schedule(context)
+            if (on) notificationLauncher()
+        }, Icons.Rounded.NotificationsActive, subtitle = if (denied && prefs.bool(Extras.REMINDER, false)) "Mitteilungen sind aus. In den Android-Einstellungen erlauben." else null)
+        AnimatedVisibility(prefs.bool(Extras.REMINDER, false)) {
+            val minutes = prefs.int(Extras.REMINDER_MINUTES, 12 * 60 + 30)
+            SliderField("Erinnern um (Stunde)", minutes / 60.0, 8.0..21.0, { prefs.set(Extras.REMINDER_MINUTES, it.toInt() * 60 + minutes % 60); GentleReminder.schedule(context) }, step = 1.0, unit = "Uhr")
+        }
+        Divider()
+        FormToggle("Shop und Outfits", prefs.bool(Extras.SHOP, true), { prefs.set(Extras.SHOP, it) }, Icons.Rounded.ShoppingBag)
     }
 }
 

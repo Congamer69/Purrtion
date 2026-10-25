@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.purrtion.app.App
+import de.purrtion.app.domain.Shop
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -109,9 +110,10 @@ fun AppearanceScreen() {
 
         val paletteId = prefs.string("catPalette", "ginger")
         FormSection(if (paletteId == CatPalette.dog.id) "Dein Hund & Look" else "Deine Katze & Look") {
-            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                // The dog is a secret and never listed; while it is active no cat is selected.
-                for (p in CatPalette.all) {
+            // The dog is a secret and never listed; while it is active no cat is selected. Fur colours from the shop show up once bought.
+            val choices = CatPalette.all + CatPalette.shop.filter { it.id in Shop.owned }
+            choices.chunked(4).forEach { rowPalettes -> Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                for (p in rowPalettes) {
                     val selected = paletteId == p.id
                     val scale by animateFloatAsState(if (selected) 1.12f else 1f, label = "palette")
                     Column(Modifier.weight(1f).clickable { h.tap(); prefs.set("catPalette", p.id) }, horizontalAlignment = Alignment.CenterHorizontally,
@@ -120,7 +122,8 @@ fun AppearanceScreen() {
                         Text(p.name, style = font(12, if (selected) FontWeight.Bold else FontWeight.Normal), color = if (selected) Palette.accent else C.textSecondary)
                     }
                 }
-            }
+                repeat(4 - rowPalettes.size) { Spacer(Modifier.weight(1f)) }
+            } }
             val appearance = runCatching { Appearance.valueOf(prefs.string("appearance", "system")) }.getOrDefault(Appearance.system)
             Segmented(Appearance.entries, appearance, { it.label }, Modifier.padding(bottom = 10.dp)) { prefs.set("appearance", it.name) }
         }

@@ -94,6 +94,8 @@ import de.purrtion.app.data.Store
 import de.purrtion.app.domain.AITask
 import de.purrtion.app.domain.MealVision
 import de.purrtion.app.domain.OpenFoodFacts
+import de.purrtion.app.domain.Extras
+import de.purrtion.app.App
 import de.purrtion.app.model.FoodItem
 import de.purrtion.app.model.FoodSource
 import de.purrtion.app.model.Nutrients
@@ -152,6 +154,8 @@ fun BarcodeSheet(day: LocalDate, back: Boolean = false,
     var state by remember { mutableStateOf<String?>(null) }          // null scanning, "loading:<code>", "notfound:<code>", "failed"
     var lastCode by remember { mutableStateOf<String?>(null) }
     var showingDetail by remember { mutableStateOf(false) }
+    var added by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(added) { if (added != null) { kotlinx.coroutines.delay(2200); added = null } }
     LaunchedEffect(Unit) { if (!granted) request() }
 
     fun lookup(raw: String) {
@@ -167,7 +171,11 @@ fun BarcodeSheet(day: LocalDate, back: Boolean = false,
                     h.success(); state = null; showingDetail = true
                     Nav.push {
                         if (onPick != null) FoodDetailScreen(food, DetailMode.Pick { f, q, s -> Nav.dismissSheet(); onPick(f, q, s) })
-                        else FoodDetailScreen(food, DetailMode.Add(day)) { Nav.dismissSheet() }
+                        else FoodDetailScreen(food, DetailMode.Add(day), onDone = { Nav.dismissSheet() },
+                            onAddAnother = if (App.prefs.bool(Extras.MULTI_SCAN, true)) ({ name ->
+                                // Back to the scanner for the next product; the name shows as a short confirmation.
+                                Nav.pop(); showingDetail = false; lastCode = null; state = null; added = name
+                            }) else null)
                     }
                 } else { h.warning(); state = "notfound:$code" }
             } catch (e: Exception) {
@@ -199,7 +207,7 @@ fun BarcodeSheet(day: LocalDate, back: Boolean = false,
         }
         val s = state
         when {
-            s == null -> Text(if (granted) "Halte den Barcode in den Rahmen" else "", style = font(15, FontWeight.Medium), color = C.textSecondary,
+            s == null -> Text(added?.let { "✓ $it eingetragen" } ?: if (granted) "Halte den Barcode in den Rahmen" else "", style = font(15, FontWeight.Medium), color = if (added != null) Palette.accentText else C.textSecondary,
                 modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             s.startsWith("loading") -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { WalkingCatLoader(2.5.dp, 200.dp, "Suche Produkt …") }
             s.startsWith("notfound") -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {

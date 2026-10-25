@@ -12,6 +12,8 @@ struct BarcodeFlowView: View {
     @State private var manualCode = ""
     @State private var lastCode: String?
     @State private var torchOn = false
+    @AppStorage(Extras.multiScanKey) private var multiScan = true
+    @State private var addedName: String?
 
     enum LookupState: Equatable {
         case scanning, loading(String), notFound(String), failed(String)
@@ -40,6 +42,14 @@ struct BarcodeFlowView: View {
                 }
                 .padding(16)
             }
+            .overlay(alignment: .top) {
+                if let addedName {
+                    Label("\(addedName) eingetragen", systemImage: "checkmark.circle.fill")
+                        .font(Theme.font(14, .bold)).foregroundStyle(.white).lineLimit(1)
+                        .padding(.horizontal, 14).padding(.vertical, 8).background(Theme.accent, in: Capsule())
+                        .padding(.top, 8).transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .navigationTitle("Barcode scannen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -59,7 +69,15 @@ struct BarcodeFlowView: View {
                         dismiss()
                     })
                 } else {
-                    FoodDetailView(food: food, mode: .add(day: day)) { _ in dismiss() }
+                    FoodDetailView(food: food, mode: .add(day: day), onDone: { _ in dismiss() },
+                                   onAddAnother: multiScan ? { name in
+                        // Back to the scanner for the next product; the name shows as a short confirmation.
+                        path = []
+                        state = .scanning
+                        lastCode = nil
+                        withAnimation(Motion.quick) { addedName = name }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { withAnimation(Motion.quick) { addedName = nil } }
+                    } : nil)
                 }
             }
             .onChange(of: path) { _, p in if p.isEmpty { state = .scanning; lastCode = nil } }

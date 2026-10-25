@@ -11,6 +11,13 @@ object WidgetBridge {
     suspend fun update() {
         val goals = App.goals
         val today = LocalDate.now()
+        // The weekly budget looks at what the days of this week added up to.
+        runCatching {
+            val eaten = App.db.entries().range(today.minusDays(14).toEpochDay(), today.toEpochDay()).groupBy { it.day }
+                .mapKeys { LocalDate.ofEpochDay(it.key) }.mapValues { e -> e.value.sumOf { it.kcal } }
+            // Days without entries count as 0 (also after deleting them).
+            WeekBudget.record((0..14).associate { today.minusDays(it.toLong()) to (eaten[today.minusDays(it.toLong())] ?: 0.0) })
+        }
         val entries = App.db.entries().day(today.toEpochDay())
         val water = App.db.water().day(today.toEpochDay()).sumOf { it.ml }
         val target = goals.target(today)

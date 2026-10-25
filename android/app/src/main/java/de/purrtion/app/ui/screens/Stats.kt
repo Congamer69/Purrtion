@@ -74,6 +74,7 @@ import de.purrtion.app.domain.Expenditure
 import de.purrtion.app.domain.ExpenditureEstimate
 import de.purrtion.app.domain.GoalStatus
 import de.purrtion.app.domain.HealthConnect
+import de.purrtion.app.domain.WeightForecast
 import de.purrtion.app.domain.HealthScore
 import de.purrtion.app.model.Nutrients
 import de.purrtion.app.model.clean
@@ -704,11 +705,15 @@ private fun WeightCard(weights: List<WeightLog>, range: Int) {
                 Icon(Icons.Rounded.Add, "Gewicht eintragen", Modifier.size(18.dp), tint = Color.White)
             }
         }
+        val goal = WeightForecast.goalWeight
+        val forecast = if (WeightForecast.enabled && goal > 0) WeightForecast.forecast(weights, goal) else null
+        val onTrack = forecast?.outcome as? WeightForecast.Outcome.OnTrack
+        val projEnd = onTrack?.date?.takeIf { it.toEpochDay() - LocalDate.now().toEpochDay() < 150 }
         if (shown.size >= 2) {
-            val lo = shown.minOf { it.kg } - 1
-            val hi = shown.maxOf { it.kg } + 1
+            val lo = min(shown.minOf { it.kg }, if (projEnd != null) goal else Double.MAX_VALUE) - 1
+            val hi = max(shown.maxOf { it.kg }, if (projEnd != null) goal else -Double.MAX_VALUE) + 1
             val t0 = shown.first().date
-            val t1 = max(shown.last().date, t0 + 1)
+            val t1 = max(max(shown.last().date, t0 + 1), projEnd?.atStartOfDay(java.time.ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: 0L)
             Canvas(Modifier.fillMaxWidth().height(160.dp).pointerInput(shown) {
                 fun nearest(x: Float): Int = shown.indices.minBy { abs((shown[it].date - t0).toFloat() / (t1 - t0) * size.width - x) }
                 detectDragGesturesAfterLongPress(onDragStart = { sel = nearest(it.x) }, onDrag = { c, _ -> sel = nearest(c.position.x) },
@@ -719,6 +724,13 @@ private fun WeightCard(weights: List<WeightLog>, range: Int) {
                 fun y(kg: Double) = pad + ((hi - kg) / (hi - lo)).toFloat() * (size.height - 2 * pad)
                 val pts = shown.map { Offset(x(it.date), y(it.kg)) }
                 drawPath(smoothPath(pts), accent, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+                if (projEnd != null && forecast?.trendKg != null) {
+                    val from = Offset(x(System.currentTimeMillis()), y(forecast.trendKg))
+                    val to = Offset(x(projEnd.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()), y(goal))
+                    drawLine(accent.copy(alpha = 0.8f), from, to, 2.dp.toPx(), cap = StrokeCap.Round,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(14f, 12f)))
+                    drawCircle(Palette.fiber, 5.dp.toPx(), to)
+                }
                 pts.forEachIndexed { i, p -> drawCircle(accent, if (sel == i) 6.dp.toPx() else 3.dp.toPx(), p) }
                 sel?.let { i ->
                     val p = pts[i]
@@ -735,6 +747,7 @@ private fun WeightCard(weights: List<WeightLog>, range: Int) {
             val diff = shown.last().kg - shown.first().kg
             Text("${if (diff <= 0) "−" else "+"}${abs(diff).format(1, 1)} kg seit ${shown.first().date.localDate().shortDayMonth()}",
                 style = font(12), color = if (diff <= 0) Palette.fiber else C.textSecondary)
+            ForecastNote(forecast, goal)
         } else {
             Text("Trag dein Gewicht regelmäßig ein oder verbinde Health Connect in den Einstellungen.", style = font(14), color = C.textSecondary)
         }
@@ -744,6 +757,26 @@ private fun WeightCard(weights: List<WeightLog>, range: Int) {
             Text("Alle Einträge bearbeiten", style = font(14, FontWeight.SemiBold), color = accent)
         }
     }
+}
+
+/** The sentence under the weight chart: when the goal weight will probably be reached. */
+@Composable
+private fun ForecastNote(forecast: WeightForecast.Result?, goal: Double) {
+    if (forecast == null) {
+        if (WeightForecast.enabled && goal == 0.0) Text("Zielgewicht setzen (Profil → Funktionen → Extras) für eine Prognose.", style = font(12), color = C.textSecondary)
+        return
+    }
+    val goalText = "${goal.format(0, 1)} kg"
+    val perWeek = forecast.perWeek?.let { "${if (it <= 0) "−" else "+"}${abs(it).format(2, 2)} kg pro Woche" } ?: ""
+    fun d(date: LocalDate) = date.shortDayMonth()
+    val (text, color) = when (val o = forecast.outcome) {
+        is WeightForecast.Outcome.Reached -> "Ziel $goalText erreicht. Dein Trend liegt bei ${(forecast.trendKg ?: 0.0).format(1, 1)} kg." to Palette.fiber
+        is WeightForecast.Outcome.OnTrack -> "Zielgewicht $goalText: voraussichtlich ${o.date.format(java.time.format.DateTimeFormatter.ofPattern("d. MMMM", java.util.Locale.GERMAN))}\n$perWeek · ${d(o.earliest)} bis ${o.latest?.let(::d) ?: "offen"}" to C.textPrimary
+        is WeightForecast.Outcome.WrongDirection -> "Dein Trend ($perWeek) geht gerade von $goalText weg." to C.textSecondary
+        is WeightForecast.Outcome.Flat -> "Dein Gewicht ist stabil. Ohne Trend gibt es keine Prognose für $goalText." to C.textSecondary
+        is WeightForecast.Outcome.NeedsData -> "Für die Prognose braucht es drei Wägungen aus den letzten sechs Wochen, die mindestens zehn Tage auseinanderliegen." to C.textSecondary
+    }
+    Text(text, style = font(12, FontWeight.SemiBold), color = color)
 }
 
 @Composable
