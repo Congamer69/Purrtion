@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "3.0.1",
+          "buildVersion": "31",
+          "date": "2026-10-25T17:29:54Z",
+          "localizedDescription": "BEHOBEN\n• Google-Anmeldung ersetzte das Freunde-Profil, obwohl das Google-Konto neu war. Ursache: Ein früherer, abgebrochener Anmeldeversuch hatte auf dem Server schon ein leeres Konto für das Google-Konto angelegt. Ein solches leeres Konto (ohne Freunde-Profil und ohne Backup) wird jetzt gelöscht und das Google-Konto an dein Freunde-Konto gehängt. Nur wenn das Google-Konto wirklich schon Daten hat, fragt die App nach.\n• Die Anmelde- und die Einladungsseite zeigen die Purrtion-Katze statt eines Emojis.",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v3.0.1/Purrtion-3.0.1.ipa",
+          "size": 4709634,
+          "sha256": "99cb930d01a1837416f8da580439d59c369074e32a5d909a38d4847ec676c63f",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "3.0",
           "buildVersion": "30",
           "date": "2026-10-25T17:11:51Z",
