@@ -17,6 +17,16 @@
       "tintColor": "E8733A",
       "versions": [
         {
+          "version": "2.6",
+          "buildVersion": "27",
+          "date": "2026-10-25T00:36:35Z",
+          "localizedDescription": "NEU (ALLES EINZELN EIN- UND AUSSCHALTBAR UNTER PROFIL → FUNKTIONEN → EXTRAS)\n• Wochenbudget: Ein Tag über oder unter dem Ziel verteilt sich auf die übrigen Tage der Woche (Montag bis Sonntag), höchstens um den eingestellten Anteil pro Tag (5 bis 30 %, Standard 15 %). Auf „Heute“ steht, was dazukommt oder abgezogen wird. Vergangene Tage behalten ihr damaliges Ziel.\n• Vorschläge zur Uhrzeit: Beim Hinzufügen steht oben „Um diese Zeit“: was du in den letzten 60 Tagen um diese Uhrzeit (±90 Minuten) am häufigsten gegessen hast. Ein Tipp trägt es ein.\n• Mehrfach-Scan: Nach dem Barcode gibt es neben „Hinzufügen“ die Taste „Weiteres scannen“. Sie trägt ein und geht zurück zur Kamera.\n• Gewichts-Prognose: Mit Zielgewicht zeigt das Gewichtsdiagramm eine gestrichelte Linie und ein Datum mit Spanne („voraussichtlich 12. Dezember, 28. Nov bis 3. Jan“). Sie nutzt den robusten Trend der letzten sechs Wochen, braucht drei Wägungen über mindestens zehn Tage und sagt es, wenn der Trend vom Ziel wegzeigt oder flach ist.\n• Sanfte Erinnerung: Eine Mitteilung der Katze zu deiner Uhrzeit, nur wenn heute noch nichts eingetragen ist. Auf Android prüft sie das beim Auslösen, auf dem iPhone wird die heutige gestrichen, sobald du etwas einträgst.\n• Shop und Outfits: In der Serie gibt es Punkte (10 pro eingetragenem Tag, +5 für Tage nahe am Ziel, Boni für Meilensteine). Dafür gibt es fünf Fellfarben, fünf Hüte, zwei Brillen, fünf Schals und einen Extra-Freeze, alles in Pixeln auf der Katze. Gekaufte Fellfarben erscheinen unter Darstellung.\n• App-Symbole (iPhone): Acht Symbole (Standard, Mitternacht, Minze, Sakura, Retro, Dämmerung, Noir, Blaubeere) unter Profil → Darstellung, jeweils hell, dunkel und eingefärbt.\n• Widget „Makros“ (iPhone): Quadratisch, mit übrigen kcal, gegessen von Ziel und Protein, Kohlenhydraten und Fett in Gramm.\n\nVERBESSERT\n• Farbrad: Das Farbrad öffnet sich jetzt zuverlässig als eigenes Fenster (vorher nur manchmal).\n• Die Sicherung enthält die neuen Einstellungen (Extras, Zielgewicht, gekaufte Dinge).",
+          "downloadURL": "https://github.com/Congamer69/Purrtion/releases/download/v2.6/Purrtion-2.6.ipa",
+          "size": 4629735,
+          "sha256": "ea1a0a301889eb788ecd5cc7e9fbdab825abae40e01fda8eba810157209c2680",
+          "minOSVersion": "27.0"
+        },
+        {
           "version": "2.5",
           "buildVersion": "26",
           "date": "2026-10-24T23:58:56Z",
