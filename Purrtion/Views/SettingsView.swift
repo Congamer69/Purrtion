@@ -414,7 +414,7 @@ struct BackupSection: View {
             }
         } header: { Text("Sicherung") } footer: {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Wähle einen Ordner in iCloud Drive. Purrtion legt dort etwa einmal täglich „\(Backup.fileName)“ ab – mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Auf einem neuen Gerät einfach wiederherstellen.")
+                Text("Das ist die lokale Sicherung, eine Alternative zum Server-Backup mit Google-Konto (Einstellungen → Konto). Beides geht auch zusammen. Hier brauchst du keinen Login, die Datei bleibt bei dir. Wähle einen Ordner in iCloud Drive. Purrtion legt dort etwa einmal täglich „\(Backup.fileName)“ ab – mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Auf einem neuen Gerät einfach wiederherstellen.")
                 if let last = Backup.lastBackup {
                     Text("Letzte Sicherung: \(last.formatted(date: .abbreviated, time: .shortened))")
                 }

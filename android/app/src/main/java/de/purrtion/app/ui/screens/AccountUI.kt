@@ -57,7 +57,7 @@ fun AccountSection() {
         FormSection("Konto", "Das Konto gibt es in diesem Build nicht.") {}
     } else {
         if (!account.isLinked) {
-            FormSection("Google-Konto", "Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät einfach mit dem gleichen Google-Konto anmelden, dann ist alles wieder da. Ohne Anmeldung bleibt alles wie bisher.") {
+            FormSection("Google-Konto", "Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät einfach mit dem gleichen Google-Konto anmelden, dann ist alles wieder da. Ohne Anmeldung bleibt alles wie bisher: Die lokale Sicherung unter Daten & Backup funktioniert weiter ohne Google.") {
                 FormRow("Mit Google anmelden", icon = Icons.Rounded.Login, onClick = { account.start(context) }, trailing = {
                     if (account.busy) CircularProgressIndicator(Modifier.size(20.dp), color = Palette.accentText, strokeWidth = 2.dp)
                 })

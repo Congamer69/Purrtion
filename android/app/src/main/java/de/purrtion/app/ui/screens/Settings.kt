@@ -521,7 +521,7 @@ private fun BackupSection() {
     }
 
     val footer = buildString {
-        append("Wähle einen Ordner, zum Beispiel in Google Drive oder auf dem Gerät. Purrtion legt dort etwa einmal täglich „${Backup.FILE_NAME}“ ab, mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Die Datei ist mit der iPhone-App kompatibel.\n\nFreunde-Konto mitsichern: Dein Freunde-Profil (Anmeldung) kommt verschlüsselt in die Sicherung, geschützt mit einem Passwort, das nur du kennst. Es bleibt auf diesem Gerät und steht nicht in der Sicherung. Ohne das Passwort lässt sich das Konto nicht wiederherstellen und nichts davon ist lesbar.")
+        append("Das ist die lokale Sicherung, eine Alternative zum Server-Backup mit Google-Konto (Einstellungen → Konto). Beides geht auch zusammen. Hier brauchst du keinen Login, die Datei bleibt bei dir.\n\nWähle einen Ordner, zum Beispiel in Google Drive oder auf dem Gerät. Purrtion legt dort etwa einmal täglich „${Backup.FILE_NAME}“ ab, mit Einträgen, Rezepten, eigenen Lebensmitteln, Gewicht und Einstellungen. Die Datei ist mit der iPhone-App kompatibel.\n\nFreunde-Konto mitsichern: Dein Freunde-Profil (Anmeldung) kommt verschlüsselt in die Sicherung, geschützt mit einem Passwort, das nur du kennst. Es bleibt auf diesem Gerät und steht nicht in der Sicherung. Ohne das Passwort lässt sich das Konto nicht wiederherstellen und nichts davon ist lesbar.")
         Backup.lastBackup?.let { append("\nLetzte Sicherung: ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.GERMAN).format(Date(it))}") }
         status?.let { append("\n$it") }
     }

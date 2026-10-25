@@ -70,7 +70,7 @@ struct AccountView: View {
             }
             .disabled(account.busy)
         } header: { Text("Google-Konto") } footer: {
-            Text("Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät einfach mit dem gleichen Google-Konto anmelden, dann ist alles wieder da. Ohne Anmeldung bleibt alles wie bisher.")
+            Text("Mit deinem Google-Konto liegen Freunde und Backup auf dem Server. Auf einem neuen Gerät einfach mit dem gleichen Google-Konto anmelden, dann ist alles wieder da. Ohne Anmeldung bleibt alles wie bisher: Die lokale Sicherung unter Daten & Backup funktioniert weiter ohne Google.")
         }
         .listRowBackground(Theme.card)
     }
